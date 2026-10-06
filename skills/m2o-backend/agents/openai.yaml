@@ -1,0 +1,4 @@
+interface:
+  display_name: "M2O Backend"
+  short_description: "Preserve M2O API and provider integrity"
+  default_prompt: "Use $m2o-backend to inspect the current M2O source and complete the requested work with scoped verification."

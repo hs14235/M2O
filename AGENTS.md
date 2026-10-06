@@ -15,3 +15,15 @@ UI direction: vivid, bubbly, dimensional department experiences with cinematic t
 Use current source/runtime evidence for model configuration. Evaluate replacements against M2O synthetic extraction cases before changing the default. Do not substitute cloud inference or claim model superiority based only on general benchmarks.
 
 Preserve existing uncommitted work. No commits, pushes, PRs, deployment, provider writes, account changes, or messages without the user's explicit authorization for the action. Secrets stay in private backend configuration. A feature-completion target is not evidence that release gates passed.
+
+## Reusable M2O skills
+
+Portable skills live under `skills/`; use the relevant entrypoint when its scope matches the task. Installed copies may also exist in the local Codex skill catalog. Read the current source and contract rather than treating a skill as a frozen architecture snapshot.
+
+- `skills/m2o-backend/SKILL.md`: API, service, worker and provider integrity.
+- `skills/m2o-postgresql/SKILL.md`: schema, migrations, transactions, concurrency and restore.
+- `skills/m2o-frontend-release/SKILL.md`: Phase 7 journeys, async states, acceptance and developer setup; complements `skills/pandora-frontend/SKILL.md` for visual design.
+- `skills/m2o-deploy-security/SKILL.md`: Phase 8 CI/CD, proxy trust, release security and deployment gates.
+- `skills/m2o-observability-cost/SKILL.md`: Phase 9 diagnostics, monitoring, recovery and integration costs.
+
+Skills preserve the task's existing authorization; they do not grant external actions or convert planning into implementation approval. New integration proposals must include sources, disclosure, free/paid limits and alternatives for Hamza's requested due diligence before adoption.

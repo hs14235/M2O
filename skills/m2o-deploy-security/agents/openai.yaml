@@ -1,0 +1,4 @@
+interface:
+  display_name: "M2O Deployment Security"
+  short_description: "Review M2O deployment and release boundaries"
+  default_prompt: "Use $m2o-deploy-security to inspect the current M2O source and complete the requested work with scoped verification."

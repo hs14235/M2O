@@ -1,0 +1,4 @@
+interface:
+  display_name: "M2O PostgreSQL"
+  short_description: "Plan and verify safe M2O data changes"
+  default_prompt: "Use $m2o-postgresql to inspect the current M2O source and complete the requested work with scoped verification."
