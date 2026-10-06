@@ -1,0 +1,50 @@
+.review-deliver-tabs { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.review-deliver-tabs button { border-radius: 999px; }
+.review-deliver-tabs button[aria-pressed="true"] { color: white; background: var(--green); border-color: var(--green); }
+.step-panel { min-height: min(70svh, 720px); }
+.save-spark { display: flex; align-items: center; gap: .6rem; width: fit-content; color: var(--green); background: var(--soft); border: 1px solid var(--line); padding: .6rem 1rem; border-radius: 999px; margin-bottom: 1rem; }
+.save-spark > span { font-size: 1.5rem; animation: saved-starlight .7s ease-out; }
+@keyframes saved-starlight { 0% { opacity: .2; transform: scale(.5) rotate(-30deg); } 55% { transform: scale(1.25) rotate(12deg); } 100% { opacity: 1; transform: none; } }
+.outcome-calendar > h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.1rem, 4vw, 3.4rem); max-width: 18ch; }
+.calendar-toolbar, .calendar-scope, .calendar-view { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.calendar-toolbar { justify-content: space-between; margin: 1.3rem 0 .7rem; }
+.calendar-scope button, .calendar-view button { border-radius: 999px; }
+.calendar-scope button[aria-pressed="true"], .calendar-view button[aria-pressed="true"] { color: white; background: var(--green); border-color: var(--green); }
+.calendar-range { border: 1px solid var(--line); padding: .85rem 1rem; border-radius: 20px; background: var(--white); margin-bottom: 1rem; }
+.calendar-range .form-grid { margin-top: 1rem; }
+.calendar-count { color: var(--muted); font-weight: 600; }
+.calendar-view { margin: 1rem 0; }
+.lunar-sky { position: relative; height: 400px; border: 1px solid #bfa56a; border-radius: 32px 32px 20px 20px; isolation: isolate; overflow: hidden; background: radial-gradient(ellipse at 50% 10%, #494461, transparent 55%), linear-gradient(145deg, #242437, #111e30); box-shadow: inset 0 0 65px #0e101bc0, 0 14px 40px #1a1b3920; }
+.lunar-art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+.lunar-point { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: .15rem; min-width: 108px; padding: .55rem .7rem; background: #252638e8; color: #ffedc1; border: 1px solid #aa965f; border-radius: 25px 25px 12px 12px; font-size: .76rem; box-shadow: 0 5px 0 #0b1021, 0 0 18px #d9b56320; }
+.lunar-point .point-orb { display: grid; place-items: center; width: 28px; height: 28px; font-size: 1.6rem; color: #f8d78b; }
+.lunar-point strong { font-size: .93rem; }
+.lunar-point[aria-pressed="true"] { background: #394650; border-color: #f5d995; box-shadow: 0 5px 0 #101525, 0 0 24px #dfc88b55; }
+.lunar-point:hover:not(:disabled) { transform: translate(-50%, -50%); background: #394650; border-color: #ffedc1; color: #ffedc1; }
+.lunar-point:focus-visible { outline: 3px solid #f9e2a3; outline-offset: 5px; }
+.sky-empty { position: absolute; width: min(75%, 480px); left: 50%; top: 60%; transform: translate(-50%, -50%); color: #ffedc1; text-align: center; }
+.calendar-agenda { padding: 1rem; border: 1px solid var(--line); border-radius: 22px; background: var(--white); }
+.calendar-agenda ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.calendar-agenda button { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .6rem; width: 100%; text-align: left; }
+.calendar-agenda button[aria-pressed="true"] { border-color: var(--green); background: var(--soft); }
+.calendar-detail { margin-top: 1.7rem; }
+.arcana-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1rem; }
+.outcome-arcana { --card-halo: var(--soft); position: relative; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 24px 24px 12px 12px; padding: 1.3rem; background: linear-gradient(135deg, white 40%, var(--card-halo)); box-shadow: 0 6px 0 color-mix(in srgb, var(--line), white 30%), 0 14px 22px #251c4010; }
+.outcome-arcana.risk, .outcome-arcana.blocker { --card-halo: #fff0df; }
+.arcana-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.outcome-arcana h3 { margin-top: .7rem; font-size: 1.13rem; }
+.outcome-arcana p { font-size: .86rem; }
+.arcana-owner { font-weight: 650; }.arcana-owner span { font-weight: 400; }
+.outcome-arcana details { margin-bottom: 1rem; }.outcome-arcana code { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .lunar-sky { height: auto; min-height: 340px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; padding: 130px 1rem 1.2rem; }.lunar-art { height: 240px; }.lunar-point { position: relative; left: auto !important; top: auto !important; transform: none; min-width: 0; }.lunar-point:hover:not(:disabled) { transform: none; }.sky-empty { top: 70%; }.calendar-toolbar { align-items: stretch; }.arcana-cards { grid-template-columns: 1fr; } }
+.transcript-sources { display: flex; align-items: flex-start; flex-wrap: wrap; gap: .7rem; margin: 1rem 0; }
+.google-import { display: contents; }
+.google-import-panel { flex: 1 1 100%; width: 100%; margin: .5rem 0; }
+.google-import-panel .payload-text { max-height: 340px; overflow: auto; }
+.google-source-preview { margin-top: 1rem; }
+.meeting-identifier { font-size: .73rem; color: var(--muted); overflow-wrap: anywhere; }
+.meeting-list time { font-size: .78rem; color: var(--muted); }
+.meeting-groups { display: grid; gap: .7rem; }
+.meeting-groups > details { border: 1px solid var(--line); border-radius: 20px; padding: .9rem; background: var(--white); }
+.meeting-groups > details > summary { font-weight: 700; }
+.meeting-groups ul { margin-top: 1rem; }

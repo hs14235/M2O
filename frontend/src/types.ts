@@ -1,0 +1,27 @@
+export type Department = "engineering" | "hr" | "finance";
+export type Role = "owner" | "reviewer" | "editor" | "viewer";
+export type Kind = "action" | "decision" | "blocker" | "follow_up" | "risk";
+export interface Workspace { id: string; name: string; department: Department; role: Role; is_demo?: boolean; expires_at?: string | null }
+export interface User { id: string; name: string; email: string; is_visitor?: boolean; expires_at?: string | null; capabilities: { demo_mode: boolean; linkedin_configured: boolean; ollama_model: string | null; embedding_provider: string; allowed_repos: string[]; can_upload_transcript?: boolean }; linkedin: { connected: boolean; profile: { name?: string } | null } }
+export interface DemoScenario { id: "engineering" | "hr" | "finance" | "no-outcomes"; department: Department | null; title: string; transcript: string; synthetic: true }
+export interface DemoCatalog { enabled: boolean; scenarios: DemoScenario[] }
+export interface Participant { id: string; name: string; role: string; aliases: string[]; github_login: string | null; linkedin_url: string | null; linked_user_id: string | null; provenance: string }
+export interface Evidence { id: string; i: number; text: string; speaker: string | null; start_line: number }
+export interface Outcome { id: string; kind: Kind; title: string; body: string; labels: string[]; status: "draft" | "approved" | "done" | "dismissed"; owner_id: string | null; assignee_hint: string | null; due_hint: string | null; due_date: string | null; confidence: number; version: number; evidence: Evidence[] }
+export interface MeetingSummary { id: string; record_id: string; title: string; visibility: "workspace" | "restricted"; version: number; current_revision: number; occurred_on: string | null; timezone: string; created_at?: string; updated_at?: string }
+export interface Mention { id: string; name: string; participant_id: string | null; confirmed: boolean; candidates: Pick<Participant, "id" | "name" | "role">[] }
+export interface Meeting extends MeetingSummary { raw_text: string; index_status: string; embedding_provider: string | null; chunk_count: number; tasks: Outcome[]; mentions: Mention[]; revisions: { id: string; number: number; created_at: string }[] }
+export interface Job { id: string; kind?: string; state: "queued" | "running" | "completed" | "failed" | "cancelled"; error_code: string | null; result: { mode?: string; created?: number; operation_id?: string; coverage?: { processed_chunks: number; total_chunks: number; warnings: string[] }; state?: string; result?: { status: string; url?: string; error?: string }; results?: { status: string; url?: string }[] } | null }
+export interface Proposal { id: string; repo: string; payload_hash: string; would_create: { title: string; body: string; labels: string[]; assignees?: string[] }[]; expires_at: string; approved: boolean; destination?: { id: string; repo: string; version: number } | null }
+export interface GitHubStatus { configured: boolean; destination: { id: string; repo: string; version: number } | null; can_manage: boolean; can_publish: boolean }
+export interface GitHubReceipt { operation_id: string; proposal_id: string; state: string; repo: string; results: { status: string; provider_effect?: "created" | "existing"; number?: number; url?: string; error?: string; item_id: string; version: number; revision_id: string }[]; created_at: string; can_reconcile: boolean; can_retry_rejected: boolean }
+export interface Integration { id: "local" | "github" | "jira" | "slack" | "linkedin"; name: string; purpose: "delivery" | "context"; status: "ready" | "configured" | "connected" | "preview_only" | "unavailable" | "needs_configuration"; can_preview: boolean; can_publish: boolean; description: string }
+export interface ExportArtifact { filename: string; media_type: string; content: string; snapshot_hash: string }
+export type ExecutionState = "planned" | "in_progress" | "blocked" | "done";
+export interface PlanSource { item_id: string; meeting_id: string; meeting_title: string; title: string; kind: Kind; item_version: number; review_status: Outcome["status"]; due_date: string | null; due_hint: string | null }
+export interface PlanEntry extends PlanSource { id: string; planned_on: string; state: ExecutionState; priority: number; version: number; reviewed_version: number; stale: boolean; can_reconfirm: boolean }
+export interface DailyPlan { entries: PlanEntry[]; candidates: PlanSource[]; entries_truncated: boolean; candidates_truncated: boolean }
+export interface CalendarEntry extends PlanSource { meeting_version: number; revision_number: number; scheduled: boolean; owner_name: string; owner_confirmed: boolean; personal_plan: { id: string; state: ExecutionState; planned_on: string; version: number; reviewed_version: number; stale: boolean } | null }
+export interface CalendarFeed { entries: CalendarEntry[]; next_offset: number | null }
+export interface GoogleMeetStatus { configured: boolean; state: string; can_import: boolean; setup_required: boolean; source_format: "meet_api_entries"; transcription_required: true }
+export interface GoogleMeetPreview { preview_id: string; payload_hash: string; transcript: string; expires_at: string; source: { provider: "google_meet"; format: "meet_api_entries"; conference_record: string; start_time: string; end_time: string; transcript_names: string[] }; participants: { resource: string; name: string; confirmed: false }[] }

@@ -1,59 +1,89 @@
-from __future__ import annotations
-
 import re
 from typing import Any
 
-CHUNKING_VERSION = "paragraph-overlap-v2"
-SPEAKER_PATTERN = re.compile(r"^(?:\[(?P<timestamp>\d{1,2}:\d{2}(?::\d{2})?)\]\s*)?(?P<speaker>[A-Z][\w .'-]{1,40}):\s+")
+CHUNKING_VERSION = "bounded-turns-v3"
+SPEAKER_PATTERN = re.compile(
+    r"^(?:\[(?P<timestamp>\d{1,2}:\d{2}(?::\d{2})?)\]\s*)?(?P<speaker>[^:\[\]\n]{1,120}):\s+"
+)
+OUTCOME_LABELS = {
+    "action",
+    "todo",
+    "task",
+    "ai",
+    "decision",
+    "blocker",
+    "risk",
+    "status",
+    "owner",
+    "follow-up",
+    "follow up",
+}
+
+
+def _pieces(text: str, maximum: int) -> list[str]:
+    pieces, current, size = [], [], 0
+    for character in text:
+        amount = len(character.encode("utf-8"))
+        if size + amount > maximum:
+            pieces.append("".join(current))
+            current, size = [], 0
+        current.append(character)
+        size += amount
+    if current:
+        pieces.append("".join(current))
+    return pieces
 
 
 def to_chunk_records(text: str, approx_tokens: int = 180, overlap_lines: int = 1) -> list[dict[str, Any]]:
-    lines = [(index + 1, line.strip()) for index, line in enumerate(text.splitlines()) if line.strip()]
-    if not lines:
-        return []
+    maximum = min(1200, max(128, approx_tokens * 4))
+    records, pending = [], []
 
-    # Timestamped speaker turns are already natural evidence boundaries. Keeping
-    # them separate gives task citations a precise, human-readable source.
-    if all(SPEAKER_PATTERN.match(line) for _, line in lines):
-        records = []
-        for index, (line_number, line) in enumerate(lines):
-            match = SPEAKER_PATTERN.match(line)
-            records.append(
-                {
-                    "i": index,
-                    "text": line,
-                    "speaker": match.group("speaker"),
-                    "timestamp": match.group("timestamp"),
-                    "start_line": line_number,
-                }
-            )
-        return records
-
-    records: list[dict[str, Any]] = []
-    start = 0
-    while start < len(lines):
-        end = start
-        words = 0
-        while end < len(lines) and (words < approx_tokens or end == start):
-            words += len(lines[end][1].split())
-            end += 1
-
-        selected = lines[start:end]
-        first_match = SPEAKER_PATTERN.match(selected[0][1])
+    def append(lines, speaker=None, timestamp=None):
         records.append(
             {
                 "i": len(records),
-                "text": "\n".join(line for _, line in selected),
-                "speaker": first_match.group("speaker") if first_match else None,
-                "timestamp": first_match.group("timestamp") if first_match else None,
-                "start_line": selected[0][0],
+                "text": "\n".join(line for _, line in lines),
+                "speaker": speaker,
+                "timestamp": timestamp,
+                "start_line": lines[0][0],
             }
         )
-        if end >= len(lines):
-            break
-        start = max(start + 1, end - overlap_lines)
+
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not line:
+            continue
+        match = SPEAKER_PATTERN.match(line)
+        speaker = match.group("speaker").strip() if match else None
+        if speaker and speaker.casefold() in OUTCOME_LABELS:
+            speaker = None
+        if speaker and match:
+            if pending:
+                append(pending)
+                pending = []
+            for piece in _pieces(line, maximum):
+                append([(number, piece)], speaker, match.group("timestamp"))
+            continue
+        for piece in _pieces(line, maximum):
+            if pending and (
+                sum(len(value.encode("utf-8")) + 1 for _, value in pending) + len(piece.encode("utf-8"))
+                > maximum
+                or sum(len(value.split()) for _, value in pending) >= approx_tokens
+            ):
+                append(pending)
+                overlap = pending[-overlap_lines:] if overlap_lines else []
+                pending = (
+                    overlap
+                    if sum(len(value.encode("utf-8")) + 1 for _, value in overlap)
+                    + len(piece.encode("utf-8"))
+                    <= maximum
+                    else []
+                )
+            pending.append((number, piece))
+    if pending:
+        append(pending)
     return records
 
 
 def to_chunks(text: str, approx_tokens: int = 180) -> list[str]:
-    return [record["text"] for record in to_chunk_records(text, approx_tokens=approx_tokens)]
+    return [record["text"] for record in to_chunk_records(text, approx_tokens)]

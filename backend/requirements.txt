@@ -1,8 +1,13 @@
-fastapi
-httpx
+-c constraints.txt
+fastapi==0.142.2
+httpx==0.28.1
 mcp==2.0.0
-numpy
-python-multipart
-pytest
-sentence-transformers
-uvicorn[standard]
+numpy==2.5.3
+python-multipart==0.0.32
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.1
+alembic==1.20.0
+psycopg[binary]==3.3.6
+pydantic-settings==2.15.0
+argon2-cffi==25.1.0
+PyJWT[crypto]==2.15.1

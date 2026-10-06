@@ -1,0 +1,23 @@
+{
+  "display_information": {
+    "name": "M2O",
+    "description": "Review and deliver M2O outcomes with confirmed identity and separate personal progress.",
+    "background_color": "#5032BB"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "M2O",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["channels:history", "channels:read", "chat:write", "commands"]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

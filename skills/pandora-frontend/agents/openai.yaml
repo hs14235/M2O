@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pandora Frontend Workshop"
+  short_description: "Cinematic workspaces with accessible, reliable flows"
+  default_prompt: "Use $pandora-frontend to design and implement a vivid, accessible product workflow with trustworthy state and clear verification."

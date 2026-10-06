@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class ServiceError(Exception):
@@ -8,10 +8,10 @@ class ServiceError(Exception):
         status_code: int,
         error: str,
         where: str = "server",
-        extra: Optional[Dict[str, Any]] = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(error)
-        detail: Dict[str, Any] = {"where": where, "error": error}
+        detail: dict[str, Any] = {"where": where, "error": error}
         if extra:
             detail.update(extra)
 

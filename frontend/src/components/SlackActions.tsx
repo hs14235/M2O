@@ -1,0 +1,28 @@
+import { useEffect, useRef, useState } from "react";
+import { api, scoped } from "../api";
+import type { Workspace } from "../types";
+import { ErrorNotice } from "./Feedback";
+
+interface ActionsStatus { enabled: boolean; can_link: boolean; installations: { connection_id: string; team_id: string; team_name: string; linked: boolean; slack_user_id: string | null }[] }
+interface Challenge { challenge_id: string; command: string; team_id: string; team_name: string; expires_at: string }
+interface PendingMember { challenge_id: string; team_id: string; team_name: string; slack_user_id: string | null; expires_at: string }
+
+export default function SlackActions({ workspace }: { workspace: Workspace }) {
+  const [status, setStatus] = useState<ActionsStatus | null>(null), [challenge, setChallenge] = useState<Challenge | null>(null), [member, setMember] = useState<PendingMember | null>(null), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<unknown>(null), [notice, setNotice] = useState("");
+  const request = useRef<AbortController | null>(null), path = scoped(workspace.id, "/integrations/slack");
+  async function load(signal: AbortSignal) { const value = await api<ActionsStatus>(path + "/actions", { signal }); if (!signal.aborted) setStatus(value); }
+  useEffect(() => { const controller = new AbortController(); void load(controller.signal).catch(e => { if (!controller.signal.aborted) setError(e); }); return () => { controller.abort(); request.current?.abort(); }; }, [path]);
+  useEffect(() => {
+    if (!challenge) return;
+    const timer = setTimeout(() => { setChallenge(null); setMember(null); setConfirmed(false); setNotice("The linking code expired. Start a new link if needed."); }, Math.max(0, Date.parse(challenge.expires_at) - Date.now()));
+    return () => clearTimeout(timer);
+  }, [challenge]);
+  async function run(operation: (signal: AbortSignal) => Promise<void>) {
+    request.current?.abort(); const controller = new AbortController(); request.current = controller; setBusy(true); setError(null); setNotice("");
+    try { await operation(controller.signal); } catch (e) { if (!controller.signal.aborted) setError(e); } finally { if (!controller.signal.aborted) setBusy(false); }
+  }
+  return <section className="panel" aria-labelledby="slack-actions-heading"><span className="eyebrow">Your Slack identity</span><h2 id="slack-actions-heading">Keep personal actions personal.</h2><p>Link your Slack member to your signed-in M2O account before using meeting capture or personal plan actions.</p><ErrorNotice error={error} />{!status ? <p role="status">Checking interactive access…</p> : !status.enabled ? <p className="notice">Interactive Slack actions need an enabled installation and an available callback service. Your local planning and reviewed handoffs remain available.</p> : <>{status.installations.map(installation => <article className="slack-installation" key={installation.connection_id}><h3>{installation.team_name}</h3><p>{installation.linked ? "Linked member: " + installation.slack_user_id : "No personal identity linked yet."}</p>{installation.linked ? <><p className="muted">In Slack, use <code>/m2o meeting</code> to capture a transcript or <code>/m2o plan</code> to view your plan. A captured transcript still needs normal extraction and review.</p><button disabled={busy} onClick={() => run(async signal => { await api(path + "/link/" + installation.connection_id, { signal, method: "DELETE" }); if (!signal.aborted) { setChallenge(null); setMember(null); await load(signal); } })}>Unlink my Slack member</button></> : <button disabled={busy || !status.can_link} onClick={() => run(async signal => { const value = await api<Challenge>(path + "/link", { signal, method: "POST", body: JSON.stringify({ connection_id: installation.connection_id }) }); if (!signal.aborted) { setChallenge(value); setMember(null); setConfirmed(false); } })}>Link my member in {installation.team_name}</button>}</article>)}{status.installations.length === 0 && <p>No enabled Slack installation is available to link.</p>}</>}
+    {challenge && <div className="preview"><h3>Confirm your member in {challenge.team_name}</h3><ol><li>Keep this M2O browser session open.</li><li>In that Slack workspace, submit the following command from your own account before {new Date(challenge.expires_at).toLocaleTimeString()}.</li><li>Check the returned Member ID here and confirm only if it belongs to you.</li></ol><pre className="payload-text">{challenge.command}</pre><button disabled={busy} onClick={() => run(async signal => { const value = await api<PendingMember>(path + "/link/" + challenge.challenge_id, { signal }); if (!signal.aborted) { setMember(value); setConfirmed(false); } })}>Check the member that submitted my code</button>{member && (member.slack_user_id ? <><p>Submitted by Slack member: <strong>{member.slack_user_id}</strong></p><label className="check"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />This is my Slack Member ID in {member.team_name}</label><button className="primary" disabled={busy || !confirmed} onClick={() => run(async signal => { await api(path + "/link/confirm", { signal, method: "POST", body: JSON.stringify({ challenge_id: challenge.challenge_id, slack_user_id: member.slack_user_id }) }); if (!signal.aborted) { setChallenge(null); setMember(null); setConfirmed(false); await load(signal); } })}>Confirm my Slack member</button></> : <p role="status">No Slack member has submitted this code yet.</p>)}</div>}
+    <button className="quiet" disabled={busy} onClick={() => run(load)}>Refresh linked accounts</button>{notice && <p role="status">{notice}</p>}
+  </section>;
+}

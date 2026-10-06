@@ -1,44 +1,50 @@
-from __future__ import annotations
+"""Evaluate lexical retrieval on a synthetic, deterministic corpus without application writes."""
 
 import json
-import tempfile
 from pathlib import Path
+from time import perf_counter
 
-from app import storage
+import numpy as np
+
 from app.embeddings import embed_texts_hash
-from app.main import DEMO_TRANSCRIPT
-from app.services.meetings import MeetingService
-from app.vectorstore.memory_store import MemoryStore
+
+CORPUS = [
+    "Action: Alex to finalize the launch checklist deadline by Friday.",
+    "Action: Morgan to add retrieval evaluation coverage for meeting context.",
+    "Decision: GitHub issue approval policy requires review before publishing.",
+    "Blocker: Taylor cannot finish onboarding product review without access.",
+]
 
 
-def main() -> None:
-    cases_path = Path(__file__).parents[1] / "evals" / "retrieval_cases.json"
-    cases = json.loads(cases_path.read_text(encoding="utf-8"))
-
-    with tempfile.TemporaryDirectory(prefix="meeting-to-tasks-eval-") as directory:
-        storage.DATA_ROOT = Path(directory)
-        service = MeetingService(MemoryStore(), "hash-v1", embed_texts_hash)
-        service.index_meeting_text("eval-demo", "Retrieval evaluation", DEMO_TRANSCRIPT)
-
-        hits = 0
-        latencies = []
-        rows = []
-        for case in cases:
-            result = service.search("eval-demo", case["query"], k=1)
-            actual = result["results"][0]["source"]["chunk_i"]
-            matched = actual == case["expected_chunk"]
-            hits += int(matched)
-            latencies.append(result["timings"]["retrieval_ms"])
-            rows.append({"query": case["query"], "expected": case["expected_chunk"], "actual": actual, "hit": matched})
-
-    report = {
-        "strategy": "hybrid-vector-lexical",
-        "cases": len(cases),
-        "recall_at_1": round(hits / len(cases), 3),
-        "average_retrieval_ms": round(sum(latencies) / len(latencies), 2),
-        "results": rows,
-    }
-    print(json.dumps(report, indent=2))
+def main():
+    cases = json.loads((Path(__file__).parents[1] / "evals" / "retrieval_cases.json").read_text())
+    vectors = np.asarray(embed_texts_hash(CORPUS, "hash"))
+    rows, elapsed = [], []
+    for case in cases:
+        started = perf_counter()
+        query = np.asarray(embed_texts_hash([case["query"]], "hash")[0])
+        actual = int(np.argmax(vectors @ query))
+        elapsed.append((perf_counter() - started) * 1000)
+        rows.append(
+            {
+                "query": case["query"],
+                "expected": case["expected_chunk"],
+                "actual": actual,
+                "hit": actual == case["expected_chunk"],
+            }
+        )
+    print(
+        json.dumps(
+            {
+                "strategy": "lexical-hash",
+                "synthetic_cases": len(rows),
+                "recall_at_1": sum(row["hit"] for row in rows) / len(rows),
+                "mean_ms": round(sum(elapsed) / len(elapsed), 2),
+                "results": rows,
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

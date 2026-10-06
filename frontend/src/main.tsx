@@ -2,12 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
-import { ToastProvider } from "./components/Toast";
+import "./experience.css";
+import "./workflow.css";
+import "./constellation.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <App />
   </React.StrictMode>
 );

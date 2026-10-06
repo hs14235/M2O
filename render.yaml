@@ -1,0 +1,27 @@
+# A bounded synthetic demo. Resource creation still needs separate authorization.
+services:
+  - type: web
+    name: m2o-synthetic-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /readyz
+    autoDeployTrigger: "off"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
+      - key: PUBLIC_DEMO_MODE
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: EMBED_PROVIDER
+        value: hash
+      - key: OLLAMA_MODEL
+        value: ""
+      - key: DB_POOL_SIZE
+        value: "2"

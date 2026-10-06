@@ -1,250 +1,339 @@
 from __future__ import annotations
 
 import hashlib
-import math
-import re
-from dataclasses import dataclass
 from pathlib import Path
-from time import perf_counter
-from typing import Any
+from typing import cast
 
+from sqlalchemy import or_, select, update
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.orm import Session
+
+from ..access_policy import account, consume_visitor_usage
+from ..auth import Principal, require_role
 from ..chunking import CHUNKING_VERSION, to_chunk_records
-from ..config import RETRIEVAL_THRESHOLD
-from ..storage import (
-    delete_meeting,
-    get_meeting,
-    list_meetings,
-    load_chunks,
-    load_task_drafts,
-    save_meeting,
-    save_task_drafts,
+from ..models import (
+    Job,
+    Meeting,
+    MeetingImport,
+    Participant,
+    ParticipantMention,
+    TranscriptChunk,
+    TranscriptRevision,
+    now,
 )
-from ..vectorstore.base import VectorStore
+from ..schemas import IndexInput
+from ..settings import settings
+from .common import audit, current_revision, meeting_access
 from .errors import ServiceError
-from .shared import SUPPORTED_TRANSCRIPT_EXTENSIONS, build_chunk_id, validate_meeting_id
-
-TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-
-
-@dataclass
-class MeetingContext:
-    idxs: list[int]
-    chunks: list[dict[str, Any]]
-    texts: list[str]
-    retrieval_ms: float = 0.0
-
-
-def _tokens(text: str) -> set[str]:
-    return set(TOKEN_PATTERN.findall(text.lower()))
 
 
 class MeetingService:
-    def __init__(self, store: VectorStore, embed_model: str, embedder) -> None:
-        self.store = store
-        self.embed_model = embed_model
-        self.embedder = embedder
+    def __init__(self, session: Session, principal: Principal):
+        self.session, self.principal = session, principal
 
     def validate_upload_filename(self, filename: str | None) -> str:
-        ext = Path(filename or "").suffix.lower()
-        if ext in SUPPORTED_TRANSCRIPT_EXTENSIONS:
-            return ext
-        allowed = ", ".join(sorted(SUPPORTED_TRANSCRIPT_EXTENSIONS))
-        raise ServiceError(
-            status_code=400,
-            where="client",
-            error=f"Unsupported file type. Upload a UTF-8 {allowed} transcript.",
-        )
-
-    def validate_meeting_id(self, meeting_id: str) -> str:
-        return validate_meeting_id(meeting_id)
+        extension = Path(filename or "").suffix.lower()
+        if extension not in {".txt", ".md"}:
+            raise ServiceError(status_code=400, error="Upload a UTF-8 .txt or .md transcript", where="client")
+        return extension
 
     def decode_upload_text(self, filename: str | None, raw_bytes: bytes) -> str:
         self.validate_upload_filename(filename)
+        if len(raw_bytes) > settings.max_upload_bytes:
+            raise ServiceError(status_code=413, error="Transcript exceeds the upload limit", where="client")
         try:
-            raw = raw_bytes.decode("utf-8-sig")
+            text = raw_bytes.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
-            raise ServiceError(status_code=400, where="client", error="Transcript must be UTF-8 encoded text.") from exc
-        if not raw.strip():
-            raise ServiceError(status_code=400, where="client", error="Transcript is empty.")
-        return raw
+            raise ServiceError(
+                status_code=400, error="Transcript must be UTF-8 text", where="client"
+            ) from exc
+        if not text.strip() or "\x00" in text:
+            raise ServiceError(status_code=400, error="Transcript must contain readable text", where="client")
+        return text
 
-    def index_meeting_text(self, meeting_id: str, title: str, raw_text: str) -> dict[str, Any]:
-        started = perf_counter()
-        self.validate_meeting_id(meeting_id)
-        if not raw_text.strip():
-            raise ServiceError(status_code=400, where="client", error="Transcript is empty.")
+    def index_meeting_text(self, meeting_id: str, title: str, raw_text: str, **options) -> dict:
+        return self.index(IndexInput(meeting_id=meeting_id, title=title, transcript=raw_text, **options))
 
-        meeting_title = title.strip() or meeting_id
-        content_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
-        existing = get_meeting(meeting_id, include_transcript=False)
-        if (
-            existing
-            and existing["content_hash"] == content_hash
-            and existing["embed_model"] == self.embed_model
-            and existing["chunking_version"] == CHUNKING_VERSION
-            and existing["title"] == meeting_title
-        ):
-            return {
-                "ok": True,
-                "chunks_indexed": existing["chunk_count"],
-                "reindexed": False,
-                "content_hash": content_hash[:12],
-                "timings": {"total_ms": round((perf_counter() - started) * 1000, 2)},
-            }
-
-        chunks = to_chunk_records(raw_text)
-        texts = [chunk["text"] for chunk in chunks]
-        metas = [
-            {
-                "meeting_id": meeting_id,
-                "title": title,
-                "i": chunk["i"],
-                "speaker": chunk.get("speaker"),
-                "timestamp": chunk.get("timestamp"),
-                "start_line": chunk["start_line"],
-                "embed_model": self.embed_model,
-                "chunking_version": CHUNKING_VERSION,
-                "content_hash": content_hash,
-            }
-            for chunk in chunks
-        ]
-        ids = [
-            build_chunk_id(texts[index], {"meeting_id": meeting_id, "i": chunks[index]["i"]})
-            for index in range(len(chunks))
-        ]
-
-        embed_started = perf_counter()
-        vectors = self.embedder(texts, self.embed_model)
-        embed_ms = (perf_counter() - embed_started) * 1000
-
-        self.store.delete({"meeting_id": meeting_id})
-        self.store.upsert(ids, vectors, metas)
-        self.store.persist()
-        save_meeting(
-            meeting_id,
-            meeting_title,
-            raw_text,
-            chunks,
+    def index(self, payload: IndexInput, *, trusted_demo_fixture: bool = False) -> dict:
+        require_role(self.principal, {"owner", "reviewer", "editor"})
+        if account(self.session, self.principal).is_visitor and not trusted_demo_fixture:
+            raise ServiceError(
+                status_code=403,
+                error="Demo explorers can load approved synthetic examples; private transcripts require an invitation",
+                where="client",
+            )
+        text = payload.transcript
+        if len(text.encode("utf-8")) > settings.max_upload_bytes:
+            raise ServiceError(status_code=413, error="Transcript exceeds the upload limit", where="client")
+        if not text.strip() or "\x00" in text:
+            raise ServiceError(status_code=400, error="Transcript must contain readable text", where="client")
+        records = to_chunk_records(text)
+        if len(records) > settings.max_chunks:
+            raise ServiceError(status_code=413, error="Transcript contains too many chunks", where="client")
+        session, principal = self.session, self.principal
+        existing = session.scalar(
+            select(Meeting)
+            .where(Meeting.workspace_id == principal.workspace_id, Meeting.slug == payload.meeting_id)
+            .with_for_update()
+        )
+        content_hash = hashlib.sha256(text.encode()).hexdigest()
+        if existing:
+            meeting = meeting_access(session, principal, payload.meeting_id, lock=True)
+            if payload.expected_version != meeting.version:
+                raise ServiceError(
+                    status_code=409,
+                    error="Meeting changed; reload before replacing its transcript",
+                    where="client",
+                )
+            previous = current_revision(session, meeting)
+            if previous.content_hash == content_hash:
+                meeting.title = payload.title or meeting.title
+                meeting.version += 1
+                meeting.updated_at = now()
+                audit(session, principal, "meeting.metadata_updated", meeting.id)
+                return {
+                    "ok": True,
+                    "meeting_id": meeting.slug,
+                    "chunks_indexed": len(records),
+                    "reindexed": False,
+                    "version": meeting.version,
+                    "job_id": None,
+                }
+            meeting.current_revision += 1
+            meeting.version += 1
+            meeting.title = payload.title or meeting.title
+            meeting.updated_at = now()
+        else:
+            meeting = Meeting(
+                workspace_id=principal.workspace_id,
+                slug=payload.meeting_id,
+                title=payload.title or payload.meeting_id,
+                visibility=payload.visibility,
+                created_by=principal.user_id,
+                occurred_on=payload.occurred_on.isoformat() if payload.occurred_on else None,
+                timezone=payload.timezone,
+            )
+            session.add(meeting)
+            session.flush()
+        revision = TranscriptRevision(
+            meeting_id=meeting.id,
+            number=meeting.current_revision,
+            raw_text=text,
             content_hash=content_hash,
-            embed_model=self.embed_model,
             chunking_version=CHUNKING_VERSION,
+        )
+        session.add(revision)
+        session.flush()
+        for record in records:
+            session.add(
+                TranscriptChunk(
+                    revision_id=revision.id,
+                    chunk_index=record["i"],
+                    text=record["text"],
+                    speaker=record["speaker"],
+                    timestamp=record["timestamp"],
+                    start_line=record["start_line"],
+                )
+            )
+        for name in sorted({record["speaker"] for record in records if record["speaker"]}):
+            session.add(
+                ParticipantMention(
+                    workspace_id=principal.workspace_id,
+                    meeting_id=meeting.id,
+                    revision_id=revision.id,
+                    name=name,
+                )
+            )
+        job = Job(
+            workspace_id=principal.workspace_id,
+            meeting_id=meeting.id,
+            actor_id=principal.user_id,
+            kind="index",
+            payload={"revision_id": revision.id},
+        )
+        session.add(job)
+        session.flush()
+        audit(
+            session,
+            principal,
+            "meeting.transcript_indexed",
+            meeting.id,
+            {"revision": revision.number, "chunk_count": len(records)},
         )
         return {
             "ok": True,
-            "chunks_indexed": len(chunks),
+            "meeting_id": meeting.slug,
+            "chunks_indexed": len(records),
             "reindexed": existing is not None,
-            "content_hash": content_hash[:12],
-            "timings": {
-                "embedding_ms": round(embed_ms, 2),
-                "total_ms": round((perf_counter() - started) * 1000, 2),
-            },
+            "version": meeting.version,
+            "job_id": job.id,
         }
 
-    def index_upload(self, meeting_id: str, title: str, filename: str | None, raw_bytes: bytes) -> dict[str, Any]:
-        return self.index_meeting_text(meeting_id, title, self.decode_upload_text(filename, raw_bytes))
-
-    def list(self) -> dict[str, Any]:
-        return {"meetings": list_meetings()}
-
-    def get(self, meeting_id: str) -> dict[str, Any]:
-        self.validate_meeting_id(meeting_id)
-        meeting = get_meeting(meeting_id)
-        if meeting is None:
-            raise ServiceError(status_code=404, where="client", error=f'Meeting "{meeting_id}" was not found.')
-        meeting["chunks"] = load_chunks(meeting_id)
-        meeting["tasks"] = load_task_drafts(meeting_id)
-        return meeting
-
-    def delete(self, meeting_id: str) -> dict[str, Any]:
-        self.validate_meeting_id(meeting_id)
-        removed = delete_meeting(meeting_id)
-        self.store.delete({"meeting_id": meeting_id})
-        self.store.persist()
-        if not removed:
-            raise ServiceError(status_code=404, where="client", error=f'Meeting "{meeting_id}" was not found.')
-        return {"ok": True, "deleted": meeting_id}
-
-    def update_drafts(self, meeting_id: str, tasks: list[dict[str, Any]]) -> dict[str, Any]:
-        self.validate_meeting_id(meeting_id)
-        if get_meeting(meeting_id, include_transcript=False) is None:
-            raise ServiceError(status_code=404, where="client", error=f'Meeting "{meeting_id}" was not found.')
-        save_task_drafts(meeting_id, tasks)
-        return {"ok": True, "tasks": load_task_drafts(meeting_id)}
-
-    def search(self, meeting_id: str, q: str, k: int = 5) -> dict[str, Any]:
-        started = perf_counter()
-        self.validate_meeting_id(meeting_id)
-        chunks = load_chunks(meeting_id)
-        if not chunks:
-            raise ServiceError(
-                status_code=404,
-                where="client",
-                error=f'Meeting "{meeting_id}" was not found. Upload and index it first.',
-            )
-
-        embed_started = perf_counter()
-        query_vector = self.embedder([q], self.embed_model)[0]
-        embedding_ms = (perf_counter() - embed_started) * 1000
-        vector_hits = self.store.query(query_vector, k=max(k * 3, 10), filters={"meeting_id": meeting_id})
-        vector_scores = {int(meta["i"]): max(0.0, (score + 1.0) / 2.0) for _, score, meta in vector_hits}
-
-        query_tokens = _tokens(q)
-        ranked: list[dict[str, Any]] = []
-        for chunk in chunks:
-            chunk_tokens = _tokens(chunk["text"])
-            overlap = len(query_tokens & chunk_tokens)
-            lexical = overlap / math.sqrt(max(1, len(query_tokens) * len(chunk_tokens)))
-            vector = vector_scores.get(chunk["i"], 0.0)
-            hybrid = 0.72 * vector + 0.28 * lexical
-            ranked.append(
-                {
-                    "id": build_chunk_id(chunk["text"], {"meeting_id": meeting_id, "i": chunk["i"]}),
-                    "score": round(hybrid, 4),
-                    "vector_score": round(vector, 4),
-                    "lexical_score": round(lexical, 4),
-                    "text": chunk["text"],
-                    "source": {
-                        "meeting_id": meeting_id,
-                        "chunk_i": chunk["i"],
-                        "speaker": chunk.get("speaker"),
-                        "timestamp": chunk.get("timestamp"),
-                        "start_line": chunk.get("start_line"),
-                    },
-                    "meta": {"meeting_id": meeting_id, "i": chunk["i"]},
-                }
-            )
-
-        ranked.sort(key=lambda item: (-item["score"], item["source"]["chunk_i"]))
-        qualifying = [item for item in ranked if item["score"] >= RETRIEVAL_THRESHOLD]
-        results = (qualifying or ranked[:1])[:k]
-        return {
-            "results": results,
-            "retrieval": {
-                "strategy": "hybrid-vector-lexical",
-                "threshold": RETRIEVAL_THRESHOLD,
-                "candidate_count": len(ranked),
-            },
-            "timings": {
-                "embedding_ms": round(embedding_ms, 2),
-                "retrieval_ms": round((perf_counter() - started) * 1000, 2),
-            },
-        }
-
-    def load_context(self, meeting_id: str, q: str, k: int) -> MeetingContext:
-        result = self.search(meeting_id, q, k)
-        chunks = [
-            {
-                "i": item["source"]["chunk_i"],
-                "text": item["text"],
-                "speaker": item["source"].get("speaker"),
-                "timestamp": item["source"].get("timestamp"),
-                "start_line": item["source"].get("start_line"),
-            }
-            for item in result["results"]
-        ]
-        return MeetingContext(
-            idxs=[chunk["i"] for chunk in chunks],
-            chunks=chunks,
-            texts=[chunk["text"] for chunk in chunks],
-            retrieval_ms=result["timings"]["retrieval_ms"],
+    def list(self, offset: int = 0, limit: int = 25, q: str | None = None) -> dict:
+        principal = self.principal
+        query = select(Meeting).where(
+            Meeting.workspace_id == principal.workspace_id, Meeting.archived_at.is_(None)
         )
+        if q and q.strip():
+            literal = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query = query.where(
+                or_(
+                    Meeting.title.ilike("%" + literal + "%", escape="\\"),
+                    Meeting.slug.ilike("%" + literal + "%", escape="\\"),
+                )
+            )
+        if principal.role not in {"owner", "reviewer"}:
+            query = query.where(
+                or_(Meeting.visibility == "workspace", Meeting.created_by == principal.user_id)
+            )
+        rows = self.session.scalars(
+            query.order_by(Meeting.updated_at.desc(), Meeting.id).offset(offset).limit(limit + 1)
+        ).all()
+        return {
+            "meetings": [self.summary(row) for row in rows[:limit]],
+            "next_offset": offset + limit if len(rows) > limit else None,
+        }
+
+    @staticmethod
+    def summary(meeting: Meeting) -> dict:
+        return {
+            "id": meeting.slug,
+            "record_id": meeting.id,
+            "title": meeting.title,
+            "visibility": meeting.visibility,
+            "version": meeting.version,
+            "current_revision": meeting.current_revision,
+            "created_at": meeting.created_at.isoformat(),
+            "updated_at": meeting.updated_at.isoformat(),
+            "occurred_on": meeting.occurred_on,
+            "timezone": meeting.timezone,
+        }
+
+    def get(self, meeting_id: str) -> dict:
+        from .review import ReviewService
+
+        meeting = meeting_access(self.session, self.principal, meeting_id)
+        revision = current_revision(self.session, meeting)
+        chunks = self.session.scalars(
+            select(TranscriptChunk)
+            .where(TranscriptChunk.revision_id == revision.id)
+            .order_by(TranscriptChunk.chunk_index)
+        ).all()
+        mentions = self.session.scalars(
+            select(ParticipantMention).where(ParticipantMention.revision_id == revision.id)
+        ).all()
+        directory = self.session.scalars(
+            select(Participant).where(Participant.workspace_id == self.principal.workspace_id)
+        ).all()
+
+        def candidates(name):
+            return [
+                {"id": person.id, "name": person.name, "role": person.role}
+                for person in directory
+                if name.casefold() in {value.casefold() for value in [person.name, *person.aliases]}
+            ]
+
+        revisions = self.session.scalars(
+            select(TranscriptRevision)
+            .where(TranscriptRevision.meeting_id == meeting.id)
+            .order_by(TranscriptRevision.number.desc())
+        ).all()
+        imported = self.session.scalar(select(MeetingImport).where(MeetingImport.meeting_id == meeting.id))
+        return {
+            **self.summary(meeting),
+            "import_source": {
+                **imported.source,
+                "revision_id": imported.revision_id,
+                "current": imported.revision_id == revision.id,
+            }
+            if imported
+            else None,
+            "revision_id": revision.id,
+            "raw_text": revision.raw_text,
+            "index_status": revision.index_status,
+            "embedding_provider": revision.embed_provider,
+            "chunks": [
+                {
+                    "id": chunk.id,
+                    "i": chunk.chunk_index,
+                    "text": chunk.text,
+                    "speaker": chunk.speaker,
+                    "timestamp": chunk.timestamp,
+                    "start_line": chunk.start_line,
+                }
+                for chunk in chunks
+            ],
+            "chunk_count": len(chunks),
+            "tasks": ReviewService(self.session, self.principal).list_items(meeting),
+            "mentions": [
+                {
+                    "id": mention.id,
+                    "name": mention.name,
+                    "participant_id": mention.participant_id,
+                    "confirmed": bool(mention.confirmed_by),
+                    "candidates": candidates(mention.name),
+                }
+                for mention in mentions
+            ],
+            "revisions": [
+                {"number": item.number, "id": item.id, "created_at": item.created_at.isoformat()}
+                for item in revisions
+            ],
+        }
+
+    def rename(self, meeting_id: str, title: str, expected_version: int) -> dict:
+        require_role(self.principal, {"owner", "reviewer", "editor"})
+        meeting = meeting_access(self.session, self.principal, meeting_id)
+        result = self.session.execute(
+            update(Meeting)
+            .where(Meeting.id == meeting.id, Meeting.version == expected_version)
+            .values(title=title, version=expected_version + 1, updated_at=now())
+        )
+        if cast(CursorResult, result).rowcount != 1:
+            raise ServiceError(status_code=409, error="Meeting changed; reload before saving", where="client")
+        audit(self.session, self.principal, "meeting.renamed", meeting.id)
+        self.session.expire(meeting)
+        return self.summary(meeting)
+
+    def delete(self, meeting_id: str) -> dict:
+        require_role(self.principal, {"owner", "reviewer"})
+        meeting = meeting_access(self.session, self.principal, meeting_id, lock=True)
+        meeting.archived_at = now()
+        self.session.execute(
+            update(Job).where(Job.meeting_id == meeting.id, Job.state == "queued").values(state="cancelled")
+        )
+        audit(self.session, self.principal, "meeting.archived", meeting.id)
+        return {"ok": True, "deleted": meeting_id, "archived": True}
+
+    def enqueue_extraction(self, meeting_id: str) -> dict:
+        require_role(self.principal, {"owner", "reviewer", "editor"})
+        # Visitor request budgets are acquired before meeting locks.
+        user = account(self.session, self.principal)
+        if user.is_visitor:
+            from ..models import VisitorUsage
+
+            self.session.scalar(select(VisitorUsage).where(VisitorUsage.user_id == user.id).with_for_update())
+        meeting = meeting_access(self.session, self.principal, meeting_id, lock=True)
+        revision = current_revision(self.session, meeting)
+        pending = self.session.scalar(
+            select(Job).where(
+                Job.meeting_id == meeting.id,
+                Job.kind == "extract",
+                Job.state.in_(["queued", "running"]),
+                Job.payload["revision_id"].as_string() == revision.id,
+            )
+        )
+        if pending:
+            return {"job_id": pending.id, "state": pending.state}
+        consume_visitor_usage(self.session, self.principal, jobs=True)
+        job = Job(
+            workspace_id=self.principal.workspace_id,
+            meeting_id=meeting.id,
+            actor_id=self.principal.user_id,
+            kind="extract",
+            payload={"revision_id": revision.id},
+        )
+        self.session.add(job)
+        self.session.flush()
+        audit(self.session, self.principal, "extraction.requested", meeting.id)
+        return {"job_id": job.id, "state": job.state}

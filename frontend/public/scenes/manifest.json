@@ -1,0 +1,30 @@
+{
+  "authorship": "Original M2O procedural geometry, lighting and seeded texture",
+  "width": 640,
+  "height": 480,
+  "fps": 24,
+  "seconds": 6,
+  "scenes": {
+    "engineering": {
+      "bytes": {
+        "mp4": 107021,
+        "webp": 12606
+      },
+      "sha256": "8aca6d535cd0d4eb49a893ccb93f1f6915a3c79051daa957665f930728a7ca96"
+    },
+    "hr": {
+      "bytes": {
+        "mp4": 88158,
+        "webp": 10280
+      },
+      "sha256": "37747decace3416f2b15de45db67783e6e8f93d6138e9b7a53b710fd55a5c1cd"
+    },
+    "finance": {
+      "bytes": {
+        "mp4": 138815,
+        "webp": 14554
+      },
+      "sha256": "f3ff0808441c1765cec5c63a2fa1a17f770bedc0be61aabb498ec49d88609838"
+    }
+  }
+}

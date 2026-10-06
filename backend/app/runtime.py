@@ -1,15 +1,17 @@
-from .config import EMBED_MODEL, EMBED_PROVIDER, FAISS_INDEX, FAISS_META, PUBLIC_DEMO_MODE, RAG_STORE
-from .embeddings import get_embedding_function
-from .services import ExtractionService, IssueService, MeetingService
-from .vectorstore.factory import get_store
+"""Adapters open a request-scoped session; no mutable global tenant state."""
 
-DIM = 384  # MiniLM-L6-v2 output size
+from .services.extraction import ExtractionService
+from .services.issues import IssueService
+from .services.meetings import MeetingService
+from .services.retrieval import RetrievalService
+from .services.review import ReviewService
 
-store = get_store(DIM, RAG_STORE, FAISS_INDEX, FAISS_META)
-meeting_service = MeetingService(
-    store=store,
-    embed_model=EMBED_MODEL,
-    embedder=get_embedding_function(EMBED_PROVIDER),
-)
-extraction_service = ExtractionService(meetings=meeting_service)
-issue_service = IssueService(public_demo_mode=PUBLIC_DEMO_MODE)
+
+def services(session, principal):
+    return {
+        "meetings": MeetingService(session, principal),
+        "review": ReviewService(session, principal),
+        "issues": IssueService(session, principal),
+        "retrieval": RetrievalService(session, principal),
+        "extraction": ExtractionService(session),
+    }

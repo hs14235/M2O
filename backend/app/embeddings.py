@@ -1,23 +1,18 @@
 import hashlib
 import re
-from typing import Any
+from functools import lru_cache
+from importlib import import_module
 
 import numpy as np
 
-_model: Any = None
 
-
+@lru_cache(maxsize=2)
 def get_embedder(name: str):
-    global _model
-    if _model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError as exc:
-            raise RuntimeError(
-                "sentence-transformers is not installed. Run `pip install -r backend/requirements.txt`."
-            ) from exc
-        _model = SentenceTransformer(name)
-    return _model
+    try:
+        SentenceTransformer = import_module("sentence_transformers").SentenceTransformer
+    except ImportError as exc:
+        raise RuntimeError("Install requirements-ai.txt to use semantic embeddings") from exc
+    return SentenceTransformer(name, local_files_only=True, trust_remote_code=False)
 
 
 def embed_texts(texts, name: str):
@@ -50,6 +45,4 @@ def get_embedding_function(provider: str):
         return embed_texts
     if provider == "hash":
         return embed_texts_hash
-    raise RuntimeError(
-        f'Unsupported EMBED_PROVIDER "{provider}". Use "sentence-transformers" or "hash".'
-    )
+    raise RuntimeError(f'Unsupported EMBED_PROVIDER "{provider}". Use "sentence-transformers" or "hash".')

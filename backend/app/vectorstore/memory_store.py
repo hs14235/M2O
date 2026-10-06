@@ -1,15 +1,17 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 
 from .base import VectorStore
+
 
 class MemoryStore(VectorStore):
     """
     In-memory fallback: perfect for getting started.
     """
+
     def __init__(self):
-        self._ids: List[str] = []
-        self._vecs: List[List[float]] = []
-        self._meta: List[Dict[str, Any]] = []
+        self._ids: list[str] = []
+        self._vecs: list[list[float]] = []
+        self._meta: list[dict[str, Any]] = []
 
     def upsert(self, ids, embeddings, metas):
         incoming = set(ids)
@@ -34,7 +36,7 @@ class MemoryStore(VectorStore):
         if not self._ids:
             return []
         # cosine since vectors are normalized: score = dot(q, v)
-        scores = [sum(a*b for a, b in zip(embedding, vec)) for vec in self._vecs]
+        scores = [sum(a * b for a, b in zip(embedding, vec, strict=True)) for vec in self._vecs]
         order = sorted(range(len(self._ids)), key=lambda i: -scores[i])
         out = []
         for i in order:
@@ -47,5 +49,4 @@ class MemoryStore(VectorStore):
         return out
 
     def persist(self):
-        # no-op for MVP
-        pass
+        raise RuntimeError("MemoryStore is ephemeral; use PostgreSQL for durable application vectors")

@@ -1,0 +1,98 @@
+name: meeting-to-tasks-e2db
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Run scripts/configure_local.py}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/configure_local.py}
+      POSTGRES_DB: ${POSTGRES_DB:?Run scripts/configure_local.py}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  migrate:
+    build: ./backend
+    command: ["python", "-m", "scripts.migrate"]
+    environment: &backend-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_ENVIRONMENT: development
+      APP_ORIGIN: http://localhost:${APP_PORT:-8080}
+      PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-true}
+      VISITOR_DEMO_ENABLED: ${VISITOR_DEMO_ENABLED:-true}
+      VISITOR_HOURS: ${VISITOR_HOURS:-2}
+      VISITOR_ACTIVE_LIMIT: ${VISITOR_ACTIVE_LIMIT:-100}
+      VISITOR_RETAINED_LIMIT: ${VISITOR_RETAINED_LIMIT:-500}
+      VISITOR_MUTATION_LIMIT: ${VISITOR_MUTATION_LIMIT:-200}
+      VISITOR_JOB_LIMIT: ${VISITOR_JOB_LIMIT:-12}
+      INVITE_HOURS: ${INVITE_HOURS:-48}
+      RECOVERY_MINUTES: ${RECOVERY_MINUTES:-30}
+      PRIVACY_TOMBSTONE_DAYS: ${PRIVACY_TOMBSTONE_DAYS:-90}
+      EMBED_PROVIDER: ${EMBED_PROVIDER:-hash}
+      OLLAMA_URL: ${OLLAMA_CONTAINER_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      GITHUB_TOKEN: ${MTT_GITHUB_TOKEN:-}
+      GITHUB_ALLOWED_REPOS: ${GITHUB_ALLOWED_REPOS:-}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-}
+      LINKEDIN_PUBLISHING_ENABLED: ${LINKEDIN_PUBLISHING_ENABLED:-false}
+      LINKEDIN_API_VERSION: ${LINKEDIN_API_VERSION:-202609}
+      PROVIDER_ENCRYPTION_KEY: ${PROVIDER_ENCRYPTION_KEY:-}
+      GOOGLE_MEET_CLIENT_ID: ${GOOGLE_MEET_CLIENT_ID:-}
+      GOOGLE_MEET_CLIENT_SECRET: ${GOOGLE_MEET_CLIENT_SECRET:-}
+      JIRA_CLIENT_ID: ${JIRA_CLIENT_ID:-}
+      JIRA_CLIENT_SECRET: ${JIRA_CLIENT_SECRET:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_APP_ID: ${SLACK_APP_ID:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_INTERACTIONS_ENABLED: ${SLACK_INTERACTIONS_ENABLED:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+  ollama:
+    profiles: ["ai"]
+    image: ollama/ollama:0.35.0
+    ports:
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+volumes:
+  postgres-data:
+  ollama-data:

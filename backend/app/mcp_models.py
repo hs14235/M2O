@@ -1,66 +1,55 @@
+"""Reusable structured result contracts for MCP clients."""
+
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from .schemas import ItemCandidate, RecordId
+
+TaskDraft = ItemCandidate
 
 
-class IndexMeetingResult(BaseModel):
+class Result(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class IndexMeetingResult(Result):
     ok: bool
+    meeting_id: str
     chunks_indexed: int = Field(ge=0)
-    reindexed: bool = False
-    content_hash: str = ""
-    timings: dict[str, float] = Field(default_factory=dict)
+    reindexed: bool
+    version: int = Field(ge=1)
+    job_id: RecordId | None
 
 
-class SearchHit(BaseModel):
-    id: str
+class SearchHit(Result):
+    id: RecordId
     score: float
-    meta: dict[str, Any]
-    vector_score: float = 0.0
-    lexical_score: float = 0.0
-    text: str = ""
-    source: dict[str, Any] = Field(default_factory=dict)
+    text: str
+    metadata: dict[str, Any]
 
 
-class SearchMeetingResult(BaseModel):
+class SearchMeetingResult(Result):
     results: list[SearchHit]
-    retrieval: dict[str, Any] = Field(default_factory=dict)
-    timings: dict[str, float] = Field(default_factory=dict)
+    provider: str
+    revision_id: RecordId
 
 
-class TaskDraft(BaseModel):
-    title: str = ""
-    body: str = ""
-    labels: list[str] = Field(default_factory=lambda: ["meeting-action"])
-    assignee_hint: str | None = None
-    due_hint: str | None = None
-    source_i: int = 0
-    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
-    source_text: str = ""
+class ExtractTasksResult(Result):
+    job_id: RecordId
+    state: Literal["queued", "running"]
 
 
-class ExtractTasksResult(BaseModel):
-    tasks: list[TaskDraft]
-    mode: Literal["ollama", "rules"]
-    timings: dict[str, float] = Field(default_factory=dict)
-
-
-class IssuePreview(BaseModel):
+class PreviewIssuesResult(Result):
+    id: RecordId
     repo: str
-    title: str
-    body: str
-    labels: list[str]
+    payload_hash: str
+    would_create: list[dict[str, Any]]
+    expires_at: str
+    approved: bool
 
 
-class PreviewIssuesResult(BaseModel):
-    would_create: list[IssuePreview]
-
-
-class CreatedIssue(BaseModel):
-    title: str
-    status: Literal["created", "skipped-duplicate", "skipped-empty-title"]
-    number: int | None = None
-    url: str | None = None
-
-
-class CreateIssuesResult(BaseModel):
-    created: list[CreatedIssue]
+class CreateIssuesResult(Result):
+    operation_id: RecordId
+    job_id: RecordId | None
+    state: str

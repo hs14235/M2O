@@ -1,171 +1,183 @@
-import json
-import logging
 from time import perf_counter
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional
 
-import httpx
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from ..tasks import OLLAMA_MODEL, OLLAMA_URL, TIMEOUT, _parse_tasks_json, extract_tasks_ollama, extract_tasks_rules
-from ..storage import save_task_drafts
-from .meetings import MeetingService
-from .shared import normalize_tasks
-
-log = logging.getLogger(__name__)
-
-DisconnectFn = Callable[[], Awaitable[bool]]
+from ..models import (
+    ExtractionRun,
+    ParticipantMention,
+    TranscriptChunk,
+    TranscriptRevision,
+    WorkItem,
+    WorkItemEvidence,
+    WorkItemRevision,
+)
+from ..schemas import ItemCandidate
+from ..settings import settings
+from ..tasks import LABEL_PATTERN, extract_tasks_ollama, extract_tasks_rules
+from .common import fingerprint
+from .errors import ServiceError
 
 
 class ExtractionService:
-    def __init__(self, meetings: MeetingService) -> None:
-        self.meetings = meetings
+    def __init__(self, session: Session | None):
+        self.session = session
 
-    async def extract_tasks(self, meeting_id: str, q: str, k: int) -> Dict[str, Any]:
+    async def generate(self, revision_id: str) -> dict:
+        if self.session is None:
+            raise ValueError("A database session is required to load evidence")
+        chunks = self.session.scalars(
+            select(TranscriptChunk)
+            .where(TranscriptChunk.revision_id == revision_id)
+            .order_by(TranscriptChunk.chunk_index)
+        ).all()
+        records = [
+            {"id": chunk.id, "i": chunk.chunk_index, "text": chunk.text, "speaker": chunk.speaker}
+            for chunk in chunks
+        ]
+        return await self.generate_records(records)
+
+    async def generate_records(self, records: list[dict], *, use_model: bool = True) -> dict:
         started = perf_counter()
-        context = self.meetings.load_context(meeting_id, q, k)
-
-        try:
-            tasks_llm = await extract_tasks_ollama(context.texts)
-        except Exception as exc:
-            log.warning("extract_tasks_ollama raised: %s", exc)
-            tasks_llm = []
-
-        if tasks_llm:
-            tasks = normalize_tasks(tasks_llm, context.idxs)
-            mode = "ollama"
-        else:
-            tasks = extract_tasks_rules(context.chunks)
-            mode = "rules"
-
-        self._attach_evidence(tasks, context.chunks)
-        save_task_drafts(meeting_id, tasks)
-        total_ms = (perf_counter() - started) * 1000
+        batches, pending, size = [], [], 0
+        for chunk in records:
+            amount = len(chunk["text"].encode("utf-8")) + 180
+            if pending and size + amount > 3500:
+                batches.append(pending)
+                pending, size = [], 0
+            pending.append(chunk)
+            size += amount
+        if pending:
+            batches.append(pending)
+        candidates, modes, warnings = [], [], []
+        for batch in batches:
+            generated, warning = (
+                await extract_tasks_ollama(batch) if use_model else (None, "synthetic_demo_rules")
+            )
+            if warning:
+                warnings.append(warning)
+            if generated:
+                modes.append("ollama")
+                explicit_chunks = [chunk for chunk in batch if LABEL_PATTERN.search(chunk["text"])]
+                explicit_ids = {chunk["id"] for chunk in explicit_chunks}
+                candidates.extend(task for task in generated if not set(task["source_ids"]) & explicit_ids)
+                if explicit_chunks:
+                    # Literal labels retain exact facts even when a small model
+                    # omits, paraphrases or misclassifies an explicit outcome.
+                    modes.append("rules")
+                    warnings.append("explicit_outcomes_preserved")
+                    for task in extract_tasks_rules(explicit_chunks):
+                        task.pop("source_i", None)
+                        candidates.append(ItemCandidate.model_validate(task).model_dump())
+            else:
+                modes.append("rules")
+                for task in extract_tasks_rules(batch):
+                    task.pop("source_i", None)
+                    candidates.append(ItemCandidate.model_validate(task).model_dump())
+        by_key = {}
+        for task in candidates:
+            key = fingerprint([task["kind"], task["title"].casefold(), task["body"].casefold()])
+            if key in by_key:
+                by_key[key]["source_ids"] = list(
+                    dict.fromkeys([*by_key[key]["source_ids"], *task["source_ids"]])
+                )[:8]
+            else:
+                by_key[key] = task
+        if len(by_key) > settings.max_outcomes:
+            warnings.append("outcome_limit_reached")
         return {
-            "tasks": tasks,
-            "mode": mode,
-            "timings": {
-                "retrieval_ms": context.retrieval_ms,
-                "extraction_ms": round(max(0.0, total_ms - context.retrieval_ms), 2),
-                "total_ms": round(total_ms, 2),
+            "tasks": list(by_key.values())[: settings.max_outcomes],
+            "mode": "ollama"
+            if modes and all(mode == "ollama" for mode in modes)
+            else "mixed"
+            if "ollama" in modes
+            else "rules",
+            "coverage": {
+                "total_chunks": len(records),
+                "processed_chunks": len(records),
+                "batches": len(batches),
+                "warnings": sorted(set(warnings)),
+                "full_transcript": True,
             },
+            "timings": {"total_ms": round((perf_counter() - started) * 1000, 2)},
         }
 
-    @staticmethod
-    def _attach_evidence(tasks: list[dict[str, Any]], chunks: list[dict[str, Any]]) -> None:
-        by_index = {chunk["i"]: chunk for chunk in chunks}
-        for task in tasks:
-            source = by_index.get(task.get("source_i"))
-            task["source_text"] = source["text"] if source else ""
-
-    async def stream_tasks(
-        self,
-        meeting_id: str,
-        q: str,
-        k: int,
-        is_disconnected: Optional[DisconnectFn] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
-        started = perf_counter()
-        yield {"stage": "retrieving"}
-        context = self.meetings.load_context(meeting_id, q, k)
-
-        if not OLLAMA_MODEL:
-            yield {"stage": "parsing", "note": "OLLAMA_MODEL not set; using rules fallback."}
-            tasks = extract_tasks_rules(context.chunks)
-            self._attach_evidence(tasks, context.chunks)
-            save_task_drafts(meeting_id, tasks)
-            total_ms = (perf_counter() - started) * 1000
-            yield {
-                "stage": "done",
-                "mode": "rules",
-                "tasks": tasks,
-                "timings": {
-                    "retrieval_ms": context.retrieval_ms,
-                    "extraction_ms": round(max(0.0, total_ms - context.retrieval_ms), 2),
-                    "total_ms": round(total_ms, 2),
-                },
-            }
-            return
-
-        system = (
-            "You extract actionable tasks from snippets and return ONLY valid minified JSON. "
-            "NO prose, NO markdown. Shape:\n"
-            '{"tasks":[{"title":"","body":"","labels":["meeting-action"],'
-            '"assignee_hint":null,"due_hint":null,"source_i":0,"confidence":0.7}]}\n'
-            "Rules: (1) JSON only. (2) No backticks. (3) Use integers for source_i. "
-            "(4) labels is an array of strings. (5) confidence in [0,1]. "
-            "(6) Return at most 15 tasks."
+    def persist(self, meeting, revision_id: str, result: dict) -> dict:
+        if self.session is None:
+            raise ValueError("A database session is required to persist outcomes")
+        revision = self.session.get(TranscriptRevision, revision_id)
+        if (
+            revision is None
+            or revision.meeting_id != meeting.id
+            or revision.number != meeting.current_revision
+            or meeting.archived_at
+        ):
+            raise ServiceError(status_code=409, error="Transcript changed during extraction", where="client")
+        run = ExtractionRun(revision_id=revision_id, mode=result["mode"], coverage=result["coverage"])
+        self.session.add(run)
+        self.session.flush()
+        source_ids = set(
+            self.session.scalars(select(TranscriptChunk.id).where(TranscriptChunk.revision_id == revision_id))
         )
-        user = "Snippets:\n" + "\n---\n".join(f"[{i}] {text}" for i, text in enumerate(context.texts))
-        req = {
-            "model": OLLAMA_MODEL,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "format": "json",
-            "stream": True,
-            "options": {"temperature": 0.2, "num_predict": 1000, "num_ctx": 4096},
+        mentions = list(
+            self.session.scalars(
+                select(ParticipantMention).where(ParticipantMention.revision_id == revision_id)
+            ).all()
+        )
+        confirmed = {
+            mention.name.casefold(): mention.participant_id for mention in mentions if mention.confirmed_by
         }
-
-        chunk_text = ""
-        chunks = 0
-        try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                async with client.stream("POST", f"{OLLAMA_URL}/api/chat", json=req) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if is_disconnected and await is_disconnected():
-                            return
-                        if not line:
-                            continue
-
-                        try:
-                            obj = json.loads(line)
-                        except Exception:
-                            continue
-                        if obj.get("done"):
-                            break
-
-                        message = (obj.get("message") or {}).get("content")
-                        if message:
-                            chunk_text += message
-                            chunks += 1
-                            yield {"stage": "ollama", "progress": min(95, 10 + chunks * 3), "chunks": chunks}
-        except Exception as exc:
-            log.warning("ollama stream failed: %s", exc)
-            chunk_text = ""
-
-        if chunk_text:
-            yield {"stage": "parsing"}
-            tasks = _parse_tasks_json(chunk_text)
-            if tasks:
-                normalized = normalize_tasks(tasks, context.idxs)
-                self._attach_evidence(normalized, context.chunks)
-                save_task_drafts(meeting_id, normalized)
-                total_ms = (perf_counter() - started) * 1000
-                yield {
-                    "stage": "done",
-                    "mode": "ollama",
-                    "tasks": normalized,
-                    "timings": {
-                        "retrieval_ms": context.retrieval_ms,
-                        "extraction_ms": round(max(0.0, total_ms - context.retrieval_ms), 2),
-                        "total_ms": round(total_ms, 2),
-                    },
-                }
-                return
-
-        yield {"stage": "rules_fallback", "note": "Falling back to explicit rule-based extraction."}
-        tasks = extract_tasks_rules(context.chunks)
-        self._attach_evidence(tasks, context.chunks)
-        save_task_drafts(meeting_id, tasks)
-        total_ms = (perf_counter() - started) * 1000
-        yield {
-            "stage": "done",
-            "mode": "rules",
-            "tasks": tasks,
-            "timings": {
-                "retrieval_ms": context.retrieval_ms,
-                "extraction_ms": round(max(0.0, total_ms - context.retrieval_ms), 2),
-                "total_ms": round(total_ms, 2),
-            },
+        created = 0
+        for raw in result["tasks"]:
+            task = ItemCandidate.model_validate(raw)
+            if not set(task.source_ids).issubset(source_ids):
+                continue
+            key = fingerprint([task.kind, task.title.casefold(), task.body.casefold()])
+            existing = self.session.scalar(
+                select(WorkItem).where(
+                    WorkItem.meeting_id == meeting.id,
+                    WorkItem.revision_id == revision_id,
+                    WorkItem.fingerprint == key,
+                )
+            )
+            if existing:
+                continue
+            owner = confirmed.get((task.assignee_hint or "").casefold())
+            if task.assignee_hint and not any(
+                mention.name.casefold() == task.assignee_hint.casefold() for mention in mentions
+            ):
+                mention = ParticipantMention(
+                    workspace_id=meeting.workspace_id,
+                    meeting_id=meeting.id,
+                    revision_id=revision_id,
+                    name=task.assignee_hint,
+                )
+                self.session.add(mention)
+                mentions.append(mention)
+            item = WorkItem(
+                workspace_id=meeting.workspace_id,
+                meeting_id=meeting.id,
+                revision_id=revision_id,
+                extraction_run_id=run.id,
+                fingerprint=key,
+                owner_id=owner,
+                **task.model_dump(exclude={"source_ids"}),
+            )
+            self.session.add(item)
+            self.session.flush()
+            for source_id in dict.fromkeys(task.source_ids):
+                self.session.add(
+                    WorkItemEvidence(item_id=item.id, chunk_id=source_id, revision_id=revision_id)
+                )
+            self.session.add(
+                WorkItemRevision(item_id=item.id, version=1, payload=task.model_dump(), actor_id=None)
+            )
+            created += 1
+        self.session.flush()
+        return {
+            "run_id": run.id,
+            "mode": result["mode"],
+            "coverage": result["coverage"],
+            "created": created,
+            "timings": result["timings"],
         }

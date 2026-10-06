@@ -25,3 +25,7 @@ data/meeting_to_tasks.db-*
 
 # OS / editor
 .DS_Store
+.runtime/
+frontend/test-results/
+frontend/playwright-report/
+backend/.ruff_cache/
