@@ -23,7 +23,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div key={toast.id} className={`toast is-${toast.kind}`}>
             <strong>{toast.title}</strong>
             {toast.detail != null && (
-              <pre>{typeof toast.detail === "string" ? toast.detail : JSON.stringify(toast.detail, null, 2)}</pre>
+              <pre>
+                {typeof toast.detail === "string" ? toast.detail : JSON.stringify(toast.detail, null, 2)}
+              </pre>
             )}
           </div>
         ))}

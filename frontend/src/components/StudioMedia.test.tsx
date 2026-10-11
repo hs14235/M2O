@@ -8,15 +8,28 @@ beforeEach(() => {
   localStorage.removeItem("m2o-studio-paused");
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
-  vi.stubGlobal("IntersectionObserver", class { constructor(callback: typeof observe) { observe = callback; } observe() {} disconnect() {} });
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(callback: typeof observe) {
+        observe = callback;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  );
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 it("retains the static poster and attaches video only when visible with motion allowed", async () => {
   const view = render(<StudioMedia department="hr" calm={false} />);
   const video = view.container.querySelector("video")!;
   expect(video).not.toHaveAttribute("src");
   expect(view.container.querySelector("img")).toHaveAttribute("src", "/scenes/hr.webp");
-  act(() => observe([{ isIntersecting: true, intersectionRatio: .8 }]));
+  act(() => observe([{ isIntersecting: true, intersectionRatio: 0.8 }]));
   await waitFor(() => expect(video).toHaveAttribute("src", "/scenes/hr.mp4"));
   expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
   view.rerender(<StudioMedia department="hr" calm />);
@@ -44,7 +57,8 @@ it("pauses playback when the browser tab becomes hidden", async () => {
   render(<StudioMedia department="hr" calm={false} />);
   act(() => observe([{ isIntersecting: true, intersectionRatio: 1 }]));
   await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalled());
-  const pause = vi.mocked(HTMLMediaElement.prototype.pause); pause.mockClear();
+  const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+  pause.mockClear();
   vi.spyOn(document, "hidden", "get").mockReturnValue(true);
   fireEvent(document, new Event("visibilitychange"));
   expect(pause).toHaveBeenCalled();
@@ -53,7 +67,8 @@ it("keeps an intentional pause after a department scene remount", async () => {
   const view = render(<StudioMedia department="hr" calm={false} />);
   act(() => observe([{ isIntersecting: true, intersectionRatio: 1 }]));
   await userEvent.click(screen.getByRole("button", { name: "Pause studio motion" }));
-  view.unmount(); vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+  view.unmount();
+  vi.mocked(HTMLMediaElement.prototype.play).mockClear();
   const next = render(<StudioMedia department="finance" calm={false} />);
   act(() => observe([{ isIntersecting: true, intersectionRatio: 1 }]));
   expect(screen.getByRole("button", { name: "Play studio motion" })).toBeInTheDocument();
@@ -66,7 +81,9 @@ it("recovers from a failed scene when the department changes", async () => {
   act(() => observe([{ isIntersecting: true, intersectionRatio: 1 }]));
   await screen.findByText("Static studio scene");
   view.rerender(<StudioMedia department="engineering" calm={false} />);
-  await waitFor(() => expect(view.container.querySelector("video")).toHaveAttribute("src", "/scenes/engineering.mp4"));
+  await waitFor(() =>
+    expect(view.container.querySelector("video")).toHaveAttribute("src", "/scenes/engineering.mp4"),
+  );
   expect(screen.queryByText("Static studio scene")).toBeNull();
   expect(screen.getByRole("button", { name: "Pause studio motion" })).toBeInTheDocument();
 });

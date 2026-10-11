@@ -6,7 +6,8 @@ import DemoEntry from "./DemoEntry";
 
 afterEach(() => vi.restoreAllMocks());
 it("starts a separate visitor session only on explicit action, then loads its authenticated account", async () => {
-  const request = vi.spyOn(client, "api").mockResolvedValue({ enabled: true, scenarios: [] }), onStarted = vi.fn().mockResolvedValue(undefined);
+  const request = vi.spyOn(client, "api").mockResolvedValue({ enabled: true, scenarios: [] }),
+    onStarted = vi.fn().mockResolvedValue(undefined);
   render(<DemoEntry onStarted={onStarted} />);
   const start = await screen.findByRole("button", { name: "Explore the isolated demo" });
   expect(request.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
@@ -22,8 +23,12 @@ it("does not expose demo start when the server disables visitor access", async (
   expect(request).toHaveBeenCalledTimes(1);
 });
 it("retains a recoverable error if session start is rejected", async () => {
-  const request = vi.spyOn(client, "api").mockResolvedValueOnce({ enabled: true, scenarios: [] }).mockRejectedValueOnce(new client.ApiError(429, "Demo quota reached"));
-  const onStarted = vi.fn(); render(<DemoEntry onStarted={onStarted} />);
+  const request = vi
+    .spyOn(client, "api")
+    .mockResolvedValueOnce({ enabled: true, scenarios: [] })
+    .mockRejectedValueOnce(new client.ApiError(429, "Demo quota reached"));
+  const onStarted = vi.fn();
+  render(<DemoEntry onStarted={onStarted} />);
   await userEvent.click(await screen.findByRole("button", { name: "Explore the isolated demo" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Demo quota reached");
   expect(onStarted).not.toHaveBeenCalled();
