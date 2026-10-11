@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import * as client from "../api";
@@ -45,4 +45,36 @@ it("offers a read-only retry instead of claiming to load forever after a failed 
   await screen.findByLabelText("Progress for Prepare checklist");
   expect(request).toHaveBeenCalledTimes(2);
   expect(request.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+});
+
+it("recovers an accepted progress change with a read instead of sending it again", async () => {
+  let reads = 0;
+  const request = vi.spyOn(client, "api").mockImplementation(async (_path, options) => {
+    if (options?.method) return {} as never;
+    reads += 1;
+    if (reads === 2) throw new client.ApiError(503, "Temporarily unavailable");
+    return (reads === 1 ? plan : { ...plan, entries: [{ ...plan.entries[0], state: "done", version: 2 }] }) as never;
+  });
+  render(<DailyPlanner workspace={workspace} navigate={vi.fn()} />);
+  await userEvent.selectOptions(await screen.findByLabelText("Progress for Prepare checklist"), "done");
+  expect(await screen.findByText(/Your plan change was accepted/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Progress for Prepare checklist")).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Load current plan" }));
+  expect(await screen.findByText("Room to breathe.")).toBeInTheDocument();
+  expect(request.mock.calls.filter(([, options]) => options?.method === "PATCH")).toHaveLength(1);
+});
+
+it("does not refresh or replace a new workspace after an earlier change finishes", async () => {
+  let finish!: (value: never) => void;
+  const request = vi.spyOn(client, "api").mockImplementation((path, options) => {
+    if (options?.method) return new Promise(resolve => { finish = resolve; });
+    return Promise.resolve((path.includes("/another/") ? { ...plan, entries: [{ ...plan.entries[0], title: "Other workspace action" }] } : plan) as never);
+  });
+  const view = render(<DailyPlanner workspace={workspace} navigate={vi.fn()} />);
+  await userEvent.selectOptions(await screen.findByLabelText("Progress for Prepare checklist"), "done");
+  view.rerender(<DailyPlanner workspace={{ ...workspace, id: "another" }} navigate={vi.fn()} />);
+  await screen.findByLabelText("Progress for Other workspace action");
+  await act(async () => finish({} as never));
+  expect(screen.getByLabelText("Progress for Other workspace action")).toBeEnabled();
+  expect(request.mock.calls.filter(([path, options]) => path.includes("/space/") && !options?.method)).toHaveLength(1);
 });
