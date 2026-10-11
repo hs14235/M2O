@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import Principal
 from app.models import (
     ApiToken,
+    AuditEvent,
     AuthSession,
     DeliveryTombstone,
     Invitation,
@@ -19,7 +20,10 @@ from app.models import (
     Workspace,
     now,
 )
+from app.schemas import InvitationInput
 from app.services.demo import DemoService
+from app.services.errors import ServiceError
+from app.services.lifecycle import InvitationService
 from app.services.retention import RetentionService
 from app.worker import run_once
 
@@ -173,6 +177,21 @@ def test_retention_previews_all_temporary_classes_and_bounds_cleanup(session, se
     assert session.get(AuthSession, "live-session") is not None
     assert session.get(ApiToken, "expired-api") is None
     assert session.scalar(select(func.count()).select_from(RateBucket)) == 1
+
+
+def test_purged_expired_invitation_reports_not_found_and_keeps_audit_history(session, seeded):
+    invitations = InvitationService(session)
+    issued = invitations.issue(seeded["principal"], InvitationInput(email="expiring@example.test"))
+    session.get(Invitation, issued["id"]).expires_at = now() - timedelta(seconds=1)
+    session.commit()
+    applied = RetentionService(session).run(limit=10, apply=True)
+    assert applied["temporary_records"]["invitations"]["removed"] == 1
+    # A stale owner tab revoking the purged link gets a clear not-found, never a false success.
+    with pytest.raises(ServiceError) as missing:
+        invitations.revoke(seeded["principal"], issued["id"])
+    assert missing.value.status_code == 404
+    actions = session.scalars(select(AuditEvent.action).where(AuditEvent.target_id == issued["id"])).all()
+    assert actions == ["invitation.issued"]
 
 
 def test_retention_rechecks_a_concurrently_renewed_rate_bucket(engine, session):

@@ -6,6 +6,7 @@ from sqlalchemy.pool import QueuePool
 
 from ..auth import aware
 from ..models import (
+    JOB_MAX_ATTEMPTS,
     DeliveryTombstone,
     JiraOperation,
     Job,
@@ -36,7 +37,12 @@ SIZE_TABLES = (
 
 
 def operational_snapshot(session: Session) -> dict:
-    """A database observation, not worker health, authority or a capacity promise."""
+    """A database observation, not worker health, authority or a capacity promise.
+
+    Connection states come from pg_stat_activity, which hides other roles' session
+    state from unprivileged users: there, active and idle_in_transaction are lower
+    bounds, while total stays exact.
+    """
     cutoff = now()
     jobs = {kind: {state: 0 for state in JOB_STATES} for kind in JOB_KINDS}
     queued_age: dict[str, int | None] = dict.fromkeys(JOB_KINDS, None)
@@ -81,7 +87,9 @@ def operational_snapshot(session: Session) -> dict:
             "unknown_job_rows": unknown_jobs,
             "expired_running_leases": count_rows(Job, Job.state == "running", Job.lease_until <= cutoff),
             "running_without_lease": count_rows(Job, Job.state == "running", Job.lease_until.is_(None)),
-            "attempt_limit_rows": count_rows(Job, Job.state.in_(("queued", "running")), Job.attempts >= 3),
+            "attempt_limit_rows": count_rows(
+                Job, Job.state.in_(("queued", "running")), Job.attempts >= JOB_MAX_ATTEMPTS
+            ),
             "delivery_effects": effects,
             "unknown_effect_rows": unknown_effects,
             "unresolved_tombstones": count_rows(

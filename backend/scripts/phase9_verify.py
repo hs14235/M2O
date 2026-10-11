@@ -109,8 +109,13 @@ def main() -> int:
         )
         return result.returncode
     finally:
-        subprocess.run(["docker", "stop", name], check=True, stdout=subprocess.DEVNULL)
-        print("Stopped owned test container; retained for inspection: " + name, flush=True)
+        # Report a failed stop without masking the test result. The container is kept
+        # (stopped, not removed) for inspection; remove it with `docker rm` when done.
+        stopped = subprocess.run(["docker", "stop", name], check=False, stdout=subprocess.DEVNULL)
+        if stopped.returncode:
+            print("Could not stop owned test container: " + name, flush=True)
+        else:
+            print("Stopped owned test container; retained for inspection: " + name, flush=True)
 
 
 if __name__ == "__main__":

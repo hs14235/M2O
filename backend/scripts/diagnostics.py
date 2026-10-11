@@ -11,8 +11,9 @@ from app.services.diagnostics import operational_snapshot
 
 
 def main() -> int:
-    # A fresh session plus database-enforced read-only transaction prevents this
-    # operator report from flushing pending ORM changes or writing during inspection.
+    # A fresh session keeps this report from flushing pending ORM changes. On
+    # PostgreSQL the transaction is also database-enforced read-only; SQLite has
+    # no equivalent, so there the guarantee rests on the snapshot issuing only reads.
     try:
         with Session(get_engine()) as session:
             if session.get_bind().dialect.name == "postgresql":
