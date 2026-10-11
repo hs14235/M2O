@@ -5,16 +5,22 @@ import { ContextBubble } from "./ContextBubble";
 
 const run = vi.fn();
 const actions = [{ id: "source", label: "Review source", detail: "Keep the transcript in context", run }];
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); run.mockClear(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  run.mockClear();
+});
 it("keeps hidden tools out of keyboard navigation, supports click, and restores focus on Escape", async () => {
   render(<ContextBubble label="Review tools" hint="Next: choose a handoff" actions={actions} />);
   const trigger = screen.getByRole("button", { name: "Review tools" });
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByRole("button", { name: /Review source/ })).toBeNull();
-  await userEvent.click(trigger); await userEvent.tab();
+  await userEvent.click(trigger);
+  await userEvent.tab();
   expect(screen.getByRole("button", { name: /Review source/ })).toHaveFocus();
   await userEvent.keyboard("{Escape}");
-  expect(trigger).toHaveFocus(); expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(trigger).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(run).not.toHaveBeenCalled();
 });
 it("lets keyboard users enter the tools with ArrowDown and executes only the selected action", async () => {
@@ -27,11 +33,17 @@ it("lets keyboard users enter the tools with ArrowDown and executes only the sel
   expect(screen.queryByRole("button", { name: /Review source/ })).toBeNull();
 });
 it("supports touch without triggering a hover action and closes on outside interaction", async () => {
-  render(<><ContextBubble label="Review tools" hint="Next" actions={actions} /><button>Outside</button></>);
+  render(
+    <>
+      <ContextBubble label="Review tools" hint="Next" actions={actions} />
+      <button>Outside</button>
+    </>,
+  );
   const trigger = screen.getByRole("button", { name: "Review tools" });
   fireEvent.pointerEnter(trigger, { pointerType: "touch" });
   expect(trigger).toHaveAttribute("aria-expanded", "false");
-  await userEvent.click(trigger); await userEvent.click(screen.getByRole("button", { name: "Outside" }));
+  await userEvent.click(trigger);
+  await userEvent.click(screen.getByRole("button", { name: "Outside" }));
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(run).not.toHaveBeenCalled();
 });
@@ -40,7 +52,10 @@ it("omits the bubble on pages with no secondary actions", () => {
   expect(view.container).toBeEmptyDOMElement();
 });
 it("keeps fine-pointer content open on hover and suppresses reopening after Escape until exit", async () => {
-  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({ matches: true })),
+  );
   const pointer = userEvent.setup();
   render(<ContextBubble label="Review tools" hint="Next" actions={actions} />);
   const trigger = screen.getByRole("button", { name: "Review tools" });
@@ -53,7 +68,8 @@ it("keeps fine-pointer content open on hover and suppresses reopening after Esca
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   await pointer.hover(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "false");
-  await pointer.unhover(trigger); await pointer.hover(trigger);
+  await pointer.unhover(trigger);
+  await pointer.hover(trigger);
   expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(run).not.toHaveBeenCalled();
 });

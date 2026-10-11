@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "format": "prettier --write src e2e",
+    "format:check": "prettier --check src e2e"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -24,6 +26,7 @@
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "jsdom": "^29.1.1",
+    "prettier": "3.3.3",
     "typescript": "^5.4.5",
     "vite": "^7.3.5",
     "vitest": "^5.0.3"

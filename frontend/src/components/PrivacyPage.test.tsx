@@ -5,12 +5,47 @@ import * as client from "../api";
 import PrivacyPage from "./PrivacyPage";
 import type { User } from "../types";
 
-const user: User = { id: "person", email: "synthetic@example.test", name: "Synthetic", capabilities: { demo_mode: false, linkedin_configured: false, ollama_model: null, embedding_provider: "hash", allowed_repos: [] }, linkedin: { connected: false, profile: null } };
-const status = { id: "workspace", name: "Synthetic workspace", version: 4, state: "active", can_erase: true, retention_days: 30, remote_content_erased: false };
-const props = { workspaceId: "workspace", user, onWorkspaceChanged: vi.fn().mockResolvedValue(undefined), onAccountErased: vi.fn() };
-afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+const user: User = {
+  id: "person",
+  email: "synthetic@example.test",
+  name: "Synthetic",
+  capabilities: {
+    demo_mode: false,
+    linkedin_configured: false,
+    ollama_model: null,
+    embedding_provider: "hash",
+    allowed_repos: [],
+  },
+  linkedin: { connected: false, profile: null },
+};
+const status = {
+  id: "workspace",
+  name: "Synthetic workspace",
+  version: 4,
+  state: "active",
+  can_erase: true,
+  retention_days: 30,
+  remote_content_erased: false,
+};
+const props = {
+  workspaceId: "workspace",
+  user,
+  onWorkspaceChanged: vi.fn().mockResolvedValue(undefined),
+  onAccountErased: vi.fn(),
+};
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
 it("requires the current name/password/version and preserves a truthful local-erasure receipt", async () => {
-  const request = vi.spyOn(client, "api").mockImplementation(async (_path, options) => options?.method === "POST" ? { state: "erased", retention_days: 30, remote_content_erased: false } : status);
+  const request = vi
+    .spyOn(client, "api")
+    .mockImplementation(async (_path, options) =>
+      options?.method === "POST"
+        ? { state: "erased", retention_days: 30, remote_content_erased: false }
+        : status,
+    );
   render(<PrivacyPage {...props} />);
   await userEvent.click(await screen.findByText("Erase this local workspace"));
   const erase = screen.getByRole("button", { name: "Erase confirmed local workspace" });
@@ -20,12 +55,24 @@ it("requires the current name/password/version and preserves a truthful local-er
   await userEvent.click(erase);
   await screen.findByText("Local workspace content erased.");
   const write = request.mock.calls.find(([, options]) => options?.method === "POST")!;
-  expect(JSON.parse(String(write[1]!.body))).toEqual({ password: "Synthetic-password", confirmation_name: status.name, expected_version: 4 });
+  expect(JSON.parse(String(write[1]!.body))).toEqual({
+    password: "Synthetic-password",
+    confirmation_name: status.name,
+    expected_version: 4,
+  });
   expect(screen.getByText(/External tool content was not erased/)).toBeInTheDocument();
   expect(props.onWorkspaceChanged).toHaveBeenCalledOnce();
 });
 it("keeps pending erasure retry explicit and status refresh read-only", async () => {
-  const request = vi.spyOn(client, "api").mockImplementation(async (_path, options) => options?.method === "POST" ? { state: "pending_erasure", retention_days: 30, retry_required: true, remote_content_erased: false } : request.mock.calls.some(([, value]) => value?.method === "POST") ? { ...status, state: "pending_erasure", version: 5 } : status);
+  const request = vi
+    .spyOn(client, "api")
+    .mockImplementation(async (_path, options) =>
+      options?.method === "POST"
+        ? { state: "pending_erasure", retention_days: 30, retry_required: true, remote_content_erased: false }
+        : request.mock.calls.some(([, value]) => value?.method === "POST")
+          ? { ...status, state: "pending_erasure", version: 5 }
+          : status,
+    );
   render(<PrivacyPage {...props} />);
   await userEvent.click(await screen.findByText("Erase this local workspace"));
   await userEvent.type(screen.getByLabelText("Type the current workspace name"), status.name);
@@ -34,12 +81,17 @@ it("keeps pending erasure retry explicit and status refresh read-only", async ()
   await screen.findByText(/Erasure is pending/);
   expect(props.onWorkspaceChanged).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "Refresh privacy status" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Retry confirmed workspace erasure" })).toBeDisabled());
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Retry confirmed workspace erasure" })).toBeDisabled(),
+  );
   expect(request.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
   expect(screen.getByLabelText("Your password for workspace erasure")).toHaveValue("");
 });
 it("retains the active account when deletion is rejected for sole-owner authority", async () => {
-  vi.spyOn(client, "api").mockImplementation(async (_path, options) => { if (options?.method === "POST") throw new client.ApiError(409, "Transfer sole ownership first"); return status; });
+  vi.spyOn(client, "api").mockImplementation(async (_path, options) => {
+    if (options?.method === "POST") throw new client.ApiError(409, "Transfer sole ownership first");
+    return status;
+  });
   render(<PrivacyPage {...props} />);
   await userEvent.click(screen.getByText("Review account deletion"));
   await userEvent.type(screen.getByLabelText("Type DELETE MY ACCOUNT"), "DELETE MY ACCOUNT");
@@ -50,7 +102,15 @@ it("retains the active account when deletion is rejected for sole-owner authorit
   expect(screen.getByLabelText("Your password for account deletion")).toHaveValue("");
 });
 it("requests a private JSON export without any mutation", async () => {
-  vi.stubGlobal("URL", class extends URL { static createObjectURL() { return "blob:synthetic"; } static revokeObjectURL() {} });
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL() {
+        return "blob:synthetic";
+      }
+      static revokeObjectURL() {}
+    },
+  );
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const request = vi.spyOn(client, "api").mockResolvedValue(status);
   render(<PrivacyPage {...props} />);

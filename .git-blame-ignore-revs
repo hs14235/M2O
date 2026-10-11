@@ -1,0 +1,5 @@
+# Mechanical formatting commits, skipped by `git blame --ignore-revs-file .git-blame-ignore-revs`
+# and automatically by GitHub's blame view.
+
+# style: format the frontend with Prettier
+395306f99097f091841c499761a3ee9e3ed0e415
