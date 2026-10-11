@@ -126,7 +126,8 @@ test("Google import UI contract with synthetic missing, processing and reused re
   const existing = new URL(page.url()).pathname.split("/").at(-2)!;
   await page.getByRole("button", { name: "All meetings" }).click();
   await page.getByRole("button", { name: "New meeting", exact: true }).click();
-  const target = await page.getByLabel("Meeting identifier").inputValue();
+  // Read the identifier just before saving: it is regenerated as the new-meeting route settles.
+  let target = "";
   await page.route("**/integrations/google-meet", route => route.fulfill({ json: { configured: true, can_import: true, setup_required: false, state: "connected", source_format: "meet_api_entries", transcription_required: true } }));
   let reads = 0, saves = 0;
   await page.route("**/imports/google-meet/preview", route => {
@@ -151,6 +152,8 @@ test("Google import UI contract with synthetic missing, processing and reused re
   expect(await page.locator("form form").count()).toBe(0); await accessible(page);
   await page.setViewportSize({ width: 390, height: 844 }); await accessible(page);
   await page.screenshot({ path: "test-results/v2-meet-synthetic-preview-mobile.png", fullPage: true });
+  target = await page.getByLabel("Meeting identifier").inputValue();
+  expect(target).toMatch(/^meeting-/);
   await page.getByRole("button", { name: "Save this transcript and continue" }).click();
   await expect(page).toHaveURL(new RegExp("/" + existing + "/people$"));
   await expect(page.getByText("Synthetic Meet source", { exact: true })).toBeVisible();

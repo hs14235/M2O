@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import * as client from "../api";
@@ -43,4 +43,40 @@ it("does not claim a restored local receipt proves that a download succeeded", a
   render(<ShareStep {...props} stage="receipt" provider="local" />);
   expect(screen.getByText(/A refresh does not prove that a file was saved/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Download again" })).toBeNull();
+});
+
+it("does not navigate to a local preview after leaving and returning to preparation", async () => {
+  let finish!: (value: never) => void;
+  vi.spyOn(client, "api").mockImplementation(path => path.endsWith("/integrations") ? Promise.resolve(catalog as never) : new Promise(resolve => { finish = resolve; }));
+  const onStage = vi.fn();
+  const view = render(<ShareStep {...props} stage="configure" provider="local" onStage={onStage} />);
+  await userEvent.click(screen.getByRole("button", { name: "Prepare handoff" }));
+  view.rerender(<ShareStep {...props} stage="receipt" provider="local" onStage={onStage} />);
+  view.rerender(<ShareStep {...props} stage="configure" provider="local" onStage={onStage} />);
+  await act(async () => finish(artifact as never));
+  expect(onStage).not.toHaveBeenCalled();
+  expect(screen.queryByText("Reviewed local handoff")).toBeNull();
+  expect(screen.getByRole("button", { name: "Prepare handoff" })).toBeEnabled();
+});
+
+it("drops a failed local preparation after the provider changes", async () => {
+  let reject!: (error: Error) => void;
+  vi.spyOn(client, "api").mockImplementation(path => path.endsWith("/integrations") ? Promise.resolve(catalog as never) : new Promise((_resolve, fail) => { reject = fail; }));
+  const onStage = vi.fn();
+  const view = render(<ShareStep {...props} stage="configure" provider="local" onStage={onStage} />);
+  await userEvent.click(screen.getByRole("button", { name: "Prepare handoff" }));
+  view.rerender(<ShareStep {...props} stage="choose" provider="github" onStage={onStage} />);
+  await act(async () => reject(new Error("Late local request failed")));
+  expect(screen.queryByText("Late local request failed")).toBeNull();
+  expect(onStage).not.toHaveBeenCalled();
+});
+
+it("sends one export for two clicks before the pending state is rendered", async () => {
+  let finish!: (value: never) => void;
+  const request = vi.spyOn(client, "api").mockImplementation(path => path.endsWith("/integrations") ? Promise.resolve(catalog as never) : new Promise(resolve => { finish = resolve; }));
+  render(<ShareStep {...props} stage="configure" provider="local" />);
+  const button = screen.getByRole("button", { name: "Prepare handoff" });
+  act(() => { button.dispatchEvent(new MouseEvent("click", { bubbles: true })); button.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+  expect(request.mock.calls.filter(([path]) => path.endsWith("/export"))).toHaveLength(1);
+  await act(async () => finish(artifact as never));
 });
