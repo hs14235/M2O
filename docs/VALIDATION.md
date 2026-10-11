@@ -23,6 +23,12 @@ Private credentials were not copied to files or output. The disposable launcher 
 
 Phase 7 remains in progress: duplicate first-workspace creation, route/chunk error recovery, broader offline/hidden-tab polling, session-expiry draft policy, dedicated LinkedIn composer, public SSG pages, separately justified ISR/SSR, private lifecycle CI, operator/DX and optional monitoring are later increments. Full backend/PostgreSQL, Docker/browser suites, hosted CI/Render, live providers and broad accessibility/performance acceptance were not rerun or claimed by this frontend increment.
 
+## Phase 8 release decisions — October 10, 2026 (local only)
+
+Branch `codex/m2o-phase8` from `ddfca82`, uncommitted. Decisions: hosted demo uses `CLIENT_IDENTITY_MODE=shared` with a site-wide `SHARED_VISITOR_START_LIMIT` of 150 starts per hour (per-client default stays 10); IPv6 clients are budgeted per /64 in direct and trusted-proxy modes; the worker reclaims `running` jobs with a missing lease as well as an expired one, so workspace erasure can finish after a crash; rollback after a migration means a forward fix or restore (OPERATIONS.md); `configure_local.py` writes a per-checkout `COMPOSE_PROJECT_NAME` instead of the hard-coded Compose name.
+
+Windows 11, Python 3.13.1, disposable `postgres:17-alpine` container removed afterwards. `ruff check`, `ruff format --check` and `pyright app` clean. `pytest -q`: 444 passed, 27 PostgreSQL-only skipped. `scripts.migrate` and `alembic check`: at head, no drift. `pytest -q --postgres`: 471 passed. `test_codex_config` was deselected in both runs because this worktree has no local `.venv`. New regressions: IPv6 /64 rotation (direct and proxied), shared-mode visitor limit, and an erasure drill where a crashed job with an expired or missing lease is settled by the real worker before purge completes. The missing-lease case failed before the `claim()` fix. Not verified: Render ingress behavior, hosted CI, live providers.
+
 ## Prepublication security review — October 5, 2026
 
 A targeted independent read-only audit found no blocking authorization, workspace-isolation, credential-exposure or exact-delivery-approval flaw in the inspected paths. Two disjoint native runs produced **94 passed, four PostgreSQL-only skipped**: hosted/visitor/invitation/Google checks (64 passed, four skipped) and API/authentication/upload/privacy/publication checks (30 passed). Skipped checks are not concurrency evidence. This is scoped source and regression evidence, not a whole-system security certification or live-provider policy audit.
