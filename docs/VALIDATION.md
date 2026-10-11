@@ -1,5 +1,11 @@
 # Verification evidence
 
+## Phase 9 diagnostics and retention — October 10, 2026 (local only)
+
+Branch `codex/m2o-phase9` from `ddfca82`, uncommitted. Adds the read-only aggregate diagnostics snapshot and retention preview/apply accuracy for expired temporary records. Decision: expired invitations and API tokens are deleted as temporary security records (USER_LIFECYCLE.md). The diagnostics test canary was shortened to fit `varchar(36)` columns; it failed on PostgreSQL before that change and passed on SQLite, which ignores the length.
+
+Windows 11, Python 3.13.1, disposable `postgres:17-alpine` container removed afterwards. `ruff check`, `ruff format --check` and `pyright app` clean. `pytest -q`: 379 passed, 25 PostgreSQL-only skipped. `scripts.migrate` and `alembic check`: at head, no drift. `pytest -q --postgres`: 404 passed. `test_codex_config` was deselected because this worktree has no local `.venv`. Not verified: hosted CI, scheduled maintenance (none installed).
+
 ## Prepublication security review — October 5, 2026
 
 A targeted independent read-only audit found no blocking authorization, workspace-isolation, credential-exposure or exact-delivery-approval flaw in the inspected paths. Two disjoint native runs produced **94 passed, four PostgreSQL-only skipped**: hosted/visitor/invitation/Google checks (64 passed, four skipped) and API/authentication/upload/privacy/publication checks (30 passed). Skipped checks are not concurrency evidence. This is scoped source and regression evidence, not a whole-system security certification or live-provider policy audit.
