@@ -9,6 +9,10 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
 }
 async function accessible(page: Page) {
+  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+    .map(animation => animation.finished.catch(() => undefined))));
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 }
