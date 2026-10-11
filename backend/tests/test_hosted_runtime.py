@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -88,6 +89,47 @@ def test_demo_origin_falls_back_to_render_url_and_drops_trailing_slash():
     assert explicit["APP_ORIGIN"] == "https://demo.example.test"
     with pytest.raises(ValueError, match="APP_ORIGIN"):
         demo_environment(config)
+
+
+def test_production_settings_import_uses_render_url_without_app_origin(tmp_path):
+    # Reproduces the first Render deploy: importing app.settings builds the global settings
+    # from the raw environment, before the launcher's own fallback runs.
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() not in {"APP_ORIGIN", "DATABASE_URL", "APP_ENVIRONMENT", "COOKIE_SECURE"}
+    }
+    env.update(
+        APP_ENVIRONMENT="production",
+        COOKIE_SECURE="true",
+        RENDER_EXTERNAL_URL="https://m2o-demo-x1y2.onrender.com/",
+        DATABASE_URL="postgresql://synthetic:synthetic@localhost/demo",
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.settings import settings; print(settings.app_origin)"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr[-500:]
+    assert result.stdout.strip() == "https://m2o-demo-x1y2.onrender.com"
+
+
+def test_settings_errors_never_echo_configuration_values():
+    from pydantic import ValidationError
+
+    from app.settings import Settings
+
+    with pytest.raises(ValidationError) as failure:
+        Settings(
+            _env_file=None,
+            app_environment="production",
+            cookie_secure=False,
+            database_url="postgresql://synthetic:leaked-canary@localhost/demo",
+        )
+    assert "leaked-canary" not in str(failure.value)
 
 
 @pytest.mark.parametrize(

@@ -1,3 +1,4 @@
+import os
 from ipaddress import ip_network
 from pathlib import Path
 from typing import Literal
@@ -9,7 +10,10 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BACKEND_ROOT / ".env", extra="ignore", case_sensitive=False)
+    # Validation errors must never echo configuration values such as the database URL into logs.
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_ROOT / ".env", extra="ignore", case_sensitive=False, hide_input_in_errors=True
+    )
 
     database_url: SecretStr = SecretStr("")
     app_environment: Literal["development", "test", "production"] = "development"
@@ -165,6 +169,17 @@ class Settings(BaseSettings):
         ):
             raise ValueError("Production requires secure cookies and an HTTPS application origin")
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def render_origin(cls, data):
+        # Render assigns the public URL only when the service is created and exposes it as
+        # RENDER_EXTERNAL_URL. Every process reads it here; an explicit APP_ORIGIN still wins.
+        if isinstance(data, dict) and not str(data.get("app_origin") or "").strip():
+            external = os.environ.get("RENDER_EXTERNAL_URL", "").strip()
+            if external:
+                data = {**data, "app_origin": external}
+        return data
 
     @field_validator("app_origin", "ollama_url")
     @classmethod
