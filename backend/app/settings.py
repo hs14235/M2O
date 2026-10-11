@@ -1,3 +1,4 @@
+from ipaddress import ip_network
 from pathlib import Path
 from typing import Literal
 
@@ -21,6 +22,8 @@ class Settings(BaseSettings):
     visitor_retained_limit: int = Field(default=500, ge=1, le=5000)
     visitor_mutation_limit: int = Field(default=200, ge=10, le=1000)
     visitor_job_limit: int = Field(default=12, ge=6, le=60)
+    visitor_start_limit: int = Field(default=10, ge=1, le=100)
+    shared_visitor_start_limit: int = Field(default=150, ge=10, le=2000)
     invite_hours: int = Field(default=48, ge=1, le=168)
     recovery_minutes: int = Field(default=30, ge=5, le=60)
     privacy_tombstone_days: int = Field(default=90, ge=1, le=365)
@@ -30,6 +33,13 @@ class Settings(BaseSettings):
     max_outcomes: int = Field(default=500, ge=1, le=2000)
     db_pool_size: int = Field(default=5, ge=1, le=30)
     db_pool_timeout: int = Field(default=10, ge=1, le=60)
+    migration_lock_timeout: int = Field(default=30, ge=1, le=300)
+    client_identity_mode: Literal["direct", "trusted_proxy", "shared"] = "direct"
+    client_ip_header: Literal["x-m2o-client-ip", "cf-connecting-ip"] = "x-m2o-client-ip"
+    trusted_proxy_cidrs: str = Field(default="", max_length=2048)
+    worker_heartbeat_file: str = ""
+    worker_heartbeat_timeout: int = Field(default=45, ge=25, le=300)
+    worker_job_deadline: int = Field(default=600, ge=60, le=3600)
     embed_provider: Literal["hash", "sentence-transformers"] = "hash"
     embed_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     ollama_url: str = "http://127.0.0.1:11434"
@@ -62,6 +72,28 @@ class Settings(BaseSettings):
             and self.google_meet_client_secret.get_secret_value()
             and self.provider_encryption_key.get_secret_value()
         )
+
+    @field_validator("trusted_proxy_cidrs")
+    @classmethod
+    def validate_trusted_proxies(cls, value: str) -> str:
+        networks = []
+        for part in value.split(",") if value else []:
+            try:
+                network = ip_network(part.strip(), strict=True)
+            except ValueError:
+                raise ValueError("Trusted proxies require explicit IP addresses or canonical CIDRs") from None
+            if network.prefixlen == 0:
+                raise ValueError("Trust-all proxy networks are forbidden")
+            networks.append(str(network))
+        return ",".join(networks)
+
+    @model_validator(mode="after")
+    def client_identity_policy(self):
+        if self.client_identity_mode == "trusted_proxy" and not self.trusted_proxy_cidrs:
+            raise ValueError("Trusted proxy mode requires explicit trusted peers")
+        if self.client_identity_mode != "trusted_proxy" and self.trusted_proxy_cidrs:
+            raise ValueError("Trusted peers require trusted proxy mode")
+        return self
 
     @property
     def google_meet_redirect_uri(self) -> str:

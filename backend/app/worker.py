@@ -30,6 +30,7 @@ from .models import (
     User,
     now,
 )
+from .schema_compatibility import check_schema
 from .services.common import audit, meeting_access
 from .services.errors import ServiceError
 from .services.extraction import ExtractionService
@@ -37,6 +38,7 @@ from .services.issues import IssueService
 from .services.linkedin_publishing import publish_linkedin
 from .settings import settings
 from .slack_delivery import SlackDeliveryAdapter, UncertainSlackWrite, content_hash
+from .worker_health import WorkerPulse
 
 log = logging.getLogger("meeting.worker")
 
@@ -93,7 +95,11 @@ def claim():
         job = session.scalar(
             select(Job)
             .where(
-                or_(Job.state == "queued", (Job.state == "running") & (Job.lease_until < now())),
+                # A running job without a lease has no live owner; NULL < now() would never match it.
+                or_(
+                    Job.state == "queued",
+                    (Job.state == "running") & or_(Job.lease_until.is_(None), Job.lease_until < now()),
+                ),
                 Job.available_at <= now(),
             )
             .order_by(Job.created_at)
@@ -159,7 +165,7 @@ def authorized(session, job):
     return principal, meeting
 
 
-async def heartbeat(record):
+async def heartbeat(record, runtime: WorkerPulse | None = None):
     while True:
         await asyncio.sleep(20)
 
@@ -169,6 +175,8 @@ async def heartbeat(record):
                 job.lease_until = now() + timedelta(seconds=90)
 
         await asyncio.to_thread(renew)
+        if runtime is not None:
+            runtime.write()
 
 
 async def publish(record, adapter):
@@ -476,11 +484,15 @@ async def execute(record, adapter=None, linkedin_adapter=None):
         return result
 
 
-async def run_once(adapter=None, *, linkedin_adapter=None):
+async def run_once(adapter=None, *, linkedin_adapter=None, runtime: WorkerPulse | None = None):
+    if runtime is not None:
+        runtime.idle()
     record = await asyncio.to_thread(claim)
     if not record:
         return False
-    pulse = asyncio.create_task(heartbeat(record))
+    if runtime is not None:
+        runtime.busy()
+    pulse = asyncio.create_task(heartbeat(record, runtime))
     try:
         result = await execute(record, adapter, linkedin_adapter)
         with session_scope() as session:
@@ -560,12 +572,15 @@ async def run_once(adapter=None, *, linkedin_adapter=None):
             await pulse
         except (asyncio.CancelledError, ServiceError):
             pass
+        if runtime is not None:
+            runtime.idle()
     return True
 
 
 async def serve():
+    runtime = WorkerPulse(settings.worker_heartbeat_file)
     while True:
-        if not await run_once():
+        if not await run_once(runtime=runtime):
             await asyncio.sleep(1)
 
 
@@ -573,6 +588,7 @@ def main():
     from .observability import configure_logging
 
     configure_logging()
+    check_schema()
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()

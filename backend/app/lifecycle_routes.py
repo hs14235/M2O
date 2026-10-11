@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from .auth import Principal, authenticate, workspace_principal
+from .client_identity import budget_key
 from .database import get_session
 from .limits import consume
 from .schemas import (
@@ -84,7 +85,7 @@ def inspect_invitation(
     session: Session = Depends(get_session, scope="function"),
 ):
     origin(request)
-    consume("invitation-inspect:" + (request.client.host if request.client else "unknown"), 30)
+    consume(budget_key(request, "invitation-inspect"), 30)
     response.headers["Cache-Control"] = "no-store"
     return InvitationService(session).inspect(payload.token)
 
@@ -97,7 +98,7 @@ def accept_invitation(
     session: Session = Depends(get_session, scope="function"),
 ):
     origin(request)
-    consume("invitation-accept:" + (request.client.host if request.client else "unknown"), 15)
+    consume(budget_key(request, "invitation-accept"), 15)
     response.headers["Cache-Control"] = "no-store"
     return InvitationService(session).accept(payload, optional_browser(request, session))
 
@@ -105,7 +106,7 @@ def accept_invitation(
 @router.post("/api/auth/recovery/request", status_code=202)
 def recovery_request(payload: RecoveryRequestInput, request: Request):
     origin(request)
-    consume("recovery-request:" + (request.client.host if request.client else "unknown"), 10)
+    consume(budget_key(request, "recovery-request"), 10)
     return {
         "accepted": True,
         "delivery": "manual_operator",
@@ -121,7 +122,7 @@ def recovery_reset(
     session: Session = Depends(get_session, scope="function"),
 ):
     origin(request)
-    consume("recovery-reset:" + (request.client.host if request.client else "unknown"), 10)
+    consume(budget_key(request, "recovery-reset"), 10)
     result = RecoveryService(session).reset(payload)
     response.headers["Cache-Control"] = "no-store"
     response.delete_cookie("mtt_session", path="/")
