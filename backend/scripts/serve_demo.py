@@ -85,7 +85,11 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         )
     except ValueError:
         raise ValueError("Invalid hosted client identity or worker health policy") from None
-    origin = urlsplit(env.get("APP_ORIGIN", ""))
+    # Render assigns the public URL only when the service is created (with a suffix if
+    # the name is taken) and exposes it as RENDER_EXTERNAL_URL; an explicit origin wins.
+    if not env.get("APP_ORIGIN", "").strip():
+        env["APP_ORIGIN"] = env.get("RENDER_EXTERNAL_URL", "").strip()
+    origin = urlsplit(env["APP_ORIGIN"])
     if (
         origin.scheme != "https"
         or not origin.hostname
@@ -96,6 +100,8 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         or origin.fragment
     ):
         raise ValueError("APP_ORIGIN must be the exact HTTPS application origin")
+    # Browsers send Origin without a trailing slash, and the API compares it exactly.
+    env["APP_ORIGIN"] = origin.scheme + "://" + origin.netloc
     database = env.get("DATABASE_URL", "")
     if database.startswith("postgres://"):
         database = "postgresql+psycopg://" + database.removeprefix("postgres://")

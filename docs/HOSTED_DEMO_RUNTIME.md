@@ -12,11 +12,11 @@ This runtime is prepared locally for the selected Render Free demonstration. It 
 
 ## Configuration boundary
 
-`render.yaml` declares one free Docker web service with automatic deployments disabled. It deliberately does not create a database or fabricate a deployment address. Before any separately authorized deployment, supply the actual `DATABASE_URL` and exact HTTPS `APP_ORIGIN` through Render's private environment settings. The selected database must be dedicated to the synthetic demo; do not reuse a private workspace database.
+`render.yaml` declares one free Docker web service and one free Render Postgres database dedicated to the synthetic demo (decided October 11, 2026). Deploys are continuous but gated: `autoDeployTrigger: checksPass` deploys `main` only after its GitHub checks pass. The database URL is wired from the private network connection string, never written inline, and the database accepts no external connections (`ipAllowList: []`). The launcher takes the public origin from Render's `RENDER_EXTERNAL_URL` unless `APP_ORIGIN` is set explicitly, for example for a custom domain. Free Render Postgres expires 30 days after creation and is deleted after a further 14 days; the demo holds only synthetic data, so the operator recreates the database rather than upgrading. Do not reuse a private workspace database.
 
 The startup guard requires `PUBLIC_DEMO_MODE=true`, hash retrieval and an empty `OLLAMA_MODEL`. It rejects provider client credentials, signing secrets, operator tokens and the provider encryption key. Production secure cookies are enforced. A deployment must use the server-enforced isolated visitor flow, never a publicly shared test-account password.
 
-No email delivery, provider publishing, OAuth activation or account creation on a third-party service occurs merely by building this image. The `sync: false` entries require the operator to provide actual values rather than putting credentials in source.
+No email delivery, provider publishing, OAuth activation or account creation on a third-party service occurs merely by building this image. No credential appears in `render.yaml`; Render generates the database password and injects the connection string at runtime.
 
 ## Local verification
 

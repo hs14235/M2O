@@ -3,13 +3,14 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from app.hosted import HostedApplication
-from scripts.serve_demo import demo_environment, stop_children, supervise
+from scripts.serve_demo import PRIVATE_CREDENTIAL_KEYS, demo_environment, stop_children, supervise
 
 
 @pytest.fixture
@@ -79,6 +80,16 @@ def test_demo_environment_normalizes_render_database_without_mutating_input():
     assert env["PORT"] == "10000"
 
 
+def test_demo_origin_falls_back_to_render_url_and_drops_trailing_slash():
+    config = {**demo_config(), "APP_ORIGIN": ""}
+    rendered = demo_environment({**config, "RENDER_EXTERNAL_URL": "https://m2o-demo-x1y2.onrender.com/"})
+    assert rendered["APP_ORIGIN"] == "https://m2o-demo-x1y2.onrender.com"
+    explicit = demo_environment({**demo_config(), "RENDER_EXTERNAL_URL": "https://ignored.onrender.com"})
+    assert explicit["APP_ORIGIN"] == "https://demo.example.test"
+    with pytest.raises(ValueError, match="APP_ORIGIN"):
+        demo_environment(config)
+
+
 @pytest.mark.parametrize(
     "key,value",
     [
@@ -121,10 +132,19 @@ def test_child_shutdown_reaps_a_running_process():
     assert child.poll() is not None
 
 
-def test_root_build_context_excludes_private_runtime_and_render_is_manual():
+def test_root_build_context_excludes_private_runtime_and_render_deploys_only_after_checks():
     root = Path(__file__).resolve().parents[2]
     ignore = (root / ".dockerignore").read_text()
     assert "**/.env" in ignore and ".runtime" in ignore and "**/node_modules" in ignore
-    blueprint = (root / "render.yaml").read_text()
-    assert 'autoDeployTrigger: "off"' in blueprint
-    assert "plan: free" in blueprint and "sync: false" in blueprint
+    blueprint = yaml.safe_load((root / "render.yaml").read_text())
+    (web,) = blueprint["services"]
+    (database,) = blueprint["databases"]
+    # Deploy only commits whose CI passed; never on every push.
+    assert web["autoDeployTrigger"] == "checksPass"
+    assert web["plan"] == "free" and database["plan"] == "free"
+    # The database is private-network only, and its URL is wired, never written inline.
+    assert database["ipAllowList"] == [] and web["region"] == database["region"]
+    env = {item["key"]: item for item in web["envVars"]}
+    assert env["DATABASE_URL"]["fromDatabase"] == {"name": database["name"], "property": "connectionString"}
+    assert env["CLIENT_IDENTITY_MODE"]["value"] == "shared"
+    assert not set(env) & set(PRIVATE_CREDENTIAL_KEYS)
