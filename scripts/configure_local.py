@@ -1,9 +1,18 @@
 """Generate ignored local PostgreSQL configuration without printing secrets."""
 
+import hashlib
+import re
 import secrets
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def compose_project_name(root: Path) -> str:
+    # Folder names repeat across worktrees, so a short path hash keeps stacks separate.
+    slug = re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-") or "checkout"
+    digest = hashlib.sha256(str(root).lower().encode()).hexdigest()[:8]
+    return f"m2o-{slug}-{digest}"
 
 
 def main():
@@ -12,6 +21,7 @@ def main():
         raise SystemExit("Existing configuration preserved. Edit it explicitly or choose a fresh worktree.")
     password = secrets.token_hex(32)
     root_env.write_text(
+        f"COMPOSE_PROJECT_NAME={compose_project_name(ROOT)}\n"
         f"POSTGRES_USER=meeting\nPOSTGRES_PASSWORD={password}\nPOSTGRES_DB=meeting_to_tasks\nPOSTGRES_PORT=55432\nAPP_PORT=8080\n",
         encoding="utf-8",
     )

@@ -58,6 +58,7 @@ def demo_config():
         "PUBLIC_DEMO_MODE": "true",
         "DATABASE_URL": "postgresql://synthetic:synthetic@localhost/demo",
         "APP_ORIGIN": "https://demo.example.test",
+        "CLIENT_IDENTITY_MODE": "shared",
     }
 
 

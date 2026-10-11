@@ -25,3 +25,9 @@ services:
         value: ""
       - key: DB_POOL_SIZE
         value: "2"
+      # One site-wide admission budget: Render publishes no inbound proxy ranges to trust.
+      # Switch to trusted_proxy only after a hosted test proves CF-Connecting-IP is overwritten.
+      - key: CLIENT_IDENTITY_MODE
+        value: shared
+      - key: SHARED_VISITOR_START_LIMIT
+        value: "150"
