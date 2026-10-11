@@ -236,6 +236,39 @@ def test_erasure_freezes_scope_and_can_resume_after_running_job_settles(client, 
     assert session.scalar(select(func.count()).select_from(Job)) == 0
 
 
+@pytest.mark.parametrize("lease", ["expired", "missing"])
+def test_worker_recovery_settles_crashed_job_so_erasure_completes(client, session, seeded, lease):
+    # Drill: the worker died mid-job (lease lapsed or never recorded), then erasure was requested.
+    service = MeetingService(session, seeded["principal"])
+    result = service.index(IndexInput(meeting_id="crashed", transcript=PRIVATE_TEXT))
+    session.commit()
+    job = session.get(Job, result["job_id"])
+    job.state, job.lease_token = "running", "crashed-worker-lease"
+    job.lease_until = now() - timedelta(seconds=1) if lease == "expired" else None
+    session.commit()
+    headers = login(client)
+    root = "/api/workspaces/" + seeded["workspace"].id
+    body = {"password": PASSWORD, "confirmation_name": seeded["workspace"].name, "expected_version": 1}
+    pending = client.post(root + "/privacy/erase", json=body, headers=headers)
+    assert pending.status_code == 202 and pending.json()["retry_required"]
+
+    # Waking the worker reclaims the job, rechecks authority against the frozen workspace and settles it.
+    assert asyncio.run(run_once())
+    session.expire_all()
+    settled = session.get(Job, result["job_id"])
+    assert settled.state == "failed" and settled.error_code == "service_404"
+    assert settled.lease_until is None
+    # Nothing is left for another claim: the settled job is never requeued.
+    assert not asyncio.run(run_once())
+
+    version = client.get(root + "/privacy").json()["version"]
+    completed = client.post(
+        root + "/privacy/erase", json={**body, "expected_version": version}, headers=headers
+    )
+    assert completed.status_code == 200 and completed.json()["state"] == "erased"
+    assert session.scalar(select(func.count()).select_from(Job)) == 0
+
+
 def test_workspace_scoped_token_cannot_target_another_owned_workspace(session, seeded):
     session.add(Membership(user_id=seeded["user"].id, workspace_id=seeded["isolated"].id, role="owner"))
     session.commit()

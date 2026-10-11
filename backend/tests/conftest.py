@@ -58,6 +58,17 @@ def engine(tmp_path, monkeypatch, request):
             connection.execute("PRAGMA foreign_keys=ON")
 
         Base.metadata.create_all(engine)
+        # SQLite fixtures model a migrated release, but do not claim migration
+        # or row-lock evidence. PostgreSQL above executes the actual migrations.
+        from app.schema_compatibility import supported_revisions
+
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)"))
+            for revision in supported_revisions():
+                connection.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:revision)"),
+                    {"revision": revision},
+                )
     monkeypatch.setattr(database, "get_engine", lambda: engine)
     monkeypatch.setattr(settings, "app_environment", "test")
     monkeypatch.setattr(settings, "embed_provider", "hash")

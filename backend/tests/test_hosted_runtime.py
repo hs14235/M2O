@@ -45,6 +45,14 @@ def test_missing_assets_unsafe_paths_and_non_navigation_requests_never_receive_s
     assert hosted.head("/", headers={"Accept": "text/html"}).content == b""
 
 
+@pytest.mark.parametrize("accept", ["", "*/*", "application/json"])
+def test_site_root_serves_the_shell_regardless_of_accept_header(hosted, accept):
+    # Monitors, link previews and CLI clients fetch "/" without asking for HTML.
+    page = hosted.get("/", headers={"Accept": accept})
+    assert page.status_code == 200 and "M2O shell" in page.text
+    assert "script-src 'self'" in page.headers["Content-Security-Policy"]
+
+
 def test_assets_are_immutable_and_build_is_required(hosted, tmp_path):
     response = hosted.get("/assets/app-abc123.js")
     assert response.status_code == 200 and "immutable" in response.headers["Cache-Control"]
@@ -58,6 +66,7 @@ def demo_config():
         "PUBLIC_DEMO_MODE": "true",
         "DATABASE_URL": "postgresql://synthetic:synthetic@localhost/demo",
         "APP_ORIGIN": "https://demo.example.test",
+        "CLIENT_IDENTITY_MODE": "shared",
     }
 
 

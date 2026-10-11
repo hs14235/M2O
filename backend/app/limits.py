@@ -1,4 +1,5 @@
 from datetime import timedelta
+from math import ceil
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -10,6 +11,18 @@ from .auth import aware, digest
 from .database import session_scope
 from .models import RateBucket, now
 from .services.errors import ServiceError
+
+
+def throttled(expires_at) -> ServiceError:
+    return ServiceError(
+        status_code=429,
+        error="Too many requests; try again later",
+        where="client",
+        extra={
+            "code": "rate_limited",
+            "retry_after": max(1, ceil((aware(expires_at) - now()).total_seconds())),
+        },
+    )
 
 
 def consume(key: str, maximum=10, seconds=300, *, session: Session | None = None):
@@ -33,7 +46,7 @@ def consume(key: str, maximum=10, seconds=300, *, session: Session | None = None
         if aware(row.expires_at) <= now():
             row.count, row.expires_at = 0, now() + timedelta(seconds=seconds)
         if row.count >= maximum:
-            raise ServiceError(status_code=429, error="Too many requests; try again later", where="client")
+            raise throttled(row.expires_at)
         row.count += 1
         return
     # A first-request collision is retried only before the rate-limit mutation.
@@ -48,11 +61,10 @@ def consume(key: str, maximum=10, seconds=300, *, session: Session | None = None
                 if aware(row.expires_at) <= now():
                     row.count, row.expires_at = 0, now() + timedelta(seconds=seconds)
                 blocked = row.count >= maximum
+                expires_at = row.expires_at
                 row.count += 0 if blocked else 1
             if blocked:
-                raise ServiceError(
-                    status_code=429, error="Too many requests; try again later", where="client"
-                )
+                raise throttled(expires_at)
             return
         except IntegrityError:
             if attempt:

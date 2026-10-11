@@ -1,4 +1,5 @@
-name: meeting-to-tasks-e2db
+# The project name comes from COMPOSE_PROJECT_NAME in each checkout's generated .env,
+# so separate worktrees never share containers or database volumes.
 services:
   db:
     image: postgres:17-alpine
