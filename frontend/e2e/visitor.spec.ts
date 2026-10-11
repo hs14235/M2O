@@ -4,6 +4,10 @@ import AxeBuilder from "@axe-core/playwright";
 // Documentation captures are opt-in so ordinary runs never rewrite tracked media.
 const docMedia = process.env.MTT_UPDATE_DOC_MEDIA === "1" ? "../docs/media/" : "test-results/doc-media/";
 async function accessible(page: Page) {
+  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+    .map(animation => animation.finished.catch(() => undefined))));
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
 }
 async function enter(page: Page) {
