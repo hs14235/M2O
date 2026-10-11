@@ -4,7 +4,7 @@ services:
     name: m2o-synthetic-demo
     runtime: docker
     plan: free
-    region: oregon
+    region: virginia  # Same region as the Neon database (AWS us-east-1)
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     healthCheckPath: /readyz
