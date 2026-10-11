@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from .access_policy import aware, require_private_account, require_private_scope, user_is_active
 from .auth import Principal, authenticate, create_session, require_role, workspace_principal
+from .client_identity import budget_key, budget_limit
 from .database import check_database, get_session, must_get
 from .demo_fixtures import scenarios
 from .experience_routes import router as experience_router
@@ -42,6 +43,7 @@ from .models import (
     now,
 )
 from .observability import configure_logging
+from .schema_compatibility import check_schema, require_schema
 from .schemas import (
     ApprovalInput,
     DemoLoadInput,
@@ -78,6 +80,7 @@ from .services.retrieval import RetrievalService
 from .services.review import ReviewService
 from .settings import settings
 from .slack_routes import router as slack_router
+from .worker_health import require_worker
 
 configure_logging()
 log = logging.getLogger("meeting.api")
@@ -86,6 +89,7 @@ log = logging.getLogger("meeting.api")
 @asynccontextmanager
 async def lifespan(app):
     check_database()
+    check_schema()
     yield
 
 
@@ -115,6 +119,14 @@ app.add_middleware(
 )
 
 
+def error_response(exc: ServiceError, request_id: str) -> JSONResponse:
+    response = JSONResponse(status_code=exc.status_code, content={**exc.detail, "request_id": request_id})
+    retry = exc.detail.get("retry_after")
+    if exc.status_code == 429 and type(retry) is int and retry > 0:
+        response.headers["Retry-After"] = str(retry)
+    return response
+
+
 @app.middleware("http")
 async def observe(request: Request, call_next):
     request_id, started = str(uuid4()), perf_counter()
@@ -140,7 +152,7 @@ async def observe(request: Request, call_next):
     try:
         response = await call_next(request)
     except ServiceError as exc:
-        response = JSONResponse(status_code=exc.status_code, content={**exc.detail, "request_id": request_id})
+        response = error_response(exc, request_id)
     except Exception as exc:  # noqa: BLE001 -- Last request boundary returns a safe error.
         log.error("request_failed", extra={"request_id": request_id, "error_code": type(exc).__name__})
         response = JSONResponse(
@@ -160,7 +172,7 @@ async def observe(request: Request, call_next):
         extra={
             "request_id": request_id,
             "method": request.method,
-            "path": request.url.path,
+            "path": getattr(request.scope.get("route"), "path", "unmatched"),
             "status": response.status_code,
             "duration_ms": round((perf_counter() - started) * 1000, 2),
         },
@@ -170,9 +182,7 @@ async def observe(request: Request, call_next):
 
 @app.exception_handler(ServiceError)
 async def service_error(request, exc):
-    return JSONResponse(
-        status_code=exc.status_code, content={**exc.detail, "request_id": request.state.request_id}
-    )
+    return error_response(exc, request.state.request_id)
 
 
 @app.exception_handler(RequestValidationError)
@@ -226,7 +236,8 @@ def health():
 @app.get("/readyz")
 def ready(session: Session = Depends(get_session, scope="function")):
     session.execute(text("SELECT 1"))
-    version = session.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    version = require_schema(session.connection())
+    require_worker()
     return {"status": "ready", "schema": version}
 
 
@@ -239,7 +250,7 @@ def login(
 ):
     if request.headers.get("Origin") != settings.app_origin:
         raise ServiceError(status_code=403, error="Request origin is not allowed", where="client")
-    consume("login-ip:" + (request.client.host if request.client else "unknown"), 30)
+    consume(budget_key(request, "login"), 30)
     consume("login-account:" + payload.email.casefold(), 10)
     user, token, csrf = create_session(session, payload.email, payload.password)
     response.set_cookie(
@@ -330,7 +341,11 @@ def start_demo(
             error="You are already signed in; sign out before starting a fresh demo",
             where="client",
         )
-    consume("visitor-ip:" + (request.client.host if request.client else "unknown"), 10, 3600)
+    consume(
+        budget_key(request, "visitor"),
+        budget_limit(settings.visitor_start_limit, settings.shared_visitor_start_limit),
+        3600,
+    )
     user, token, csrf = DemoService(session).start()
     for name, value, http_only in (("mtt_session", token, True), ("mtt_csrf", csrf, False)):
         response.set_cookie(

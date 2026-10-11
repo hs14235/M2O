@@ -2,7 +2,9 @@
 
 ## Runtime and startup
 
-Compose project `meeting-to-tasks-e2db` runs PostgreSQL 17, a one-shot migration service, FastAPI, a durable worker, Nginx/React and optional Ollama. Web and database ports bind only to loopback. Generated configuration contains a random database password and is ignored. Do not print `docker compose config` without `--quiet`, since expanded configuration contains secrets.
+Each checkout's Compose project runs PostgreSQL 17, a one-shot migration service, FastAPI, a durable worker, Nginx/React and optional Ollama. Web and database ports bind only to loopback. Generated configuration contains a random database password and is ignored. Do not print `docker compose config` without `--quiet`, since expanded configuration contains secrets.
+
+`scripts/configure_local.py` writes a unique `COMPOSE_PROJECT_NAME` (folder name plus a short path hash) into the ignored root `.env`, so two worktrees never share containers or database volumes. A checkout configured before this change must add `COMPOSE_PROJECT_NAME` to its `.env` by hand; the original coordinator checkout keeps `meeting-to-tasks-e2db` so it continues to use its existing database volume. Stacks in different worktrees still default to the same host ports, so run one at a time or change `POSTGRES_PORT`/`APP_PORT` in one `.env`.
 
 From the root, `docker compose config --quiet` validates configuration. `docker compose up -d --build web worker` starts the database, waits for its health, applies the migration, and starts application services. API `/healthz` establishes process liveness; `/readyz` verifies the database/schema. Nginx exposes `/healthz` by proxying to the API's `/readyz`, so `http://localhost:8080/healthz` verifies readiness through the web service.
 
@@ -19,6 +21,8 @@ To pause containers without removing data, use `docker compose stop`. Named volu
 The migration does not alter the previous SQLite file. It was executed against the local PostgreSQL database and independently against disposable test schemas. `python -m alembic check` found no model/schema upgrade differences. Downgrade is intentionally blocked because dropping this foundation would delete state; recovery uses a tested backup or a reviewed forward migration.
 
 For later schema changes, create the smallest additive migration, inspect SQL/locking/backfill implications, test representative data and plan compatible rollout order. Do not rewrite an applied migration. Production execution requires the actual target, backup, release and rollback plan to be verified first.
+
+Rollback policy (decided October 10, 2026): the API, worker and `/readyz` accept only the exact migration head this release was tested with, so an older application image refuses to start against a newer schema. After a migration has run, rollback therefore means a forward fix or a verified restore, never redeploying the previous image. This fail-closed rule is accepted for the disposable synthetic demo. Before invited private use, adopt one-release overlap: migrations only add in one release and remove in a later one, and the supported revision set includes the previous head once that compatibility is tested.
 
 ## Legacy SQLite import
 

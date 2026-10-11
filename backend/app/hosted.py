@@ -42,7 +42,8 @@ class HostedApplication:
             return Response(status_code=404, headers={**STATIC_HEADERS, "Cache-Control": "no-store"})
         if not candidate.is_file():
             # Only document navigation receives the SPA shell. Missing assets stay missing.
-            if (
+            # The site root always does: clients that omit Accept must not see "/" as missing.
+            if relative and (
                 Path(relative).suffix
                 or relative.startswith(("assets/", "media/"))
                 or "text/html" not in request.headers.get("accept", "")
