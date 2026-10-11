@@ -4,18 +4,18 @@ services:
     name: m2o-synthetic-demo
     runtime: docker
     plan: free
-    region: oregon
+    region: virginia  # Same region as the Neon database (AWS us-east-1)
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     healthCheckPath: /readyz
     # Continuous deployment: main deploys only after its GitHub checks pass.
     autoDeployTrigger: checksPass
     envVars:
-      # The public origin comes from Render's RENDER_EXTERNAL_URL (see scripts/serve_demo.py).
+      # Direct (non-pooled) connection string of the dedicated Neon demo database, entered
+      # privately in Render. Render allows one free Postgres per workspace, used by Trainline.
       - key: DATABASE_URL
-        fromDatabase:
-          name: m2o-demo-db
-          property: connectionString
+        sync: false
+      # The public origin comes from Render's RENDER_EXTERNAL_URL (see scripts/serve_demo.py).
       - key: PUBLIC_DEMO_MODE
         value: "true"
       - key: COOKIE_SECURE
@@ -34,11 +34,3 @@ services:
         value: shared
       - key: SHARED_VISITOR_START_LIMIT
         value: "150"
-
-databases:
-  # Free Render Postgres expires 30 days after creation and is deleted 14 days later.
-  # The demo holds only synthetic data; recreate the database when it expires.
-  - name: m2o-demo-db
-    plan: free
-    region: oregon
-    ipAllowList: []

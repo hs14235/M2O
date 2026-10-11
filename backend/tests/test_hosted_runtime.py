@@ -104,6 +104,7 @@ def test_demo_origin_falls_back_to_render_url_and_drops_trailing_slash():
         ("APP_ORIGIN", "http://localhost:8080"),
         ("APP_ORIGIN", "https://demo.example.test/path"),
         ("APP_ORIGIN", "https://user:synthetic@demo.example.test"),
+        ("DATABASE_URL", "postgresql://u:p@ep-synthetic-1-pooler.us-west-2.aws.neon.tech/demo"),
     ],
 )
 def test_demo_rejects_private_credentials_inference_and_invalid_configuration(key, value):
@@ -138,13 +139,12 @@ def test_root_build_context_excludes_private_runtime_and_render_deploys_only_aft
     assert "**/.env" in ignore and ".runtime" in ignore and "**/node_modules" in ignore
     blueprint = yaml.safe_load((root / "render.yaml").read_text())
     (web,) = blueprint["services"]
-    (database,) = blueprint["databases"]
     # Deploy only commits whose CI passed; never on every push.
     assert web["autoDeployTrigger"] == "checksPass"
-    assert web["plan"] == "free" and database["plan"] == "free"
-    # The database is private-network only, and its URL is wired, never written inline.
-    assert database["ipAllowList"] == [] and web["region"] == database["region"]
+    # Free web service; the database is external (Neon), so the Blueprint creates none.
+    assert web["plan"] == "free" and "databases" not in blueprint
     env = {item["key"]: item for item in web["envVars"]}
-    assert env["DATABASE_URL"]["fromDatabase"] == {"name": database["name"], "property": "connectionString"}
+    # The connection string is entered privately in Render, never written in source.
+    assert env["DATABASE_URL"] == {"key": "DATABASE_URL", "sync": False}
     assert env["CLIENT_IDENTITY_MODE"]["value"] == "shared"
     assert not set(env) & set(PRIVATE_CREDENTIAL_KEYS)
