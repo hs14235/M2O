@@ -25,6 +25,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      id-token: write # The action exchanges this OIDC token for its GitHub App token
       actions: read # Lets Claude read CI results on pull requests
     steps:
       - name: Checkout repository
