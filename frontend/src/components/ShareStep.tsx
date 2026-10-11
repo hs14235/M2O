@@ -17,19 +17,23 @@ export function ShareStep({ meeting, workspace, user, selected, onSelect, onJob,
   const [format, setFormat] = useState<"markdown" | "json">("markdown"), [evidence, setEvidence] = useState(false), [artifact, setArtifact] = useState<{ key: string; value: ExportArtifact } | null>(null), [downloadRequested, setDownloadRequested] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<unknown>(null);
   const stage = routeStage || localStage, destination = provider || localDestination;
   function go(next: HandoffStage, target = destination) { setLocalStage(next); setLocalDestination(target); onStage?.(next, target); }
-  const key = JSON.stringify([workspace.id, meeting.id, selected, meeting.current_revision, meeting.tasks.map(item => [item.id, item.version, item.status]), format, evidence]), currentKey = useRef(key), request = useRef<AbortController | null>(null); currentKey.current = key;
+  const key = JSON.stringify([workspace.id, meeting.id, selected, meeting.current_revision, meeting.visibility, meeting.tasks.map(item => [item.id, item.version, item.status]), destination, format, evidence]), currentKey = useRef(key), request = useRef<AbortController | null>(null); currentKey.current = key;
+  const context = JSON.stringify([key, stage]), currentContext = useRef(context), generation = useRef(0);
+  if (currentContext.current !== context) { currentContext.current = context; generation.current += 1; }
+  useEffect(() => { request.current?.abort(); request.current = null; setBusy(false); }, [context]);
   useEffect(() => { const controller = new AbortController(); api<Integration[]>(scoped(workspace.id, "/integrations"), { signal: controller.signal }).then(value => { if (!controller.signal.aborted) setCatalog(value); }).catch(e => { if (!controller.signal.aborted) setError(e); }); return () => { controller.abort(); request.current?.abort(); }; }, [workspace.id]);
   const approved = meeting.tasks.filter(item => item.status === "approved"), limit = destination === "jira" ? 1 : destination === "slack" ? 10 : 30;
   const eligible = selected.length > 0 && selected.length <= limit && selected.every(id => approved.some(item => item.id === id));
   const available = catalog.find(item => item.id === destination)?.can_preview === true;
   const prepared = artifact?.key === key ? artifact.value : null;
   async function prepare() {
-    request.current?.abort(); const controller = new AbortController(); request.current = controller; const requestedKey = key;
+    if (request.current) return;
+    const controller = new AbortController(); request.current = controller; const requestedKey = key, requestedGeneration = generation.current;
     setBusy(true); setError(null); setArtifact(null); setDownloadRequested(false);
     try {
       const value = await api<ExportArtifact>(scoped(workspace.id, "/meetings/" + meeting.id + "/export"), { signal: controller.signal, method: "POST", body: JSON.stringify({ format, expected_revision: meeting.current_revision, versions: Object.fromEntries(selected.map(id => [id, approved.find(item => item.id === id)!.version])), include_evidence: evidence }) });
-      if (!controller.signal.aborted && currentKey.current === requestedKey) { setArtifact({ key: requestedKey, value }); go("preview"); }
-    } catch (e) { if (!controller.signal.aborted) setError(e); } finally { if (!controller.signal.aborted) setBusy(false); }
+      if (!controller.signal.aborted && currentKey.current === requestedKey && generation.current === requestedGeneration) { setArtifact({ key: requestedKey, value }); go("preview"); }
+    } catch (e) { if (!controller.signal.aborted && generation.current === requestedGeneration) setError(e); } finally { if (request.current === controller) { request.current = null; setBusy(false); } }
   }
   function download(value: ExportArtifact) {
     const url = URL.createObjectURL(new Blob([value.content], { type: value.media_type + ";charset=utf-8" }));
