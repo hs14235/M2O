@@ -109,6 +109,10 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         database = "postgresql+psycopg://" + database.removeprefix("postgresql://")
     if not database.startswith("postgresql+psycopg://"):
         raise ValueError("Hosted demo requires PostgreSQL")
+    # Migrations hold a session advisory lock; a transaction pooler can move statements
+    # to other server connections and silently drop it. Neon marks pooled hosts "-pooler".
+    if "-pooler." in (urlsplit(database).hostname or ""):
+        raise ValueError("Use the database's direct connection string, not its pooled one")
     env["DATABASE_URL"] = database
     port = env.get("PORT", "10000")
     if not port.isdigit() or not 1024 <= int(port) <= 65535:
