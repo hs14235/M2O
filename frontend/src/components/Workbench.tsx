@@ -19,15 +19,21 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
   const [error, setError] = useState<unknown>(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true);
   const [slug, setSlug] = useState(""), [title, setTitle] = useState(""), [text, setText] = useState(""), [visibility, setVisibility] = useState<"workspace" | "restricted">(workspace.department === "hr" ? "restricted" : "workspace"), [occurred, setOccurred] = useState("");
   const [jobId, setJobId] = useState<string | null>(null), [job, setJob] = useState<Job | null>(null), [selected, setSelected] = useState<string[]>([]);
+  const [jobReadError, setJobReadError] = useState<unknown>(null), [jobReading, setJobReading] = useState(false), [jobRefresh, setJobRefresh] = useState(0);
+  const [acceptedSave, setAcceptedSave] = useState<{ meetingId: string; jobId: string | null } | null>(null), [meetingReadFailed, setMeetingReadFailed] = useState(false);
+  const mutation = useRef(false), mounted = useRef(true);
+  const routeKey = JSON.stringify([workspace.id, route.meeting, route.step]), currentRoute = useRef(routeKey), routeGeneration = useRef(0);
+  if (currentRoute.current !== routeKey) { currentRoute.current = routeKey; routeGeneration.current += 1; }
   const dirtyItems = useRef(new Map<string, boolean>()), transcriptDirty = useRef(false), detailRequest = useRef<AbortController | null>(null);
   const [search, setSearch] = useState(""), [query, setQuery] = useState("");
   const currentQuery = useRef(query); currentQuery.current = query;
   useEffect(() => { const timer = setTimeout(() => setQuery(search.trim()), 220); return () => clearTimeout(timer); }, [search]);
   const example = examples[workspace.department], editable = workspace.role !== "viewer";
-  const isDirty = Boolean(meeting ? text !== meeting.raw_text || title !== meeting.title : text || title || occurred);
+  const isDirty = !acceptedSave && Boolean(meeting ? text !== meeting.raw_text || title !== meeting.title : text || title || occurred);
   const notifyDirty = useCallback((id: string, dirty: boolean) => { dirtyItems.current.set(id, dirty); onDirty(transcriptDirty.current || [...dirtyItems.current.values()].some(Boolean)); }, [onDirty]);
   useEffect(() => { transcriptDirty.current = isDirty; onDirty(isDirty || [...dirtyItems.current.values()].some(Boolean)); }, [isDirty, onDirty]);
   useEffect(() => () => { onDirty(false); detailRequest.current?.abort(); }, [onDirty]);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const list = useCallback(async (offset = 0, signal?: AbortSignal) => {
     const snapshot = query;
@@ -51,16 +57,17 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
       const row = await api<Meeting>(scoped(workspace.id, "/meetings/" + encodeURIComponent(id)), { signal: controller.signal });
       if (controller.signal.aborted) return;
       if ([...dirtyItems.current.values()].some(Boolean)) { setError(new Error("Save or discard your outcome edit before refreshing this meeting.")); return; }
-      setMeeting(row); setActive(id); setSlug(row.id);
+      setMeeting(row); setActive(id); setSlug(row.id); setMeetingReadFailed(false);
       if (!preserveTranscript) { setText(row.raw_text); setTitle(row.title); setOccurred(row.occurred_on || ""); setVisibility(row.visibility); }
       setSelected(previous => previous.filter(id => row.tasks.some(item => item.id === id && item.status === "approved")));
-      await list(0, controller.signal); return row;
-    } catch (e) { if (!controller.signal.aborted) setError(e); } finally { if (!controller.signal.aborted) setLoading(false); }
+      try { await list(0, controller.signal); } catch (e) { if (!controller.signal.aborted) setError(e); }
+      return controller.signal.aborted ? undefined : row;
+    } catch (e) { if (!controller.signal.aborted) { setError(e); setMeetingReadFailed(true); } } finally { if (!controller.signal.aborted) setLoading(false); }
   }, [workspace.id, list]);
 
   useEffect(() => {
     if (route.meeting === active) return;
-    detailRequest.current?.abort(); dirtyItems.current.clear(); setSelected([]); setJobId(null); setJob(null); setMeeting(null); setError(null);
+    detailRequest.current?.abort(); dirtyItems.current.clear(); setSelected([]); setJobId(null); setJob(null); setJobReadError(null); setAcceptedSave(null); setMeetingReadFailed(false); setMeeting(null); setError(null);
     if (route.meeting && route.meeting !== "new") { void loadMeeting(route.meeting); }
     else { setActive(route.meeting || ""); setSlug("meeting-" + crypto.randomUUID()); setTitle(""); setText(""); setOccurred(""); setVisibility(workspace.department === "hr" ? "restricted" : "workspace"); }
   }, [route.meeting, loadMeeting, workspace.department]);
@@ -77,12 +84,26 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
     transcriptDirty.current = false; onDirty(false); setJobId(result.job_id); setJob(null); go("people", saved.id);
   }
   async function save(event: React.FormEvent) {
-    event.preventDefault(); setBusy(true); setError(null);
+    event.preventDefault(); if (mutation.current || acceptedSave) return;
+    mutation.current = true; const generation = routeGeneration.current;
+    setBusy(true); setError(null);
     try {
       const result = await api<{ job_id: string | null }>(scoped(workspace.id, "/index"), { method: "POST", body: JSON.stringify({ meeting_id: slug, title, transcript: text, visibility, occurred_on: occurred || null, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...(meeting ? { expected_version: meeting.version } : {}) }) });
-      const saved = await loadMeeting(slug); if (!saved) return;
-      transcriptDirty.current = false; onDirty(false); setJobId(result.job_id); setJob(null); go("people", slug);
-    } catch (e) { setError(e); } finally { setBusy(false); }
+      if (!mounted.current || routeGeneration.current !== generation) return;
+      const accepted = { meetingId: slug, jobId: result.job_id };
+      setAcceptedSave(accepted); setJobId(result.job_id); setJob(null);
+      await completeSave(accepted, generation);
+    } catch (e) { if (mounted.current && routeGeneration.current === generation) setError(e); } finally { mutation.current = false; if (mounted.current) setBusy(false); }
+  }
+  async function completeSave(accepted: { meetingId: string; jobId: string | null }, generation: number) {
+    const saved = await loadMeeting(accepted.meetingId);
+    if (!saved || !mounted.current || routeGeneration.current !== generation) return;
+    setAcceptedSave(null); transcriptDirty.current = false; onDirty(false); go("people", saved.id);
+  }
+  async function recoverSave() {
+    if (!acceptedSave || mutation.current) return;
+    mutation.current = true; setBusy(true);
+    try { await completeSave(acceptedSave, routeGeneration.current); } finally { mutation.current = false; if (mounted.current) setBusy(false); }
   }
   async function upload(file?: File) {
     if (!file) return;
@@ -93,23 +114,27 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
     } catch (e) { setError(e); }
   }
   async function extract() {
+    if (mutation.current) return;
+    mutation.current = true; const generation = routeGeneration.current;
     setError(null); setBusy(true);
-    try { const result = await api<{ job_id: string }>(scoped(workspace.id, "/meetings/" + active + "/extract"), { method: "POST" }); setJobId(result.job_id); setJob(null); } catch (e) { setError(e); } finally { setBusy(false); }
+    try { const result = await api<{ job_id: string }>(scoped(workspace.id, "/meetings/" + active + "/extract"), { method: "POST" }); if (mounted.current && routeGeneration.current === generation) { setJobId(result.job_id); setJob(null); } } catch (e) { if (mounted.current && routeGeneration.current === generation) setError(e); } finally { mutation.current = false; if (mounted.current) setBusy(false); }
   }
   useEffect(() => {
     if (!jobId) return;
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>;
+    setJobReadError(null);
     async function poll() {
+      setJobReading(true);
       try {
         const state = await api<Job>(scoped(workspace.id, "/jobs/" + jobId), { signal: controller.signal });
         if (controller.signal.aborted) return;
         setJob(state);
         if (["queued", "running"].includes(state.state)) timer = setTimeout(poll, 1200);
         else if (active && active !== "new") await loadMeeting(active, true);
-      } catch (e) { if (!controller.signal.aborted) setError(e); }
+      } catch (e) { if (!controller.signal.aborted) setJobReadError(e); } finally { if (!controller.signal.aborted) setJobReading(false); }
     }
     void poll(); return () => { controller.abort(); clearTimeout(timer); };
-  }, [jobId, workspace.id, active, loadMeeting]);
+  }, [jobId, workspace.id, active, loadMeeting, jobRefresh]);
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => { void loadMeeting(meeting.id, true); }, 1500);
@@ -131,7 +156,7 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
     if ([...dirtyItems.current.values()].some(Boolean) && !window.confirm("Discard unsaved outcome edits?")) return;
     dirtyItems.current.clear(); onDirty(transcriptDirty.current); action();
   }
-  const pending = busy || loading || Boolean(jobId && (!job || ["queued", "running"].includes(job.state)));
+  const pending = busy || loading || meetingReadFailed || Boolean(acceptedSave) || Boolean(jobId && (!job || ["queued", "running"].includes(job.state)));
   const ready = Boolean(meeting && meeting.index_status === "ready" && !pending);
   const step = meeting || route.meeting === "new" ? route.step : "transcript";
   return <div className={"workbench guided step-" + step}>
@@ -146,6 +171,9 @@ export default function Workbench({ workspace, user, onDirty, route, navigate }:
       <div className="meeting-heading"><button className="quiet" onClick={() => navigate(routePath(workspace.id))}>All meetings</button><span>{meeting?.title || "New meeting"}</span>{meeting && <span className="badge">Revision {meeting.current_revision}</span>}</div>
       <nav className="stepper" aria-label="Meeting steps"><ol>{meetingStages.map((value, index) => <li key={value}><button aria-current={(step === "share" ? "review" : step) === value ? "step" : undefined} className={(step === "share" ? "review" : step) === value ? "active" : ""} disabled={value !== "transcript" && (!meeting || (value !== "people" && !ready))} onClick={() => go(value)}><span aria-hidden="true">{index + 1}</span>{stepNames[value]}</button></li>)}</ol></nav>
       <ErrorNotice error={error} />{loading && <p role="status">Loading meeting…</p>}
+      {acceptedSave && <section className="notice" role="status"><p>Your transcript save was accepted. Read the saved transcript before continuing; another save is not needed.</p><button disabled={busy || loading} onClick={recoverSave}>Load saved transcript</button></section>}
+      {meetingReadFailed && !acceptedSave && <section className="notice"><p>The current meeting could not be loaded. Stored work has not been resubmitted.</p><button disabled={busy || loading} onClick={() => route.meeting && void loadMeeting(route.meeting, true)}>Load current meeting</button></section>}
+      {jobReadError && <section className="notice"><p>Job status could not be refreshed. {job ? "The last confirmed status is " + job.state + "." : "Its current status is unknown."} Reading status does not submit the work again.</p><ErrorNotice error={jobReadError} /><button disabled={jobReading || busy} onClick={() => setJobRefresh(value => value + 1)}>Read job status again</button></section>}
       {meeting && (step === "review" || step === "share") && <nav className="review-deliver-tabs" aria-label="Review and delivery"><button aria-pressed={step === "review"} onClick={() => go("review")}>Review outcomes</button><button aria-pressed={step === "share"} onClick={() => go("share")}>Prepare delivery</button><button className="quiet" onClick={() => go("calendar")}>View outcome calendar</button></nav>}
       {job && <div className={"notice " + (job.state === "failed" ? "error" : "")} role="status"><strong>{job.kind?.includes("publish") ? "Delivery processing" : "Job"} {job.state}</strong>{job.kind?.includes("publish") && <span> · Check the provider receipt for its actual result.</span>}{job.error_code && <span> · {job.kind === "extract" ? "Extraction did not finish. You can retry or ask the application operator to check the worker." : "The operation did not finish. Check its receipt before trying another delivery."}</span>}{job.result?.mode && <span> · {job.result.mode === "rules" ? "Rule-based extraction" : job.result.mode === "ollama" ? "Local AI extraction" : job.result.mode === "mixed" ? "Mixed local AI and rule-based extraction" : "Extraction mode: " + job.result.mode} · {job.result.created} new outcomes</span>}{job.result?.coverage && <details><summary>Processing details</summary><p>Processed {job.result.coverage.processed_chunks}/{job.result.coverage.total_chunks} chunks. {job.result.coverage.warnings.join(" ")}</p></details>}{job.result?.results?.map((result, i) => <p key={i}>{result.status}{result.url && <> · <a href={result.url} target="_blank" rel="noopener noreferrer">Open delivered outcome</a></>}</p>)}{job.kind === "publish" && job.result?.state === "uncertain" && ["owner", "reviewer"].includes(workspace.role) && <button onClick={reconcile}>Check uncertain delivery status</button>}</div>}
       {user.is_visitor && step === "transcript" && (meeting ? <section className="panel step-panel"><span className="eyebrow">Synthetic source</span><h1>Inspect the conversation.</h1><p>This is an approved, immutable demo transcript. Your outcome reviews and personal plan are editable; real uploads belong in invited private workspaces.</p><pre className="payload-text">{meeting.raw_text}</pre><button className="primary" onClick={() => go("people")}>Continue to people</button></section> : <DemoScenarios workspace={workspace} disabled={pending} onLoaded={openDemo} />)}{!user.is_visitor && (meeting || route.meeting === "new") && step === "transcript" && <TranscriptStep workspace={workspace} onImported={imported} meeting={meeting} title={title} setTitle={setTitle} text={text} setText={setText} slug={slug} setSlug={setSlug} occurred={occurred} setOccurred={setOccurred} visibility={visibility} setVisibility={setVisibility} editable={editable} pending={pending} dirty={isDirty} onSubmit={save} onUpload={upload} onExample={() => { setTitle(example.title); setText(example.text); }} onContinue={() => go("people")} department={workspace.department} />}

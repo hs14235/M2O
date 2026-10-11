@@ -1,5 +1,28 @@
 # Verification evidence
 
+## Phase 7 first reliability increment — October 6, 2026
+
+Implemented and verified in the Phase 7 checkout, branch `codex/m2o-phase7`, based on `ddfca8251ff37f31ef3f175ca1d50da42833ed6c`. These are uncommitted working-tree results, not e2db changes, hosted CI or deployment evidence. The coordinator's worktree and existing planning documents were preserved.
+
+Changes: local handoff preparation rejects late results after stage/provider/visibility departure and guards same-turn duplicate activation; job-read failure exposes a read-only recovery action; accepted transcript/plan changes retain their accepted state when a subsequent GET fails and prevent another mutation until recovery; plan results are scoped to the current workspace/day. API errors distinguish interrupted reads/writes, retain cancellation and explicit 204 acknowledgements, use safe non-JSON fallbacks/request IDs, and reject unreadable successful JSON instead of returning an empty snapshot. Existing expected-version, exact-preview, confirmation and separate personal-progress/provider rules remain in place.
+
+| Check | Observed result | Scope |
+| --- | --- | --- |
+| Before fixes | **9 failed, 12 passed** in four focused files. | Newly added regressions reproduced late preview, duplicate export, missing accepted-write recovery and API normalization concerns. |
+| Focused corrected run | **23 passed** in four files before the final additional workspace-switch regression. | API, local handoff, personal-plan and workbench recovery. |
+| Full frontend | **119 passed in 28 files**, 18.08 seconds. | Includes the added workspace-switch regression and existing provider/review/calendar/lifecycle components. |
+| TypeScript | **Passed**, including a final rerun after fixture correction. | `npm.cmd run typecheck`; configured scope is `frontend/src`. |
+| Production build | **Passed**, Vite 7.3.5. | Native build of this branch; no lockfile or dependency-version change. Initial JS gzip 56.28 kB, Workbench gzip 24.34 kB; these are bundle measurements, not field performance. |
+| Browser final run | **4 passed in 21.5 seconds**, one Edge worker. | Current built frontend, real FastAPI/worker and a UUID-named disposable PostgreSQL schema at loopback port 19080. Only read failures and local-export response delay are injected; no provider is called. Each recovery asserts one extraction POST, transcript POST or personal-plan PATCH as applicable. |
+| Browser accessibility/rendering | **No violations in checked axe WCAG 2 A/AA and 2.1 AA states; no tested horizontal overflow.** | Desktop accepted-save and 390px mobile job/plan recovery screenshots inspected. This is scoped evidence, not a certification. |
+| Diff | Whitespace check passed. | Only frontend implementation/tests and relevant documentation; no backend/schema/CI/runtime configuration change. |
+
+The first browser run was **3 passed, 1 failed** because the test assumed Choose always had `handoff=choose`; the supported legacy `/share` URL also represents Choose. The test now checks the exact original URL and visible Choose heading, retaining Back/Forward and late-response assertions. The initial fixture omitted a required User field and the first cancellation check showed DOMException was not an Error in this environment; both were corrected without weakening assertions. Sandbox restrictions initially blocked npm cache and esbuild ancestor reads; approved reruns used the same reviewed lockfile/configuration.
+
+Private credentials were not copied to files or output. The disposable launcher read the existing loopback PostgreSQL connection in memory, used the installed e2db Python environment only as an interpreter, and loaded application modules/static assets from this Desktop branch. Synthetic credentials stayed in its own ignored fixture and child environment. The helper's controlled stop removes only its own schema/credential fixture; ignored logs/captures remain local. No shared installation refresh, commit, push, provider activation, source-map/telemetry upload or deployment occurred.
+
+Phase 7 remains in progress: duplicate first-workspace creation, route/chunk error recovery, broader offline/hidden-tab polling, session-expiry draft policy, dedicated LinkedIn composer, public SSG pages, separately justified ISR/SSR, private lifecycle CI, operator/DX and optional monitoring are later increments. Full backend/PostgreSQL, Docker/browser suites, hosted CI/Render, live providers and broad accessibility/performance acceptance were not rerun or claimed by this frontend increment.
+
 ## Prepublication security review — October 5, 2026
 
 A targeted independent read-only audit found no blocking authorization, workspace-isolation, credential-exposure or exact-delivery-approval flaw in the inspected paths. Two disjoint native runs produced **94 passed, four PostgreSQL-only skipped**: hosted/visitor/invitation/Google checks (64 passed, four skipped) and API/authentication/upload/privacy/publication checks (30 passed). Skipped checks are not concurrency evidence. This is scoped source and regression evidence, not a whole-system security certification or live-provider policy audit.

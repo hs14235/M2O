@@ -80,6 +80,10 @@ npx.cmd playwright install chromium
 
 For the existing authenticated browser suite, prepare the generated synthetic account with `python -m scripts.bootstrap_demo` from `backend`, then run `python scripts/run_e2e.py` from the repository root. Credentials stay in ignored local files and the child process environment. These tests create synthetic meetings; controlled provider responses are not live provider verification.
 
+The Phase 7 recovery browser suite is `frontend/e2e/phase7-recovery.spec.ts`. Run it against the disposable lifecycle runtime below with `MTT_E2E_URL` set to the fixture's loopback URL, `MTT_LIFECYCLE_FIXTURE` set to the private fixture path, and the fixture's synthetic email/password passed in the child process environment. From `frontend`, the command is `npm.cmd run test:e2e -- e2e/phase7-recovery.spec.ts`. Do not print fixture credentials or use a private/production actor. The suite uses the real API/worker/database and deliberately interrupts selected GET responses or delays a local export response; it does not publish to providers. Screenshots stay under ignored `frontend/test-results`, preserving documentation captures.
+
+If a transcript or personal-plan write was acknowledged but its refresh failed, use **Load saved transcript** or **Load current plan**. If job observation failed, use **Read job status again**. Those actions perform reads and do not resubmit the write. A cancelled or timed-out provider request still needs its provider-specific receipt/uncertainty workflow; an unreadable response is not proof of rejection.
+
 The lifecycle browser runtime helper isolates a real API and worker in a disposable PostgreSQL schema and serves the current built frontend:
 
 ```powershell

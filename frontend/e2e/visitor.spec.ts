@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+// Documentation captures are opt-in so ordinary runs never rewrite tracked media.
+const docMedia = process.env.MTT_UPDATE_DOC_MEDIA === "1" ? "../docs/media/" : "test-results/doc-media/";
 async function accessible(page: Page) {
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
 }
@@ -27,12 +29,12 @@ test("real isolated visitor journeys across departments, exact local handoff and
     await page.getByRole("group", { name: "Department experiences" }).getByRole("button", { name, exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-department", department);
     await accessible(page);
-    await page.screenshot({ path: "../docs/media/visitor-" + department + "-entry.png", fullPage: true });
+    await page.screenshot({ path: docMedia + "visitor-" + department + "-entry.png", fullPage: true });
     await extractFixture(page, fixture);
     if (department === "hr") {
       await page.setViewportSize({ width: 390, height: 844 });
       await accessible(page);
-      await page.screenshot({ path: "../docs/media/visitor-mobile-people.png", fullPage: true });
+      await page.screenshot({ path: docMedia + "visitor-mobile-people.png", fullPage: true });
       await page.setViewportSize({ width: 1280, height: 720 });
     }
     const alex = page.getByLabel("Directory match for Alex");
@@ -48,7 +50,7 @@ test("real isolated visitor journeys across departments, exact local handoff and
     const title = await action.getByRole("heading").innerText();
     await expect(page.getByRole("button", { name: "Mark done" })).toHaveCount(0);
     await accessible(page);
-    await page.screenshot({ path: "../docs/media/visitor-" + department + "-review.png", fullPage: true });
+    await page.screenshot({ path: docMedia + "visitor-" + department + "-review.png", fullPage: true });
     await page.getByRole("button", { name: "Continue to handoff" }).click();
     await page.getByRole("checkbox", { name: title, exact: true }).check();
     await page.getByRole("button", { name: "Continue to preparation" }).click();
@@ -69,7 +71,7 @@ test("real isolated visitor journeys across departments, exact local handoff and
     await page.reload(); await page.getByText(/Completed in this plan/).click();
     await expect(card.getByLabel("Progress for " + title)).toHaveValue("done");
     await accessible(page);
-    await page.screenshot({ path: "../docs/media/visitor-" + department + "-my-day.png", fullPage: true });
+    await page.screenshot({ path: docMedia + "visitor-" + department + "-my-day.png", fullPage: true });
     await page.getByRole("link", { name: "Meetings", exact: true }).click();
   }
 });
@@ -139,5 +141,5 @@ test("authored media plays and loops, pause survives department changes, and too
   }
   await page.reload();
   await expect(page.getByRole("heading", { name: "Put people in context." })).toBeVisible();
-  await page.screenshot({ path: "../docs/media/visitor-mobile-people.png", fullPage: true });
+  await page.screenshot({ path: docMedia + "visitor-mobile-people.png", fullPage: true });
 });
