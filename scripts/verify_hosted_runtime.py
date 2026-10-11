@@ -142,10 +142,15 @@ def main() -> int:
             args.image,
         )
         containers.append(web)
-        address = docker("port", web, "10000/tcp").splitlines()[0]
-        if not address.startswith("127.0.0.1:"):
-            raise RuntimeError("Acceptance port must bind only to loopback")
-        browser = Browser("http://" + address)
+
+        def published() -> str:
+            # Docker assigns a new ephemeral host port each time the container starts.
+            address = docker("port", web, "10000/tcp").splitlines()[0]
+            if not address.startswith("127.0.0.1:"):
+                raise RuntimeError("Acceptance port must bind only to loopback")
+            return "http://" + address
+
+        browser = Browser(published())
 
         def ready():
             try:
@@ -190,7 +195,7 @@ def main() -> int:
         assert status == 202
         wait_until(lambda: completed(extraction["job_id"]))
         assert browser.request("GET", meeting_path)[1]["tasks"]
-        other = Browser("http://" + address)
+        other = Browser(published())
         assert other.request("POST", "/api/demo/start", {})[0] == 201
         assert other.request("GET", meeting_path)[0] == 404
         assert (
@@ -244,11 +249,13 @@ def main() -> int:
             flush=True,
         )
         docker("start", web)
+        browser.base = published()
         wait_until(ready)
         assert browser.request("GET", meeting_path)[0] == 200
         docker("stop", "--time", "15", web)
         assert docker("inspect", "--format", "{{.State.ExitCode}}", web) == "0"
         docker("start", web)
+        browser.base = published()
         wait_until(ready)
         assert browser.request("GET", meeting_path)[0] == 200
         print(
