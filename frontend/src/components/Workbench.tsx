@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import { examples } from "../demo";
-import { meetingStages, routePath, settingsPath, sharePath, type Route, type Step } from "../navigation";
-import type { CalendarEntry, Job, Meeting, MeetingSummary, Participant, User, Workspace } from "../types";
-import { Empty, ErrorNotice } from "./Feedback";
+import { routePath, settingsPath, sharePath, type Route, type Step } from "../navigation";
+import type { CalendarEntry, Job, Meeting, User, Workspace } from "../types";
+import { ErrorNotice } from "./Feedback";
 import { TranscriptStep, PeopleStep, ReviewStep, MeetingHistory } from "./MeetingSteps";
 import { ShareStep } from "./ShareStep";
 import { ContextBubble } from "./ContextBubble";
@@ -11,15 +11,32 @@ import DemoScenarios from "./DemoScenarios";
 import OutcomeCalendar from "./OutcomeCalendar";
 import type { ImportedMeeting } from "./GoogleMeetImport";
 import MeetingList from "./MeetingList";
+import { JobStatus } from "./workbench/JobStatus";
+import { MeetingHeader, stepNames } from "./workbench/MeetingHeader";
+import { WorkbenchNotices } from "./workbench/WorkbenchNotices";
+import { useDirtyTracking } from "./workbench/useDirtyTracking";
+import { useJobPolling } from "./workbench/useJobPolling";
+import { useMeetingSearch } from "./workbench/useMeetingSearch";
+import { usePeople } from "./workbench/usePeople";
+import { useRouteFence } from "./workbench/useRouteFence";
 
-const stepNames: Record<Step, string> = {
-  transcript: "Transcript",
-  people: "People",
-  review: "Review & Deliver",
-  share: "Review & Deliver",
-  calendar: "Calendar",
+const stepHints: Record<Step, string> = {
+  transcript: "Next: confirm the people and extract outcomes.",
+  people: "Next: review each outcome against its evidence.",
+  review: "Next: choose a handoff after approving the source.",
+  share: "Delivery and your personal progress stay separate.",
+  calendar: "Reviewed dates and your personal plan keep their own meaning.",
 };
 
+type AcceptedSave = { meetingId: string; jobId: string | null };
+
+/**
+ * One meeting's guided workflow: Transcript → People → Review & Deliver → Calendar.
+ *
+ * Loading, saving and extraction stay together here because they share the route
+ * fence: every write records the route generation it started in and ignores its
+ * result if the user has since navigated (see useRouteFence).
+ */
 export default function Workbench({
   workspace,
   user,
@@ -33,11 +50,8 @@ export default function Workbench({
   route: Route;
   navigate: (path: string) => void;
 }) {
-  const [meetings, setMeetings] = useState<MeetingSummary[]>([]),
-    [nextOffset, setNextOffset] = useState<number | null>(null),
-    [active, setActive] = useState(""),
-    [meeting, setMeeting] = useState<Meeting | null>(null),
-    [people, setPeople] = useState<Participant[]>([]);
+  const [active, setActive] = useState(""),
+    [meeting, setMeeting] = useState<Meeting | null>(null);
   const [error, setError] = useState<unknown>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
@@ -49,49 +63,19 @@ export default function Workbench({
     ),
     [occurred, setOccurred] = useState("");
   const [jobId, setJobId] = useState<string | null>(null),
-    [job, setJob] = useState<Job | null>(null),
     [selected, setSelected] = useState<string[]>([]);
-  const [jobReadError, setJobReadError] = useState<unknown>(null),
-    [jobReading, setJobReading] = useState(false),
-    [jobRefresh, setJobRefresh] = useState(0);
-  const [acceptedSave, setAcceptedSave] = useState<{ meetingId: string; jobId: string | null } | null>(null),
+  const [acceptedSave, setAcceptedSave] = useState<AcceptedSave | null>(null),
     [meetingReadFailed, setMeetingReadFailed] = useState(false);
   const mutation = useRef(false),
-    mounted = useRef(true);
-  const routeKey = JSON.stringify([workspace.id, route.meeting, route.step]),
-    currentRoute = useRef(routeKey),
-    routeGeneration = useRef(0);
-  if (currentRoute.current !== routeKey) {
-    currentRoute.current = routeKey;
-    routeGeneration.current += 1;
-  }
-  const dirtyItems = useRef(new Map<string, boolean>()),
-    transcriptDirty = useRef(false),
     detailRequest = useRef<AbortController | null>(null);
-  const [search, setSearch] = useState(""),
-    [query, setQuery] = useState("");
-  const currentQuery = useRef(query);
-  currentQuery.current = query;
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(search.trim()), 220);
-    return () => clearTimeout(timer);
-  }, [search]);
+
+  const { meetings, nextOffset, search, setSearch, list, reset: resetList } = useMeetingSearch(workspace.id);
   const example = examples[workspace.department],
     editable = workspace.role !== "viewer";
   const isDirty =
     !acceptedSave &&
     Boolean(meeting ? text !== meeting.raw_text || title !== meeting.title : text || title || occurred);
-  const notifyDirty = useCallback(
-    (id: string, dirty: boolean) => {
-      dirtyItems.current.set(id, dirty);
-      onDirty(transcriptDirty.current || [...dirtyItems.current.values()].some(Boolean));
-    },
-    [onDirty],
-  );
-  useEffect(() => {
-    transcriptDirty.current = isDirty;
-    onDirty(isDirty || [...dirtyItems.current.values()].some(Boolean));
-  }, [isDirty, onDirty]);
+  const { dirtyItems, transcriptDirty, notifyDirty, hasDirtyItems } = useDirtyTracking(onDirty, isDirty);
   useEffect(
     () => () => {
       onDirty(false);
@@ -99,47 +83,14 @@ export default function Workbench({
     },
     [onDirty],
   );
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const { generation: routeGeneration, mounted } = useRouteFence(
+    JSON.stringify([workspace.id, route.meeting, route.step]),
+  );
 
-  const list = useCallback(
-    async (offset = 0, signal?: AbortSignal) => {
-      const snapshot = query;
-      const params = new URLSearchParams({
-        offset: String(offset),
-        limit: "20",
-        ...(query ? { q: query } : {}),
-      });
-      const result = await api<{ meetings: MeetingSummary[]; next_offset: number | null }>(
-        scoped(workspace.id, "/meetings?" + params),
-        { signal },
-      );
-      if (signal?.aborted || currentQuery.current !== snapshot) return;
-      setMeetings((previous) =>
-        offset
-          ? [...new Map([...previous, ...result.meetings].map((row) => [row.id, row])).values()]
-          : result.meetings,
-      );
-      setNextOffset(result.next_offset);
-    },
-    [workspace.id, query],
-  );
-  const loadPeople = useCallback(
-    async (signal?: AbortSignal) => {
-      const result = await api<Participant[]>(scoped(workspace.id, "/participants"), { signal });
-      if (!signal?.aborted) setPeople(result);
-    },
-    [workspace.id],
-  );
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    setMeetings([]);
-    setNextOffset(null);
+    resetList();
     list(0, controller.signal)
       .catch((e) => {
         if (!controller.signal.aborted) setError(e);
@@ -148,14 +99,8 @@ export default function Workbench({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [list]);
-  useEffect(() => {
-    const controller = new AbortController();
-    loadPeople(controller.signal).catch((e) => {
-      if (!controller.signal.aborted) setError(e);
-    });
-    return () => controller.abort();
-  }, [loadPeople]);
+  }, [list, resetList]);
+  const { people, loadPeople } = usePeople(workspace.id, setError);
 
   const loadMeeting = useCallback(
     async (id: string, preserveTranscript = false) => {
@@ -169,7 +114,7 @@ export default function Workbench({
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
-        if ([...dirtyItems.current.values()].some(Boolean)) {
+        if (hasDirtyItems()) {
           setError(new Error("Save or discard your outcome edit before refreshing this meeting."));
           return;
         }
@@ -201,7 +146,7 @@ export default function Workbench({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [workspace.id, list],
+    [workspace.id, list, hasDirtyItems],
   );
 
   useEffect(() => {
@@ -287,7 +232,7 @@ export default function Workbench({
       if (mounted.current) setBusy(false);
     }
   }
-  async function completeSave(accepted: { meetingId: string; jobId: string | null }, generation: number) {
+  async function completeSave(accepted: AcceptedSave, generation: number) {
     const saved = await loadMeeting(accepted.meetingId);
     if (!saved || !mounted.current || routeGeneration.current !== generation) return;
     setAcceptedSave(null);
@@ -339,31 +284,12 @@ export default function Workbench({
       if (mounted.current) setBusy(false);
     }
   }
-  useEffect(() => {
-    if (!jobId) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    setJobReadError(null);
-    async function poll() {
-      setJobReading(true);
-      try {
-        const state = await api<Job>(scoped(workspace.id, "/jobs/" + jobId), { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        setJob(state);
-        if (["queued", "running"].includes(state.state)) timer = setTimeout(poll, 1200);
-        else if (active && active !== "new") await loadMeeting(active, true);
-      } catch (e) {
-        if (!controller.signal.aborted) setJobReadError(e);
-      } finally {
-        if (!controller.signal.aborted) setJobReading(false);
-      }
-    }
-    void poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [jobId, workspace.id, active, loadMeeting, jobRefresh]);
+  const { job, setJob, jobReadError, setJobReadError, jobReading, readAgain } = useJobPolling({
+    workspaceId: workspace.id,
+    jobId,
+    active,
+    loadMeeting,
+  });
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => {
@@ -413,8 +339,7 @@ export default function Workbench({
     }
   }
   function changeReview(action: () => void) {
-    if ([...dirtyItems.current.values()].some(Boolean) && !window.confirm("Discard unsaved outcome edits?"))
-      return;
+    if (hasDirtyItems() && !window.confirm("Discard unsaved outcome edits?")) return;
     dirtyItems.current.clear();
     onDirty(transcriptDirty.current);
     action();
@@ -432,15 +357,7 @@ export default function Workbench({
       {route.meeting && (
         <ContextBubble
           label={stepNames[step] + " tools"}
-          hint={
-            {
-              transcript: "Next: confirm the people and extract outcomes.",
-              people: "Next: review each outcome against its evidence.",
-              review: "Next: choose a handoff after approving the source.",
-              share: "Delivery and your personal progress stay separate.",
-              calendar: "Reviewed dates and your personal plan keep their own meaning.",
-            }[step]
-          }
+          hint={stepHints[step]}
           actions={[
             {
               id: "meetings",
@@ -515,67 +432,27 @@ export default function Workbench({
         </>
       ) : (
         <>
-          <div className="meeting-heading">
-            <button className="quiet" onClick={() => navigate(routePath(workspace.id))}>
-              All meetings
-            </button>
-            <span>{meeting?.title || "New meeting"}</span>
-            {meeting && <span className="badge">Revision {meeting.current_revision}</span>}
-          </div>
-          <nav className="stepper" aria-label="Meeting steps">
-            <ol>
-              {meetingStages.map((value, index) => (
-                <li key={value}>
-                  <button
-                    aria-current={(step === "share" ? "review" : step) === value ? "step" : undefined}
-                    className={(step === "share" ? "review" : step) === value ? "active" : ""}
-                    disabled={value !== "transcript" && (!meeting || (value !== "people" && !ready))}
-                    onClick={() => go(value)}
-                  >
-                    <span aria-hidden="true">{index + 1}</span>
-                    {stepNames[value]}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <MeetingHeader
+            meeting={meeting}
+            step={step}
+            ready={ready}
+            onAllMeetings={() => navigate(routePath(workspace.id))}
+            onStep={(value) => go(value)}
+          />
           <ErrorNotice error={error} />
           {loading && <p role="status">Loading meeting…</p>}
-          {acceptedSave && (
-            <section className="notice" role="status">
-              <p>
-                Your transcript save was accepted. Read the saved transcript before continuing; another save
-                is not needed.
-              </p>
-              <button disabled={busy || loading} onClick={recoverSave}>
-                Load saved transcript
-              </button>
-            </section>
-          )}
-          {meetingReadFailed && !acceptedSave && (
-            <section className="notice">
-              <p>The current meeting could not be loaded. Stored work has not been resubmitted.</p>
-              <button
-                disabled={busy || loading}
-                onClick={() => route.meeting && void loadMeeting(route.meeting, true)}
-              >
-                Load current meeting
-              </button>
-            </section>
-          )}
-          {jobReadError && (
-            <section className="notice">
-              <p>
-                Job status could not be refreshed.{" "}
-                {job ? "The last confirmed status is " + job.state + "." : "Its current status is unknown."}{" "}
-                Reading status does not submit the work again.
-              </p>
-              <ErrorNotice error={jobReadError} />
-              <button disabled={jobReading || busy} onClick={() => setJobRefresh((value) => value + 1)}>
-                Read job status again
-              </button>
-            </section>
-          )}
+          <WorkbenchNotices
+            acceptedSave={Boolean(acceptedSave)}
+            meetingReadFailed={meetingReadFailed}
+            jobReadError={jobReadError}
+            job={job}
+            busy={busy}
+            loading={loading}
+            jobReading={jobReading}
+            onLoadSaved={recoverSave}
+            onReloadMeeting={() => route.meeting && void loadMeeting(route.meeting, true)}
+            onReadJobAgain={readAgain}
+          />
           {meeting && (step === "review" || step === "share") && (
             <nav className="review-deliver-tabs" aria-label="Review and delivery">
               <button aria-pressed={step === "review"} onClick={() => go("review")}>
@@ -589,67 +466,7 @@ export default function Workbench({
               </button>
             </nav>
           )}
-          {job && (
-            <div className={"notice " + (job.state === "failed" ? "error" : "")} role="status">
-              <strong>
-                {job.kind?.includes("publish") ? "Delivery processing" : "Job"} {job.state}
-              </strong>
-              {job.kind?.includes("publish") && (
-                <span> · Check the provider receipt for its actual result.</span>
-              )}
-              {job.error_code && (
-                <span>
-                  {" "}
-                  ·{" "}
-                  {job.kind === "extract"
-                    ? "Extraction did not finish. You can retry or ask the application operator to check the worker."
-                    : "The operation did not finish. Check its receipt before trying another delivery."}
-                </span>
-              )}
-              {job.result?.mode && (
-                <span>
-                  {" "}
-                  ·{" "}
-                  {job.result.mode === "rules"
-                    ? "Rule-based extraction"
-                    : job.result.mode === "ollama"
-                      ? "Local AI extraction"
-                      : job.result.mode === "mixed"
-                        ? "Mixed local AI and rule-based extraction"
-                        : "Extraction mode: " + job.result.mode}{" "}
-                  · {job.result.created} new outcomes
-                </span>
-              )}
-              {job.result?.coverage && (
-                <details>
-                  <summary>Processing details</summary>
-                  <p>
-                    Processed {job.result.coverage.processed_chunks}/{job.result.coverage.total_chunks}{" "}
-                    chunks. {job.result.coverage.warnings.join(" ")}
-                  </p>
-                </details>
-              )}
-              {job.result?.results?.map((result, i) => (
-                <p key={i}>
-                  {result.status}
-                  {result.url && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <a href={result.url} target="_blank" rel="noopener noreferrer">
-                        Open delivered outcome
-                      </a>
-                    </>
-                  )}
-                </p>
-              ))}
-              {job.kind === "publish" &&
-                job.result?.state === "uncertain" &&
-                ["owner", "reviewer"].includes(workspace.role) && (
-                  <button onClick={reconcile}>Check uncertain delivery status</button>
-                )}
-            </div>
-          )}
+          {job && <JobStatus job={job} role={workspace.role} onReconcile={reconcile} />}
           {user.is_visitor &&
             step === "transcript" &&
             (meeting ? (
