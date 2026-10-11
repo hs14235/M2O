@@ -15,6 +15,7 @@ from .embeddings import get_embedding_function
 from .github import AmbiguousWrite, GitHubAdapter
 from .jira_delivery import JiraDeliveryAdapter, UncertainJiraWrite
 from .models import (
+    JOB_MAX_ATTEMPTS,
     JiraOperation,
     JiraProposal,
     Job,
@@ -108,7 +109,7 @@ def claim():
         )
         if not job:
             return None
-        if job.attempts >= 3:
+        if job.attempts >= JOB_MAX_ATTEMPTS:
             job.state, job.error_code = "failed", "attempt_limit"
             job.lease_until = None
             settle_exhausted_delivery(session, job)

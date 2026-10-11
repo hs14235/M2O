@@ -1,5 +1,11 @@
 # Verification evidence
 
+## Phase 9 diagnostics and retention — October 10, 2026 (local only)
+
+Branch `codex/m2o-phase9` (PR #55), merged with `main` after Phase 8. Adds the read-only aggregate diagnostics snapshot and retention preview/apply accuracy for expired temporary records. Decision: expired invitations and API tokens are deleted as temporary security records (USER_LIFECYCLE.md). The diagnostics test canary was shortened to fit `varchar(36)` columns; it failed on PostgreSQL before that change and passed on SQLite, which ignores the length.
+
+Windows 11, Python 3.13.1, with this review's disposable `postgres:17-alpine` container removed afterwards (`scripts/phase9_verify.py` instead keeps its own container stopped for inspection). After merging Phase 8 and addressing the PR #55 review: `ruff check`, `ruff format --check` and `scripts.check_types` clean; `pytest -q`: 456 passed, 29 PostgreSQL-only skipped; `scripts.migrate` and `alembic check`: at head, no drift; `pytest -q --postgres`: 485 passed. Review follow-ups: a test proves a purged expired invitation revokes as 404 while its audit history remains; the attempt limit is the shared `JOB_MAX_ATTEMPTS`; connection-state counts are documented as lower bounds for unprivileged roles. Not verified locally: hosted CI (this PR's run), scheduled maintenance (none installed).
+
 ## Phase 7 first reliability increment — October 6, 2026
 
 Implemented and verified in the Phase 7 checkout, branch `codex/m2o-phase7`, based on `ddfca8251ff37f31ef3f175ca1d50da42833ed6c`. These are uncommitted working-tree results, not e2db changes, hosted CI or deployment evidence. The coordinator's worktree and existing planning documents were preserved.

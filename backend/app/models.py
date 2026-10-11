@@ -419,6 +419,10 @@ class JiraOperation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+# Claims after which the worker stops retrying a job; diagnostics report against the same limit.
+JOB_MAX_ATTEMPTS = 3
+
+
 class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
