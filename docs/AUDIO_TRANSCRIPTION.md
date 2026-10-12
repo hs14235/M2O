@@ -4,6 +4,10 @@ M2O can turn an uploaded meeting recording into a transcript **on the same machi
 
 Transcription is **off by default** and never available in the public demo, which forces `TRANSCRIPTION_ENABLED=false`. It is meant for private installations.
 
+## Using it
+
+When transcription is enabled, the Transcript step of a new meeting shows **Transcribe a recording**. The option is hidden otherwise, because the server reports `can_transcribe_audio` in `/api/me`. Choose an audio file and M2O queues it. The status line reads "Transcription running" and the meeting controls stay disabled until the job finishes. M2O then opens the new meeting, whose transcript is indexed like any other. Failures explain what to do next, for example that a recording is too long or contains no speech. The recording is never kept after a failure, so the fix is to upload it again.
+
 ## How it works
 
 ```mermaid
@@ -68,6 +72,17 @@ The model loads in about 3 seconds once cached, once per worker process. At a re
 ```powershell
 python -m scripts.evaluate_transcription recording.m4a reference.txt --model small
 ```
+
+## Tests
+
+`backend/tests/test_transcription.py` replaces the model with a stub, so CI never downloads one. One opt-in test runs the **real** model end to end, through the queue and the worker, into a new meeting:
+
+```powershell
+$env:M2O_REAL_TRANSCRIPTION_AUDIO = "C:\path	oecording.wav"
+python -m pytest tests/test_transcription.py -k real_model -s
+```
+
+It passed on 2026-10-11 with the synthetic recording above. The `small` model produced the expected transcript in about 15 seconds, including model load, and the audio was deleted afterwards.
 
 ## Licenses
 

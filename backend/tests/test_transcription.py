@@ -5,13 +5,16 @@ download a model or need requirements-ai.txt.
 """
 
 import asyncio
+import importlib.util
+import os
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
 
 from app import transcription as speech
-from app.models import AudioUpload, AuditEvent, Job, Meeting, Membership, now
+from app.models import AudioUpload, AuditEvent, Job, Meeting, Membership, TranscriptRevision, now
 from app.schemas import IndexInput
 from app.services.errors import ServiceError
 from app.services.retention import RetentionService
@@ -192,3 +195,42 @@ def test_word_error_rate_counts_substitutions_deletions_and_insertions():
     assert word_error_rate(reference, words("Alex will review the checklist")) == 1 / 5
     assert word_error_rate(reference, words("Alex prepare the checklist")) == 1 / 5
     assert word_error_rate(reference, words("Alex will prepare the new checklist")) == 1 / 5
+
+
+def test_me_reports_audio_capability_only_when_enabled(client, seeded, monkeypatch):
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "owner@example.test", "password": "synthetic-test-password"},
+        headers={"Origin": settings.app_origin},
+    )
+    assert login.status_code == 200
+    assert client.get("/api/me").json()["capabilities"]["can_transcribe_audio"] is False
+    monkeypatch.setattr(settings, "transcription_enabled", True)
+    assert client.get("/api/me").json()["capabilities"]["can_transcribe_audio"] is True
+
+
+REAL_AUDIO = os.environ.get("M2O_REAL_TRANSCRIPTION_AUDIO")
+
+
+@pytest.mark.skipif(
+    not REAL_AUDIO or importlib.util.find_spec("faster_whisper") is None,
+    reason="Opt-in: set M2O_REAL_TRANSCRIPTION_AUDIO and install requirements-ai.txt",
+)
+def test_real_model_transcribes_through_the_queue_into_a_meeting(session, seeded, enabled, monkeypatch):
+    # Uses the real faster-whisper model end to end; never runs in CI.
+    monkeypatch.setattr(
+        settings, "transcription_model", os.environ.get("M2O_REAL_TRANSCRIPTION_MODEL", "small")
+    )
+    audio = Path(REAL_AUDIO or "")
+    queued = queue(session, seeded, filename=audio.name, raw=audio.read_bytes(), meeting_id="real-audio")
+    assert asyncio.run(run_once())
+    session.expire_all()
+    job = session.get(Job, queued["job_id"])
+    assert job.state == "completed", job.error_code
+    meeting = session.scalar(select(Meeting).where(Meeting.slug == "real-audio"))
+    revision_text = session.scalar(
+        select(TranscriptRevision.raw_text).where(TranscriptRevision.meeting_id == meeting.id)
+    )
+    print(f"\n[real model] {job.result} :: {revision_text[:120]!r}")
+    assert len(revision_text.split()) > 10
+    assert session.scalar(select(func.count()).select_from(AudioUpload)) == 0

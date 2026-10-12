@@ -151,3 +151,79 @@ it("does not display a late job result in another meeting", async () => {
   );
   expect(screen.queryByText(/99 new outcomes/)).toBeNull();
 });
+
+it("offers recording transcription only when the server can transcribe audio", async () => {
+  vi.spyOn(client, "api").mockImplementation(async (path) => {
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [], next_offset: null } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  const newRoute: Route = { ...route, meeting: "new", step: "transcript" };
+  const props = { workspace, onDirty: vi.fn(), navigate: vi.fn(), route: newRoute };
+  const view = render(<Workbench {...props} user={user} />);
+  await waitFor(() => expect(screen.getByLabelText("Meeting title")).toBeEnabled());
+  expect(screen.queryByLabelText("Transcribe a recording")).not.toBeInTheDocument();
+  view.rerender(
+    <Workbench
+      {...props}
+      user={{ ...user, capabilities: { ...user.capabilities, can_transcribe_audio: true } }}
+    />,
+  );
+  expect(screen.getByLabelText("Transcribe a recording")).toBeEnabled();
+});
+
+it("queues a recording once, reports transcription, then opens the new meeting", async () => {
+  let posted: FormData | undefined;
+  let jobReads = 0;
+  const request = vi.spyOn(client, "api").mockImplementation(async (path, options) => {
+    if (path.endsWith("/transcribe")) {
+      posted = options?.body as FormData;
+      return { job_id: "audio-job", meeting_id: String(posted.get("meeting_id")) } as never;
+    }
+    if (path.endsWith("/jobs/audio-job")) {
+      jobReads += 1;
+      return (
+        jobReads === 1
+          ? { id: "audio-job", kind: "transcribe", state: "running", error_code: null, result: null }
+          : {
+              id: "audio-job",
+              kind: "transcribe",
+              state: "completed",
+              error_code: null,
+              result: { meeting_id: String(posted?.get("meeting_id")), duration_seconds: 31, model: "small" },
+            }
+      ) as never;
+    }
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [], next_offset: null } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  const navigate = vi.fn();
+  render(
+    <Workbench
+      workspace={workspace}
+      user={{ ...user, capabilities: { ...user.capabilities, can_transcribe_audio: true } }}
+      onDirty={vi.fn()}
+      route={{ ...route, meeting: "new", step: "transcript" }}
+      navigate={navigate}
+    />,
+  );
+  await waitFor(() => expect(screen.getByLabelText("Transcribe a recording")).toBeEnabled());
+  await userEvent.upload(
+    screen.getByLabelText("Transcribe a recording"),
+    new File(["synthetic audio"], "weekly-sync.mp3", { type: "audio/mpeg" }),
+  );
+  expect(await screen.findByText(/Transcription running/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Transcribe a recording")).toBeDisabled();
+  expect(posted?.get("title")).toBe("weekly-sync");
+  expect(String(posted?.get("meeting_id"))).toMatch(/^meeting-/);
+  await waitFor(
+    () =>
+      expect(navigate).toHaveBeenCalledWith(
+        "/workspaces/space/meetings/" + String(posted?.get("meeting_id")) + "/transcript",
+      ),
+    { timeout: 4000 },
+  );
+  expect(navigate).toHaveBeenCalledTimes(1);
+  expect(request.mock.calls.filter(([path]) => path.endsWith("/transcribe"))).toHaveLength(1);
+});

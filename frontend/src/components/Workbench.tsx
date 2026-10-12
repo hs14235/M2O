@@ -263,6 +263,46 @@ export default function Workbench({
       setError(e);
     }
   }
+  async function transcribeRecording(file?: File) {
+    if (!file || mutation.current) return;
+    if (
+      text.trim() &&
+      !window.confirm(
+        "Transcribe this recording into a new meeting and discard the unsaved text in the editor?",
+      )
+    )
+      return;
+    mutation.current = true;
+    const generation = routeGeneration.current;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("meeting_id", slug);
+      form.append("title", title || file.name.replace(/\.[^.]+$/, ""));
+      form.append("visibility", visibility);
+      if (occurred) form.append("occurred_on", occurred);
+      form.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+      const result = await api<{ job_id: string; meeting_id: string }>(scoped(workspace.id, "/transcribe"), {
+        method: "POST",
+        body: form,
+      });
+      if (!mounted.current || routeGeneration.current !== generation) return;
+      // The recording becomes its own meeting; the editor's draft is no longer pending work.
+      setText("");
+      setTitle("");
+      transcriptDirty.current = false;
+      onDirty(false);
+      setJobId(result.job_id);
+      setJob(null);
+    } catch (e) {
+      if (mounted.current && routeGeneration.current === generation) setError(e);
+    } finally {
+      mutation.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
   async function extract() {
     if (mutation.current) return;
     mutation.current = true;
@@ -290,6 +330,14 @@ export default function Workbench({
     active,
     loadMeeting,
   });
+  // A finished transcription created a new meeting: open it once (its index job runs next).
+  const openedTranscription = useRef<string | null>(null);
+  useEffect(() => {
+    if (job?.kind !== "transcribe" || job.state !== "completed" || !job.result?.meeting_id) return;
+    if (openedTranscription.current === job.id) return;
+    openedTranscription.current = job.id;
+    navigate(routePath(workspace.id, "meetings", job.result.meeting_id, "transcript"));
+  }, [job, navigate, workspace.id]);
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => {
@@ -505,6 +553,7 @@ export default function Workbench({
               dirty={isDirty}
               onSubmit={save}
               onUpload={upload}
+              onAudio={user.capabilities.can_transcribe_audio ? transcribeRecording : undefined}
               onExample={() => {
                 setTitle(example.title);
                 setText(example.text);

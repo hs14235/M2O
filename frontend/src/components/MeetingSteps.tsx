@@ -22,6 +22,8 @@ export function TranscriptStep(props: {
   dirty: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onUpload: (file?: File) => void;
+  /** Present only when this installation can transcribe audio locally. */
+  onAudio?: (file?: File) => void;
   onExample: () => void;
   onContinue: () => void;
   department: Department;
@@ -33,7 +35,10 @@ export function TranscriptStep(props: {
     <section className="panel step-panel">
       <span className="eyebrow">Step 1 of 4</span>
       <h1>Bring the conversation.</h1>
-      <p>Paste a written transcript, upload a text file, or try the department example.</p>
+      <p>
+        Paste a written transcript, upload a text file
+        {p.onAudio ? ", transcribe a recording on this machine" : ""}, or try the department example.
+      </p>
       {!p.meeting && (
         <div className="transcript-sources">
           <button type="button" disabled={!p.editable || p.pending} onClick={p.onExample}>
@@ -48,6 +53,20 @@ export function TranscriptStep(props: {
               onChange={(e) => p.onUpload(e.target.files?.[0])}
             />
           </label>
+          {p.onAudio && (
+            <label className="file-label">
+              Transcribe a recording
+              <input
+                type="file"
+                disabled={!p.editable || p.pending}
+                accept=".mp3,.m4a,.wav,.ogg,.webm,.flac,.mp4,audio/*"
+                onChange={(e) => {
+                  p.onAudio?.(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          )}
           {p.workspace && p.onImported && (
             <GoogleMeetImport
               workspace={p.workspace}

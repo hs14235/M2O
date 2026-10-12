@@ -22,6 +22,7 @@ export interface User {
     embedding_provider: string;
     allowed_repos: string[];
     can_upload_transcript?: boolean;
+    can_transcribe_audio?: boolean;
   };
   linkedin: { connected: boolean; profile: { name?: string } | null };
 }
@@ -109,6 +110,9 @@ export interface Job {
     state?: string;
     result?: { status: string; url?: string; error?: string };
     results?: { status: string; url?: string }[];
+    meeting_id?: string;
+    duration_seconds?: number;
+    model?: string;
   } | null;
 }
 export interface Proposal {
