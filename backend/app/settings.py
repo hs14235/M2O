@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     worker_heartbeat_file: str = ""
     worker_heartbeat_timeout: int = Field(default=45, ge=25, le=300)
     worker_job_deadline: int = Field(default=600, ge=60, le=3600)
+    # Local speech-to-text (faster-whisper on CPU). Off by default: it needs requirements-ai.txt,
+    # a model download and real CPU time, so the public demo never enables it.
+    transcription_enabled: bool = False
+    transcription_model: str = Field(default="small", min_length=1, max_length=80)
+    transcription_compute_type: Literal["int8", "int8_float32", "float32"] = "int8"
+    transcription_max_seconds: int = Field(default=3600, ge=60, le=4 * 3600)
+    transcription_max_bytes: int = Field(default=100_000_000, ge=1_000_000, le=500_000_000)
     embed_provider: Literal["hash", "sentence-transformers"] = "hash"
     embed_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     ollama_url: str = "http://127.0.0.1:11434"
