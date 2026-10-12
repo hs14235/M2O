@@ -78,6 +78,7 @@ from .services.meetings import MeetingService
 from .services.planning import PlanningService
 from .services.retrieval import RetrievalService
 from .services.review import ReviewService
+from .services.transcription import TranscriptionService
 from .settings import settings
 from .slack_routes import router as slack_router
 from .worker_health import require_worker
@@ -595,6 +596,36 @@ async def upload(
     )
     consume("index:" + principal.scope, 60, 3600)
     return service.index(payload)
+
+
+@app.post(ROOT + "/transcribe", status_code=202)
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    meeting_id: str = Form(...),
+    title: str = Form(""),
+    visibility: str = Form("workspace"),
+    occurred_on: str | None = Form(None),
+    timezone: str = Form("UTC"),
+    principal: Principal = Depends(workspace_principal),
+    session: Session = Depends(get_session, scope="function"),
+):
+    """Queue meeting audio for local transcription into a new meeting."""
+    require_private_scope(session, principal)
+    # Validate the meeting fields with the same contract as a pasted transcript.
+    details = IndexInput.model_validate(
+        {
+            "meeting_id": meeting_id,
+            "title": title,
+            "transcript": "pending transcription",
+            "visibility": visibility,
+            "occurred_on": occurred_on or None,
+            "timezone": timezone,
+        }
+    )
+    raw = await file.read(settings.transcription_max_bytes + 1)
+    await file.close()
+    consume("transcribe:" + principal.scope, 10, 3600)
+    return TranscriptionService(session, principal).queue(file.filename, raw, details)
 
 
 @app.get(ROOT + "/meetings/{meeting_id}")

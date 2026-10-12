@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ..auth import aware
 from ..models import (
     ApiToken,
+    AudioUpload,
     AuthSession,
     DeliveryTombstone,
     GoogleMeetPreview,
@@ -44,6 +45,8 @@ TEMPORARY_RECORDS = (
     (IntegrationOAuthState, IntegrationOAuthState.state_hash),
     (Invitation, Invitation.id),
     (ApiToken, ApiToken.token_hash),
+    # Orphaned audio from a transcription that never finished.
+    (AudioUpload, AudioUpload.id),
     # Session removal may also cascade expired or unexpired session-bound states.
     (AuthSession, AuthSession.token_hash),
 )

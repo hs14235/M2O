@@ -6,8 +6,9 @@ import logging
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 
+from . import transcription as speech
 from .access_policy import require_private_scope, user_is_active, workspace_access
 from .auth import Principal
 from .database import must_get, session_scope
@@ -16,6 +17,7 @@ from .github import AmbiguousWrite, GitHubAdapter
 from .jira_delivery import JiraDeliveryAdapter, UncertainJiraWrite
 from .models import (
     JOB_MAX_ATTEMPTS,
+    AudioUpload,
     JiraOperation,
     JiraProposal,
     Job,
@@ -32,11 +34,13 @@ from .models import (
     now,
 )
 from .schema_compatibility import check_schema
+from .schemas import IndexInput
 from .services.common import audit, meeting_access
 from .services.errors import ServiceError
 from .services.extraction import ExtractionService
 from .services.issues import IssueService
 from .services.linkedin_publishing import publish_linkedin
+from .services.meetings import MeetingService
 from .settings import settings
 from .slack_delivery import SlackDeliveryAdapter, UncertainSlackWrite, content_hash
 from .worker_health import WorkerPulse
@@ -129,7 +133,7 @@ def owned_job(session, claim_record):
     return job
 
 
-def authorized(session, job):
+def job_principal(session, job) -> Principal:
     # Intent commits and provider reads can span an administrator's role change.
     # Re-read authority instead of trusting an ORM object cached before the await.
     member = session.scalar(
@@ -157,8 +161,13 @@ def authorized(session, job):
         raise ServiceError(status_code=403, error="Job authorization was revoked")
     principal = Principal(job.actor_id, job.workspace_id, member.role, auth_version=job.actor_auth_version)
     workspace_access(session, principal)
-    if job.kind in {"publish", "jira_publish", "slack_publish", "linkedin_publish"}:
+    if job.kind in {"publish", "jira_publish", "slack_publish", "linkedin_publish", "transcribe"}:
         require_private_scope(session, principal)
+    return principal
+
+
+def authorized(session, job):
+    principal = job_principal(session, job)
     meeting = session.get(Meeting, job.meeting_id)
     if not meeting:
         raise ServiceError(status_code=404, error="Meeting no longer exists")
@@ -422,7 +431,66 @@ async def publish_slack(record, adapter):
         return {"operation_id": operation.id, "state": operation.state, "result": result}
 
 
+async def transcribe_audio(record):
+    """Audio → local transcript → the same index path as a pasted transcript.
+
+    The audio is deleted once transcription succeeds or fails. If the worker crashes
+    mid-transcription, the audio survives so lease recovery can retry the job.
+    """
+    with session_scope() as session:
+        job = owned_job(session, record)
+        job_principal(session, job)
+        audio_id = job.payload["audio_id"]
+        audio = session.get(AudioUpload, audio_id)
+        if audio is None:
+            raise ServiceError(status_code=409, error="Uploaded audio is no longer available")
+        content = audio.content
+    try:
+        transcript = await asyncio.to_thread(
+            speech.transcribe,
+            content,
+            model_name=settings.transcription_model,
+            compute_type=settings.transcription_compute_type,
+            max_seconds=settings.transcription_max_seconds,
+        )
+    finally:
+        with session_scope() as session:
+            session.execute(delete(AudioUpload).where(AudioUpload.id == audio_id))
+    with session_scope() as session:
+        job = owned_job(session, record)
+        principal = job_principal(session, job)
+        details = job.payload
+        indexed = MeetingService(session, principal).index(
+            IndexInput.model_validate(
+                {
+                    "meeting_id": details["meeting_id"],
+                    "title": details["title"],
+                    "transcript": transcript.text,
+                    "visibility": details["visibility"],
+                    "occurred_on": details["occurred_on"],
+                    "timezone": details["timezone"],
+                }
+            )
+        )
+        meeting_id = session.scalar(
+            select(Meeting.id).where(
+                Meeting.workspace_id == job.workspace_id, Meeting.slug == indexed["meeting_id"]
+            )
+        )
+        result = {
+            "meeting_id": indexed["meeting_id"],
+            "index_job_id": indexed["job_id"],
+            "duration_seconds": round(transcript.duration_seconds),
+            "language": transcript.language,
+            "model": settings.transcription_model,
+        }
+        audit(session, principal, "meeting.audio_transcribed", meeting_id or job.id, result)
+        return result
+
+
 async def execute(record, adapter=None, linkedin_adapter=None):
+    if record["kind"] == "transcribe":
+        return await transcribe_audio(record)
     if record["kind"] == "linkedin_publish":
         return await publish_linkedin(record, linkedin_adapter or adapter)
     if record["kind"] == "slack_publish":

@@ -49,6 +49,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         "COOKIE_SECURE",
         "LINKEDIN_PUBLISHING_ENABLED",
         "SLACK_INTERACTIONS_ENABLED",
+        "TRANSCRIPTION_ENABLED",
     }
     values: dict[str, str] = {}
     for key, value in source.items():
@@ -128,6 +129,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         OLLAMA_MODEL="",
         LINKEDIN_PUBLISHING_ENABLED="false",
         SLACK_INTERACTIONS_ENABLED="false",
+        TRANSCRIPTION_ENABLED="false",
         WORKER_HEARTBEAT_TIMEOUT=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
         WORKER_JOB_DEADLINE=values.get("WORKER_JOB_DEADLINE", "600"),
     )

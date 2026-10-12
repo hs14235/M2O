@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -428,7 +429,7 @@ class Job(Base):
     __table_args__ = (
         ForeignKeyConstraint(["meeting_id", "workspace_id"], ["meetings.id", "meetings.workspace_id"]),
         CheckConstraint(
-            "kind IN ('index','extract','publish','jira_publish','slack_publish','linkedin_publish')",
+            "kind IN ('index','extract','publish','jira_publish','slack_publish','linkedin_publish','transcribe')",
             name="ck_job_kind",
         ),
         CheckConstraint(
@@ -776,6 +777,31 @@ class GoogleMeetPreview(Base):
     transcript: Mapped[str] = mapped_column(Text)
     source: Mapped[dict] = mapped_column(JSON)
     participants: Mapped[list] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AudioUpload(Base):
+    """Meeting audio held only until its transcription job finishes, then deleted.
+
+    Tied to the uploader's membership, so revoking access or erasing the workspace
+    removes pending audio through the database cascade.
+    """
+
+    __tablename__ = "audio_uploads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace_id", "user_id"],
+            ["memberships.workspace_id", "memberships.user_id"],
+            ondelete="CASCADE",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    workspace_id: Mapped[str] = mapped_column(String(36), index=True)
+    user_id: Mapped[str] = mapped_column(String(36))
+    extension: Mapped[str] = mapped_column(String(8))
+    byte_size: Mapped[int] = mapped_column(Integer)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 

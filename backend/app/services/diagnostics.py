@@ -20,7 +20,15 @@ from ..models import (
 from ..settings import settings
 from .retention import TEMPORARY_RECORDS
 
-JOB_KINDS = ("index", "extract", "publish", "jira_publish", "slack_publish", "linkedin_publish")
+JOB_KINDS = (
+    "index",
+    "extract",
+    "publish",
+    "jira_publish",
+    "slack_publish",
+    "linkedin_publish",
+    "transcribe",
+)
 JOB_STATES = ("queued", "running", "completed", "failed", "cancelled")
 EFFECT_STATES = ("queued", "sending", "completed", "failed", "uncertain")
 PROVIDERS = ("github", "jira", "slack", "linkedin")
@@ -32,6 +40,7 @@ SIZE_TABLES = (
     "jobs",
     "audit_events",
     "google_meet_previews",
+    "audio_uploads",
     "delivery_tombstones",
 )
 
