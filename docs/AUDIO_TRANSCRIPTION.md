@@ -78,7 +78,7 @@ python -m scripts.evaluate_transcription recording.m4a reference.txt --model sma
 `backend/tests/test_transcription.py` replaces the model with a stub, so CI never downloads one. One opt-in test runs the **real** model end to end, through the queue and the worker, into a new meeting:
 
 ```powershell
-$env:M2O_REAL_TRANSCRIPTION_AUDIO = "C:\path	oecording.wav"
+$env:M2O_REAL_TRANSCRIPTION_AUDIO = "C:\recordings\meeting.wav"
 python -m pytest tests/test_transcription.py -k real_model -s
 ```
 
