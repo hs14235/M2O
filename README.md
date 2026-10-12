@@ -119,6 +119,7 @@ Real browser captures from isolated synthetic workspaces using the real API and 
 | Destination | Capability | Status | Setup |
 | --- | --- | --- | --- |
 | **Local handoff** | Download reviewed outcomes as Markdown or JSON | Works in the live demo | None |
+| **Local transcription** | Turn a meeting recording into a transcript on the same machine (faster-whisper, int8, CPU); audio is deleted after use | Verified locally with the real model; off in the public demo | [Guide](docs/AUDIO_TRANSCRIPTION.md) |
 | **Jira** | Discover issue types and fields, preview exact create/update content, approve queued delivery, inspect receipts | Contract-tested with synthetic provider responses | [Connection](docs/JIRA_CONNECTION.md) · [Delivery](docs/JIRA_DELIVERY.md) |
 | **Slack** | Post or update messages; meeting actions use signed interaction requests | Contract-tested with synthetic provider responses | [Delivery](docs/SLACK_DELIVERY.md) · [Actions](docs/SLACK_ACTIONS.md) |
 | **GitHub** | Deliver reviewed issues; detect duplicates, content conflicts and uncertain writes | Contract-tested with synthetic provider responses | [Guide](docs/GITHUB_DELIVERY.md) |

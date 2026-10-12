@@ -311,6 +311,7 @@ def me(
             if not user.is_visitor
             else [],
             "can_upload_transcript": not user.is_visitor,
+            "can_transcribe_audio": settings.transcription_enabled and not user.is_visitor,
         },
         "linkedin": {
             "connected": bool(profile),
