@@ -251,7 +251,7 @@ def login(
 ):
     if request.headers.get("Origin") != settings.app_origin:
         raise ServiceError(status_code=403, error="Request origin is not allowed", where="client")
-    consume(budget_key(request, "login"), 30)
+    consume(budget_key(request, "login"), budget_limit(30))
     consume("login-account:" + payload.email.casefold(), 10)
     user, token, csrf = create_session(session, payload.email, payload.password)
     response.set_cookie(

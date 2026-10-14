@@ -121,13 +121,20 @@ Two addresses in the same /64 share a key; a neighbouring /64 gets its own. IPv4
 
 `0.0.0.0/0` or `::/0` would mean "any peer is a trusted proxy", which is the same as trusting the header from anyone. `strict=True` also rejects non-canonical CIDRs like `192.0.2.1/24` (host bits set), which usually signal a typo. The model validator at `backend/app/settings.py:95` adds two rules: `trusted_proxy` mode needs at least one CIDR, and CIDRs without `trusted_proxy` mode are an error (a sign the operator thinks proxy trust is on when it isn't). Tests: `backend/tests/test_client_identity.py:122`. Because these are settings validators, a bad config stops the process from starting instead of failing open at request time.
 
-**8. Shared mode gets its own, larger, site-wide limit; the counter is row-locked.** `backend/app/client_identity.py:28`
+**8. Shared mode gets its own, larger, site-wide limit; the counter is row-locked.** `backend/app/client_identity.py:34`
 
 ```python
-def budget_limit(per_client: int, shared: int) -> int:
-    """Shared mode pools every visitor into one key, so it needs a site-wide limit."""
-    return shared if settings.client_identity_mode == "shared" else per_client
+SHARED_BUDGET_FACTOR = 10
+
+
+def budget_limit(per_client: int, shared: int | None = None) -> int:
+    """The network budget for one client, or the site-wide ceiling in shared mode."""
+    if settings.client_identity_mode != "shared":
+        return per_client
+    return shared if shared is not None else per_client * SHARED_BUDGET_FACTOR
 ```
+
+Every network budget goes through it. Visitor starts pass an explicit shared limit from settings; login, recovery and invitation routes use the default ceiling of ten times their per-client limit.
 
 The visitor start route uses it at `backend/app/main.py:344`: `consume(budget_key(request, "visitor"), budget_limit(settings.visitor_start_limit, settings.shared_visitor_start_limit), 3600)`. Defaults are 10 per client and 150 site-wide per hour (`backend/app/settings.py:29`, `backend/app/settings.py:30`). Render runs in shared mode, and `render.yaml:31` gives the reason:
 
@@ -161,7 +168,7 @@ The counter itself is `consume` (`backend/app/limits.py:28`): a fixed-window cou
 
 **Why not just trust `X-Forwarded-For`?** Because the client controls its first entry, and the only safe way to use it is to know exactly how many trusted proxies appended to it and take the entry just before them. That depends on infrastructure the app can't see, and it breaks silently when the infrastructure changes. M2O instead needs one overwritten header from a peer it can verify.
 
-**Shared mode's cost.** One noisy client can use up the site-wide budget and block everyone else. That is a denial-of-service risk accepted for a free synthetic demo. Note that `budget_limit` is only used for visitor starts. Other families keep their per-client limits even in shared mode, for example login at 30 per 5 minutes (`backend/app/main.py:253`) and recovery requests at 10 (`backend/app/lifecycle_routes.py:109`), so in shared mode those become site-wide budgets of that size. Login also has a separate per-account budget (`backend/app/main.py:254`). For a real private deployment you'd want `trusted_proxy` behind a proxy that publishes ranges (or your own gateway), or an edge rate limiter (Cloudflare, API gateway) in front.
+**Shared mode's cost.** One noisy client can use up the site-wide budget and block everyone else. That is a denial-of-service risk accepted for a free synthetic demo. Until October 2026 only visitor starts used `budget_limit`, so in shared mode login (30 per 5 minutes) and recovery requests (10) became tiny site-wide budgets: ten requests from anyone blocked every user's recovery form. Now every family gets a ceiling ten times its per-client limit in shared mode, and login and recovery requests also keep a **per-account** budget keyed by email (`login-account:`, `recovery-account:`). That follows the usual guidance for authentication throttling: limit per account to stop guessing against one user, and keep the network limit as a coarse ceiling. `test_shared_mode_spam_does_not_lock_other_accounts_out` pins it. For a real private deployment you'd want `trusted_proxy` behind a proxy that publishes ranges (or your own gateway), or an edge rate limiter (Cloudflare, API gateway) in front.
 
 **Database counters vs Redis.** A Postgres row per key is consistent across processes and needs no extra service, at the cost of a write per limited request. Redis `INCR` with TTL is faster and the usual choice at scale. The fixed window is simple but lets a client burst up to twice the limit across a window boundary; a sliding window or token bucket smooths that.
 
@@ -208,7 +215,7 @@ It rejects anything that isn't an IP or canonical CIDR (`strict=True` refuses ho
 
 <details><summary>Answer</summary>
 
-One client can make 150 start requests in an hour and lock every other visitor out until the window resets; in shared mode the login and recovery families are also site-wide (30 and 10 per 5 minutes), so one client can block those too. Hardening options: put a proxy or CDN you control in front (e.g. Cloudflare) that publishes its ranges and overwrites `CF-Connecting-IP`, then run `trusted_proxy` with those CIDRs after proving in a hosted test that the header is overwritten; add an edge rate limiter or bot check; or add a proof-of-work/CAPTCHA on visitor start. Each one replaces "we can't tell clients apart" with a verified identity, so per-client limits work again.
+One client can make 150 start requests in an hour and lock every other visitor out until the window resets; login and recovery share site-wide ceilings too (300 and 100 per 5 minutes), though their per-account budgets mean exhausting the ceiling takes deliberate effort rather than ten requests. Hardening options: put a proxy or CDN you control in front (e.g. Cloudflare) that publishes its ranges and overwrites `CF-Connecting-IP`, then run `trusted_proxy` with those CIDRs after proving in a hosted test that the header is overwritten; add an edge rate limiter or bot check; or add a proof-of-work/CAPTCHA on visitor start. Each one replaces "we can't tell clients apart" with a verified identity, so per-client limits work again.
 </details>
 
 ## Explain it back

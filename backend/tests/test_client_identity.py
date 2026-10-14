@@ -147,14 +147,16 @@ def test_http_budgets_independent_of_other_clients_and_proxy_peers(engine, seede
     body = {"email": "absent@example.test"}
     with TestClient(app, client=("192.0.2.10", 10000)) as client:
         headers = {**origin, "CF-Connecting-IP": "203.0.113.1"}
-        for _ in range(10):
-            assert client.post("/api/auth/recovery/request", headers=headers, json=body).status_code == 202
+        # Distinct emails keep the per-account budget out of this network-budget check.
+        for n in range(10):
+            fresh = {"email": f"absent{n}@example.test"}
+            assert client.post("/api/auth/recovery/request", headers=headers, json=fresh).status_code == 202
         assert client.post("/api/auth/recovery/request", headers=headers, json=body).status_code == 429
         assert (
             client.post(
                 "/api/auth/recovery/request",
                 headers={**origin, "CF-Connecting-IP": "203.0.113.2", "X-Forwarded-For": "203.0.113.1"},
-                json=body,
+                json={"email": "absent-other@example.test"},
             ).status_code
             == 202
         )
@@ -228,3 +230,25 @@ def test_two_processes_share_first_insert_exhaustion_and_rollover(engine, sessio
     race()
     session.expire_all()
     assert session.get(RateBucket, row.key).count == 1
+
+
+def test_shared_mode_spam_does_not_lock_other_accounts_out(engine, seeded, monkeypatch):
+    # Shared mode pools every visitor into one network key. Failed logins and
+    # recovery requests aimed at other emails must not lock a real user out;
+    # each account keeps its own budget.
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    monkeypatch.setattr(settings, "client_identity_mode", "shared")
+    origin = {"Origin": settings.app_origin}
+    with TestClient(app) as client:
+        for n in range(40):
+            bad = {"email": f"target{n % 4}@example.test", "password": "wrong-password"}
+            assert client.post("/api/auth/login", headers=origin, json=bad).status_code != 429
+            body = {"email": f"target{n}@example.test"}
+            assert client.post("/api/auth/recovery/request", headers=origin, json=body).status_code == 202
+        good = {"email": "owner@example.test", "password": "synthetic-test-password"}
+        assert client.post("/api/auth/login", headers=origin, json=good).status_code == 200
+        mine = {"email": "owner@example.test"}
+        assert client.post("/api/auth/recovery/request", headers=origin, json=mine).status_code == 202
