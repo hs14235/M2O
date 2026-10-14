@@ -16,6 +16,58 @@ DUE_PATTERN = re.compile(
     re.I,
 )
 PERSON_PATTERN = re.compile(r"^([\w.'-]+(?:\s+[\w.'-]+){0,2})\s+(?:will|to)\s+(.+)", re.I)
+FIRST_PERSON_PATTERN = re.compile(r"^I(?:'ll|\s+will|\s+can|\s+am going to)\s+(?:also\s+)?(.+)", re.I)
+REQUEST_PATTERN = re.compile(r"^([A-Z][\w'-]+),\s*(?i:please)\s+(.+)")
+SPEAKER_PREFIX = re.compile(r"^(?:\[[^]]+\]\s*)?([^:\[\]]{1,120}):\s+")
+FILLER_PATTERN = re.compile(r"^(?:(?:okay|ok|so|and|then|also|well|sure|yes|great|fine)\b[,.!]?\s*)+", re.I)
+SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
+NEGATION_PATTERN = re.compile(
+    r"\b(?:do not|don't|will not|won't|should not|cancelled|canceled|already completed)\b", re.I
+)
+# A body whose object is only a pronoun ("I'll have it done") points at an
+# earlier line and cannot stand alone as an outcome title.
+PRONOUN_OBJECT = re.compile(r"^\w+\s+(?:it|that|this|them)\b", re.I)
+METADATA_FIELDS = re.compile(r",\s*(?:(?:owner|assignee)\s*:\s*[^,;]+|due\s+[^,;]+)", re.I)
+# Capitalized words that start sentences but never name an owner.
+NOT_NAMES = {
+    *("we", "you", "they", "it", "this", "that", "there", "he", "she"),
+    *(
+        "someone",
+        "somebody",
+        "everyone",
+        "everybody",
+        "nobody",
+        "nothing",
+        "something",
+        "anything",
+        "everything",
+    ),
+}
+
+
+def _name_like(owner: str) -> bool:
+    words = owner.split()
+    return owner.casefold() == "i" or all(w[0].isupper() and w.casefold() not in NOT_NAMES for w in words)
+
+
+def _owner(candidate: str, speaker: str | None) -> str | None:
+    return speaker if candidate.casefold() == "i" else candidate
+
+
+def _implicit(sentence: str, speaker: str | None) -> tuple[str | None, str] | None:
+    """Owner and body of an unlabelled commitment, or None when the sentence is not one."""
+    sentence = FILLER_PATTERN.sub("", sentence).strip()
+    if first := FIRST_PERSON_PATTERN.match(sentence):
+        body = first.group(1)
+        return None if PRONOUN_OBJECT.match(body) else (speaker, body)
+    if request := REQUEST_PATTERN.match(sentence):
+        return request.group(1), request.group(2)
+    if (person := PERSON_PATTERN.match(sentence)) and _name_like(person.group(1)):
+        # "X to do" leaves a one-word body that names no work.
+        return (_owner(person.group(1), speaker), person.group(2)) if " " in person.group(2).strip() else None
+    if checkbox := re.match(r"^[-*]\s*\[ \]\s*(.+)", sentence):
+        return speaker, checkbox.group(1)
+    return None
 
 
 def extract_tasks_rules(context_chunks: list[dict]) -> list[dict]:
@@ -25,8 +77,12 @@ def extract_tasks_rules(context_chunks: list[dict]) -> list[dict]:
             line = raw.strip()
             if re.search(r"^\s*[-*]\s*\[[xX]\]", line):
                 continue
+            prefix = SPEAKER_PREFIX.match(line)
+            speaker = chunk.get("speaker")
+            if prefix and not LABEL_PATTERN.match(line):
+                speaker = prefix.group(1).strip()
             match = LABEL_PATTERN.search(line)
-            owner, kind = chunk.get("speaker"), "action"
+            found: list[tuple[str, str | None, str]] = []
             if match:
                 label = match.group(1).lower().replace("-", "_").replace(" ", "_")
                 kind = (
@@ -36,44 +92,38 @@ def extract_tasks_rules(context_chunks: list[dict]) -> list[dict]:
                     if label in {"followup", "follow_up"}
                     else label
                 )
-                body = match.group(2).strip()
-                person = PERSON_PATTERN.match(body)
-                if person:
-                    candidate_owner, body = person.groups()
-                    owner = chunk.get("speaker") if candidate_owner.casefold() == "i" else candidate_owner
-            else:
-                clean = re.sub(r"^\[[^]]+\]\s*[^:]+:\s*", "", line)
-                person = PERSON_PATTERN.match(clean)
-                checkbox = re.match(r"^[-*]\s*\[ \]\s*(.+)", clean)
-                if person:
-                    candidate_owner, body = person.groups()
-                    owner = chunk.get("speaker") if candidate_owner.casefold() == "i" else candidate_owner
-                elif checkbox:
-                    body = checkbox.group(1)
-                else:
+                body, owner = match.group(2).strip(), speaker
+                if kind == "action" and NEGATION_PATTERN.search(body):
                     continue
-            if kind == "action" and re.search(
-                r"\b(?:do not|don't|will not|won't|should not|cancelled|canceled|already completed)\b",
-                body,
-                re.I,
-            ):
-                continue
-            owner_match, due_match = OWNER_PATTERN.search(body), DUE_PATTERN.search(body)
-            if owner_match:
-                owner = owner_match.group(1).strip()
-            candidate = {
-                "kind": kind,
-                "title": body.rstrip(".")[:200],
-                "body": body,
-                "labels": [f"meeting-{kind.replace('_', '-')}"],
-                "assignee_hint": owner,
-                "due_hint": due_match.group(0) if due_match else None,
-                "confidence": 0.6,
-                "source_i": chunk.get("i", 0),
-            }
-            if chunk.get("id"):
-                candidate["source_ids"] = [chunk["id"]]
-            candidates.append(candidate)
+                person = PERSON_PATTERN.match(body)
+                if person and _name_like(person.group(1)):
+                    owner, body = _owner(person.group(1), speaker), person.group(2)
+                found.append((kind, owner, body))
+            else:
+                clean = line[prefix.end() :] if prefix else line
+                for sentence in SENTENCE_BREAK.split(clean):
+                    if implicit := _implicit(sentence, speaker):
+                        found.append(("action", *implicit))
+            for kind, owner, body in found:
+                if kind == "action" and NEGATION_PATTERN.search(body):
+                    continue
+                owner_match, due_match = OWNER_PATTERN.search(body), DUE_PATTERN.search(body)
+                if owner_match:
+                    owner = owner_match.group(1).strip()
+                title = METADATA_FIELDS.sub("", body).rstrip(".?! ")
+                candidate = {
+                    "kind": kind,
+                    "title": title[:200],
+                    "body": body,
+                    "labels": [f"meeting-{kind.replace('_', '-')}"],
+                    "assignee_hint": owner,
+                    "due_hint": due_match.group(0) if due_match else None,
+                    "confidence": 0.6,
+                    "source_i": chunk.get("i", 0),
+                }
+                if chunk.get("id"):
+                    candidate["source_ids"] = [chunk["id"]]
+                candidates.append(candidate)
     return candidates
 
 
