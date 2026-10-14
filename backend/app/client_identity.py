@@ -25,9 +25,17 @@ def budget_address(address: IPv4Address | IPv6Address) -> str:
     return str(address)
 
 
-def budget_limit(per_client: int, shared: int) -> int:
-    """Shared mode pools every visitor into one key, so it needs a site-wide limit."""
-    return shared if settings.client_identity_mode == "shared" else per_client
+# Shared mode pools every visitor into one network key, so a per-client limit
+# would let a handful of requests lock everyone out. The site-wide ceiling is
+# this many times higher; per-account budgets stay the real brute-force guard.
+SHARED_BUDGET_FACTOR = 10
+
+
+def budget_limit(per_client: int, shared: int | None = None) -> int:
+    """The network budget for one client, or the site-wide ceiling in shared mode."""
+    if settings.client_identity_mode != "shared":
+        return per_client
+    return shared if shared is not None else per_client * SHARED_BUDGET_FACTOR
 
 
 @lru_cache(maxsize=16)
