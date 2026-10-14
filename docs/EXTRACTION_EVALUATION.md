@@ -61,10 +61,30 @@ Owner accuracy on matched outcomes with a gold owner: 7/10. All 17 cases ran in 
 **False positives (4).**
 - "We agreed to keep the v1 endpoint…" was extracted as an action with owner "We agreed", where the gold label is a decision.
 - "Taylor will love the cake photos" was extracted as an action.
-- `Action: We won't need to migrate the legacy logs after all` was extracted as an action. The negation sits in the owner phrase, which the owner pattern splits off before the negation check runs on the body, so the check never sees it. This is a real bug in `app/tasks.py`. It was not changed here, because this task is limited to the harness.
+- `Action: We won't need to migrate the legacy logs after all` was extracted as an action. The negation sits in the owner phrase, which the owner pattern splits off before the negation check runs on the body, so the check never sees it. This was a real bug in `app/tasks.py`, fixed on 2026-10-14 (see below).
 - The `owner:`/`due` line above, which the matcher missed at 0.5 because the title includes the owner and due clauses. This is a matcher artifact, not an extraction error.
 
 Owner errors include "Sure. And Sam" and "Got it. Riley". These come from the 1–3 word owner capture in `PERSON_PATTERN`.
+
+### Rules extractor fixes (2026-10-14)
+
+The baseline above guided four changes to `app/tasks.py`, each covered by a unit test in `tests/test_rules.py`:
+
+1. **Negation is checked before the owner is split off**, so `Action: We won't need to…` is dropped.
+2. **Owners must look like names**: capitalized words that are not pronouns or words like "someone" and "nothing". "We agreed", "We won't need" and "Someone needs" no longer become owners.
+3. **Speaker prefixes are stripped with or without a timestamp**, leading filler ("Okay, so", "Sure. And", "Then") is removed, and each sentence is checked on its own. First-person commitments ("I'll…", "I can also…") are assigned to the speaker, and "Name, please…" to the named person. A commitment whose only object is a pronoun ("I'll have it done") is skipped, since it points at an earlier line.
+4. **`owner:` and `due` fields are removed from the title**; they are still read into the owner and due hints.
+
+| Rules mode, threshold 0.5 | Precision | Recall | F1 | Owner accuracy |
+| --- | ---: | ---: | ---: | ---: |
+| 17 development cases, before | 0.89 | 0.63 | 0.74 | 7/10 |
+| 17 development cases, after | **0.98** | **0.77** | **0.86** | **17/17** |
+| 3 held-out cases (10 outcomes), before | 0.83 | 0.50 | 0.62 | 0/2 |
+| 3 held-out cases (10 outcomes), after | **0.90** | **0.90** | **0.90** | **6/6** |
+
+**Read the development numbers with care.** The fixes were written while looking at those 17 cases, so their improvement is optimistic. The three held-out cases in `backend/evals/extraction_heldout.json` were written after the change and never tuned on, but by the same author who knew the new rules, so they are a sanity check rather than an independent test. Run them with `--cases evals/extraction_heldout.json`. Before the next extractor change, write new held-out cases first.
+
+What still fails: every unlabelled decision, risk, blocker and follow-up (recognizing those needs a model, not more patterns), "Taylor will love the cake photos" (a name followed by "will" is not always a commitment), and "Someone should ask legal… / Yes, I'll handle it", where the owner is in a later line.
 
 ### Ollama mode
 

@@ -79,3 +79,44 @@ def test_contract_rejects_extra_fields_invalid_timezone_and_preserves_password()
     with pytest.raises(ValidationError):
         IndexInput(meeting_id="valid", transcript="Action: Ship", timezone="Mars/Olympus")
     assert LoginInput(email="owner@example.test", password=" password ").password == " password "
+
+
+@pytest.mark.parametrize(
+    ("line", "owner", "title"),
+    [
+        (
+            "Riley: I'll draft the API deprecation notice by Friday.",
+            "Riley",
+            "draft the API deprecation notice by Friday",
+        ),
+        ("Jordan: Casey will pair with Sam on the cache bug.", "Casey", "pair with Sam on the cache bug"),
+        ("[09:01] Riley: Sure. And Sam to update the runbook.", "Sam", "update the runbook"),
+        ("[10:02] Taylor: Then I will write the cleanup ticket.", "Taylor", "write the cleanup ticket"),
+        (
+            "Sam: Riley, please chase the bank for the new limits.",
+            "Riley",
+            "chase the bank for the new limits",
+        ),
+        (
+            "Morgan: Action: Reconcile the accruals, owner: Riley, due Oct 31.",
+            "Riley",
+            "Reconcile the accruals",
+        ),
+    ],
+)
+def test_implicit_commitments_name_the_right_owner(line, owner, title):
+    tasks = extract_tasks_rules(to_chunk_records(line))
+    assert [(task["assignee_hint"], task["title"]) for task in tasks] == [(owner, title)]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Alex: Action: We won't need to migrate the legacy logs after all.",
+        "[10:00] Morgan: We agreed to keep the v1 endpoint alive.",
+        "Morgan: Yes, I'll have it done by Friday.",
+        "Sam: Someone needs to update the handbook.",
+    ],
+)
+def test_filler_pronouns_and_negations_are_not_owners_or_actions(line):
+    assert extract_tasks_rules(to_chunk_records(line)) == []

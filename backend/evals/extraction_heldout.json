@@ -1,0 +1,89 @@
+[
+  {
+    "id": "heldout-eng-release",
+    "department": "engineering",
+    "tags": [
+      "held-out",
+      "timestamps",
+      "implicit-actions",
+      "negation"
+    ],
+    "transcript": "[14:00] Priya: Okay, quick sync on the release.\n[14:01] Dev: I'll update the changelog before the release cut.\n[14:02] Priya: Thanks. Dana will run the smoke tests on staging tomorrow.\n[14:03] Dana: Sure. And Omar to check the alert thresholds.\n[14:04] Omar: We won't need a hotfix branch this time.\n[14:05] Priya: Great, that's it.",
+    "expected": [
+      {
+        "kind": "action",
+        "key": "update changelog before release cut",
+        "owner": "Dev"
+      },
+      {
+        "kind": "action",
+        "key": "run smoke tests staging",
+        "owner": "Dana"
+      },
+      {
+        "kind": "action",
+        "key": "check alert thresholds",
+        "owner": "Omar"
+      }
+    ]
+  },
+  {
+    "id": "heldout-hr-hiring",
+    "department": "hr",
+    "tags": [
+      "held-out",
+      "implicit-actions",
+      "requests",
+      "explicit-labels"
+    ],
+    "transcript": "Lena: Kai, please send the offer letter to the candidate today.\nKai: Will do. I can also book the onboarding room.\nLena: Decision: We will hire two interns this summer.\nKai: Someone should ask legal about the visa paperwork.\nLena: Yes, I'll handle it.",
+    "expected": [
+      {
+        "kind": "action",
+        "key": "send offer letter candidate",
+        "owner": "Kai"
+      },
+      {
+        "kind": "action",
+        "key": "book onboarding room",
+        "owner": "Kai"
+      },
+      {
+        "kind": "decision",
+        "key": "hire two interns this summer"
+      },
+      {
+        "kind": "action",
+        "key": "ask legal visa paperwork",
+        "owner": "Lena"
+      }
+    ]
+  },
+  {
+    "id": "heldout-fin-tax",
+    "department": "finance",
+    "tags": [
+      "held-out",
+      "owner-field",
+      "distractor",
+      "negation",
+      "open-checkbox"
+    ],
+    "transcript": "Noor: Action: File the sales tax return, owner: Ari, due Nov 15.\nAri: Risk: The new rate table may not load before filing.\nNoor: Ari will love the new dashboard, by the way.\nAri: Action: Do not pay the duplicate invoice from Acme.\n- [ ] Archive the October bank statements",
+    "expected": [
+      {
+        "kind": "action",
+        "key": "file sales tax return",
+        "owner": "Ari"
+      },
+      {
+        "kind": "risk",
+        "key": "new rate table may not load before filing"
+      },
+      {
+        "kind": "action",
+        "key": "archive october bank statements"
+      }
+    ]
+  }
+]
