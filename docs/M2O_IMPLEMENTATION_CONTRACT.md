@@ -119,6 +119,6 @@ Future synchronization must be explicit and separately implemented. Define suppo
 6. Finish department cinematic assets, focused task flows, completion view and daily planning usability, with reduced motion/accessibility/mobile/performance verification.
 7. Prepare and test the actual Render runtime, persistence/recovery, secure origin/callbacks and operational monitoring before separately authorized deployment.
 
-Render Free's sleep/ephemeral storage, database lifetime and worker/inference constraints are unresolved deployment dependencies. See RENDER_PLAN.md. In particular, sleeping web services cannot be assumed to meet Slack's three-second acknowledgment deadline. A target date does not change this limitation.
+Render Free's sleep/ephemeral storage, database lifetime and worker/inference constraints are unresolved deployment dependencies. See [archive/RENDER_PLAN.md](archive/RENDER_PLAN.md). In particular, sleeping web services cannot be assumed to meet Slack's three-second acknowledgment deadline. A target date does not change this limitation.
 
 Freeze features only after completed user journeys pass; carry external blockers explicitly instead of calling disconnected functionality complete. October 4: integration/isolation regressions; October 5: accessibility/mobile/media/inference optimization; October 6: release-candidate rerun and operational/deployment review. This is a proposed work allocation, not an automation or guarantee.

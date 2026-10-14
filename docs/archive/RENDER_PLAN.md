@@ -1,6 +1,6 @@
 # Render deployment scope and zero-cost constraints
 
-Selected by Hamza on 2026-10-03: Render Free for now; isolated synthetic demo plus invited private users; local/self-hosted AI remains the inference direction. No Render resources were created or changed. This document records hosting constraints. A synthetic-only container and Blueprint are now implemented locally; no Render deployment has been verified. See [hosted runtime](HOSTED_DEMO_RUNTIME.md).
+Selected by Hamza on 2026-10-03: Render Free for now; isolated synthetic demo plus invited private users; local/self-hosted AI remains the inference direction. No Render resources were created or changed. This document records hosting constraints. A synthetic-only container and Blueprint are now implemented locally; no Render deployment has been verified. See [hosted runtime](../HOSTED_DEMO_RUNTIME.md).
 
 ## Verified platform constraints
 
@@ -14,13 +14,13 @@ Treat an all-Render-Free release as a time-bounded portfolio demonstration using
 
 Before implementation, select the database persistence path: a temporary Render Free database, a separately verified free external PostgreSQL offering with its own limits, or a future paid database. This choice remains open; no third-party account has been configured.
 
-The existing queue remains PostgreSQL-backed. To fit a single free web service, an explicitly configured supervised worker process could share the container and recover leased jobs after wakeup. That supervisor/startup lifecycle is implemented in `scripts.serve_demo` and has local verification recorded in [VALIDATION.md](VALIDATION.md). Target-platform behavior still requires verification. It would stop when the service sleeps; do not imply always-on processing. A proper paid worker remains the cleaner operational architecture.
+The existing queue remains PostgreSQL-backed. To fit a single free web service, an explicitly configured supervised worker process could share the container and recover leased jobs after wakeup. That supervisor/startup lifecycle is implemented in `scripts.serve_demo` and has local verification recorded in [VALIDATION.md](../VALIDATION.md). Target-platform behavior still requires verification. It would stop when the service sleeps; do not imply always-on processing. A proper paid worker remains the cleaner operational architecture.
 
 Local Ollama is retained. Free-tier self-hosted model memory/CPU and model-file persistence have not been established. A hosted demonstration may need the existing deterministic rules mode, clearly identified as such, while the local run demonstrates real AI. Do not replace local AI with an unapproved cloud provider or present rules as model inference.
 
 ## Implemented isolation and remaining hosting work
 
-The isolated visitor flow creates expiring synthetic workspaces with server-enforced authority, quotas and blocked provider actions. Private invitation, activation, operator-assisted recovery and privacy controls are implemented separately. The public deployment must use visitor sessions rather than a shared demo login, contain no operator provider credentials, and use a dedicated synthetic database. See [user lifecycle](USER_LIFECYCLE.md) and dated [verification](VALIDATION.md).
+The isolated visitor flow creates expiring synthetic workspaces with server-enforced authority, quotas and blocked provider actions. Private invitation, activation, operator-assisted recovery and privacy controls are implemented separately. The public deployment must use visitor sessions rather than a shared demo login, contain no operator provider credentials, and use a dedicated synthetic database. See [user lifecycle](../USER_LIFECYCLE.md) and dated [verification](../VALIDATION.md).
 
 The October 5 prepublication audit identified a hosting availability gate: rate limits use the direct peer IP while proxy headers are disabled. Behind a hosting proxy, unrelated visitors can share budgets. Define and test an explicit trusted-proxy policy or deliberate global admission policy before deployment; never trust arbitrary forwarded headers.
 

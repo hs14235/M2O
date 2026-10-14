@@ -6,11 +6,11 @@ Use only in Meeting 2 Outcomes. Locate the actual checkout; paths/ports from ano
 
 - `AGENTS.md`: permissions, preserved work and invariants.
 - `docs/M2O_IMPLEMENTATION_CONTRACT.md`: product breadth and architecture priorities.
-- `docs/EXPERIENCE_V2.md`: navigation, merged stage 3, calendar, references/gates.
+- `docs/archive/EXPERIENCE_V2.md`: navigation, merged stage 3, calendar, references/gates.
 - `docs/API.md`, `docs/GOOGLE_MEET_IMPORT.md`, provider delivery docs: tested semantics.
 - `docs/USER_LIFECYCLE.md`: invitations, recovery, privacy, retention.
-- `docs/PARALLEL_IMPLEMENTATION.md`: current ownership/handoffs.
-- `docs/VALIDATION.md`, `docs/PHASE_5_REVIEW_FINDINGS.md`: dated evidence, not permanent proof.
+- `docs/archive/PARALLEL_IMPLEMENTATION.md`: historical ownership/handoffs.
+- `docs/VALIDATION.md`, `docs/archive/PHASE_5_REVIEW_FINDINGS.md`: dated evidence, not permanent proof.
 
 ## Frontend path
 
