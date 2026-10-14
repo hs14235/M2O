@@ -1,10 +1,10 @@
 # Phase 4: GitHub delivery alignment and LinkedIn capabilities
 
-October 4 implementation update: this remains the historical planning baseline. Current provider behavior and limitations are in [GitHub delivery](GITHUB_DELIVERY.md), [LinkedIn drafts/publication](LINKEDIN_DELIVERY.md) and [provider review](PHASE_4_PROVIDER_REVIEW.md). Versioned GitHub workspace binding/receipts and separate LinkedIn drafts/consent/worker routes are now implemented and synthetically tested. Live activation and cross-phase release gates remain separate.
+October 4 implementation update: this remains the historical planning baseline. Current provider behavior and limitations are in [GitHub delivery](../GITHUB_DELIVERY.md), [LinkedIn drafts/publication](../LINKEDIN_DELIVERY.md) and [provider review](PHASE_4_PROVIDER_REVIEW.md). Versioned GitHub workspace binding/receipts and separate LinkedIn drafts/consent/worker routes are now implemented and synthetically tested. Live activation and cross-phase release gates remain separate.
 
 Prepared October 3, 2026 for the parallel Phase 3 Slack and Phase 5 experience planning pass. **Status: source-grounded plan, not an implementation or live activation report.** Only this document is owned by the Phase 4 planning chat. Shared implementation files remain unchanged by this pass.
 
-Read with [the implementation contract](M2O_IMPLEMENTATION_CONTRACT.md), [integration inventory](INTEGRATIONS.md), [Jira delivery contract](JIRA_DELIVERY.md), and [validation history](VALIDATION.md). The coordinating chat assigns shared files and additive migrations before implementation starts.
+Read with [the implementation contract](../M2O_IMPLEMENTATION_CONTRACT.md), [integration inventory](../INTEGRATIONS.md), [Jira delivery contract](../JIRA_DELIVERY.md), and [validation history](../VALIDATION.md). The coordinating chat assigns shared files and additive migrations before implementation starts.
 
 ## 1. Actual capability inventory
 

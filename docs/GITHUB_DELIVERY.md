@@ -44,6 +44,6 @@ Run from `backend` with the existing environment:
 .venv/Scripts/python.exe -m pytest -q tests/test_github_adapter.py tests/test_github_destinations.py tests/test_publication.py --postgres
 ```
 
-PostgreSQL tests use isolated disposable schemas; provider responses are synthetic. Runtime database migration and live provider calls require separately authorized execution. See [cross-phase review](CROSS_PHASE_REVIEW.md) and [parallel ownership](PARALLEL_IMPLEMENTATION.md).
+PostgreSQL tests use isolated disposable schemas; provider responses are synthetic. Runtime database migration and live provider calls require separately authorized execution. See [cross-phase review](archive/CROSS_PHASE_REVIEW.md) and [parallel ownership](archive/PARALLEL_IMPLEMENTATION.md).
 
 Protocol references: [GitHub issue endpoints and access requirements](https://docs.github.com/en/rest/issues/issues), [API version policy](https://docs.github.com/en/rest/about-the-rest-api/api-versions).

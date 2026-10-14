@@ -8,7 +8,7 @@ Status: source-grounded implementation plan. This planning pass changes only thi
 
 Deliver selected, currently approved meeting outcomes into an explicitly verified Slack channel; update a previous M2O message through a separately reviewed preview; let a linked, authorized Slack user capture a meeting or act on their own daily plan. Keep transcript/review authority, delivery status, and personal progress separate.
 
-This phase implements the Slack portion of [M2O_IMPLEMENTATION_CONTRACT.md](M2O_IMPLEMENTATION_CONTRACT.md), including its numbered priority gates. It preserves the current modular FastAPI/API-worker/PostgreSQL structure and the agreed state ownership policy. It does not require an SSR migration or change local inference.
+This phase implements the Slack portion of [M2O_IMPLEMENTATION_CONTRACT.md](../M2O_IMPLEMENTATION_CONTRACT.md), including its numbered priority gates. It preserves the current modular FastAPI/API-worker/PostgreSQL structure and the agreed state ownership policy. It does not require an SSR migration or change local inference.
 
 All department journeys use the same backend rules:
 

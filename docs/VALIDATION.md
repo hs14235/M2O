@@ -45,7 +45,7 @@ Private environment/runtime paths were ignored and untracked. A heuristic source
 
 ## Experience V2 — October 5, 2026 (locally activated and verified)
 
-This increment adds the four-destination shell, combined Review/Deliver stage, reviewed-outcome calendar, latest Google Meet transcript import and meeting search. It is locally activated and checked; it does not establish a live Google connection or deployed service. [Experience contract](EXPERIENCE_V2.md) and [Google import contracts](GOOGLE_MEET_IMPORT.md) define its boundaries.
+This increment adds the four-destination shell, combined Review/Deliver stage, reviewed-outcome calendar, latest Google Meet transcript import and meeting search. It is locally activated and checked; it does not establish a live Google connection or deployed service. [Experience contract](archive/EXPERIENCE_V2.md) and [Google import contracts](GOOGLE_MEET_IMPORT.md) define its boundaries.
 
 | Check | Observed result | Boundary |
 | --- | --- | --- |
