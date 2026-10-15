@@ -20,7 +20,7 @@ def test_rules_finds_actions():
     assert len(tasks) == 1
     assert tasks[0]["assignee_hint"] == "Alex"
     assert tasks[0]["due_hint"] == "by Friday"
-    assert "wire FastAPI" in tasks[0]["title"]
+    assert "Wire FastAPI" in tasks[0]["title"]
 
 
 def test_all_outcome_types_and_speaker_owner():
@@ -87,15 +87,15 @@ def test_contract_rejects_extra_fields_invalid_timezone_and_preserves_password()
         (
             "Riley: I'll draft the API deprecation notice by Friday.",
             "Riley",
-            "draft the API deprecation notice by Friday",
+            "Draft the API deprecation notice by Friday",
         ),
-        ("Jordan: Casey will pair with Sam on the cache bug.", "Casey", "pair with Sam on the cache bug"),
-        ("[09:01] Riley: Sure. And Sam to update the runbook.", "Sam", "update the runbook"),
-        ("[10:02] Taylor: Then I will write the cleanup ticket.", "Taylor", "write the cleanup ticket"),
+        ("Jordan: Casey will pair with Sam on the cache bug.", "Casey", "Pair with Sam on the cache bug"),
+        ("[09:01] Riley: Sure. And Sam to update the runbook.", "Sam", "Update the runbook"),
+        ("[10:02] Taylor: Then I will write the cleanup ticket.", "Taylor", "Write the cleanup ticket"),
         (
             "Sam: Riley, please chase the bank for the new limits.",
             "Riley",
-            "chase the bank for the new limits",
+            "Chase the bank for the new limits",
         ),
         (
             "Morgan: Action: Reconcile the accruals, owner: Riley, due Oct 31.",
@@ -120,3 +120,8 @@ def test_implicit_commitments_name_the_right_owner(line, owner, title):
 )
 def test_filler_pronouns_and_negations_are_not_owners_or_actions(line):
     assert extract_tasks_rules(to_chunk_records(line)) == []
+
+
+def test_titles_start_with_a_capital_letter():
+    tasks = extract_tasks_rules(to_chunk_records("Alex: Action: I will add a regression test by Friday."))
+    assert tasks[0]["title"] == "Add a regression test by Friday"
