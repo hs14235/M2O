@@ -1,7 +1,9 @@
+<img src="docs/media/m2o-logo.png" alt="M2O logo: two speech bubbles flowing into a checkmark and an upward arrow" width="120">
+
 # M2O · Meeting 2 Outcomes
 
 [![Verify application](https://github.com/hs14235/M2O/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/hs14235/M2O/actions/workflows/verify.yml)
-[![Live demo](https://img.shields.io/badge/live%20demo-onrender.com-6f3bd1)](https://m2o-synthetic-demo.onrender.com)
+[![Live demo](https://img.shields.io/badge/live%20demo-onrender.com-1aa8a9)](https://m2o-synthetic-demo.onrender.com)
 
 **Leave the meeting with a clear next step.** M2O turns meeting transcripts into source-linked actions, decisions, blockers, follow-ups and risks. People confirm who is involved, review each outcome, plan their day and approve an exact handoff to Jira, Slack, GitHub or LinkedIn.
 
