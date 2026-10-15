@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     linkedin_scopes: str = "openid profile"
     linkedin_publishing_enabled: bool = False
     linkedin_api_version: str = Field(default="202609", pattern=r"^20[0-9]{2}(0[1-9]|1[0-2])$")
+    # Who sees member posts. CONNECTIONS keeps a first real post off the public feed.
+    linkedin_post_visibility: Literal["CONNECTIONS", "PUBLIC"] = "CONNECTIONS"
     provider_encryption_key: SecretStr = SecretStr("")
     jira_client_id: str = ""
     jira_client_secret: SecretStr = SecretStr("")

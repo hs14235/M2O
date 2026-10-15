@@ -378,7 +378,7 @@ class LinkedInPublishingService:
             )
         if not payload.disclosure_confirmed:
             raise ServiceError(
-                status_code=403, error="Confirm that this draft may be disclosed publicly", where="client"
+                status_code=403, error="Confirm that this draft may be shared on LinkedIn", where="client"
             )
         connection, credentials = self.access()
         proposal = LinkedInProposal(
@@ -391,7 +391,9 @@ class LinkedInPublishingService:
             connection_updated_at=connection.updated_at,
             author=credentials["author"],
             payload={
-                "body": self.adapter.payload(credentials["author"], row.text),
+                "body": self.adapter.payload(
+                    credentials["author"], row.text, settings.linkedin_post_visibility
+                ),
                 "api_version": settings.linkedin_api_version,
             },
             snapshots=row.snapshots,
@@ -406,14 +408,18 @@ class LinkedInPublishingService:
             self.principal,
             "linkedin.previewed",
             proposal.id,
-            {"draft_version": row.version, "public_disclosure_confirmed": True},
+            {
+                "draft_version": row.version,
+                "public_disclosure_confirmed": True,
+                "visibility": settings.linkedin_post_visibility,
+            },
         )
         return {
             "id": proposal.id,
             "draft_id": row.id,
             "draft_version": row.version,
             "author": proposal.author,
-            "audience": "PUBLIC",
+            "audience": proposal.payload["body"]["visibility"],
             "payload": proposal.payload["body"],
             "api_version": proposal.payload["api_version"],
             "payload_hash": proposal.payload_hash,

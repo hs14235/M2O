@@ -34,7 +34,7 @@ from app.services.errors import ServiceError
 from app.services.linkedin_drafts import LinkedInDraftService
 from app.services.linkedin_publishing import LinkedInPublishingService
 from app.services.review import ReviewService
-from app.settings import settings
+from app.settings import Settings, settings
 from app.worker import run_once
 
 
@@ -249,7 +249,7 @@ def test_exact_preview_requires_public_disclosure_and_post_kind(session, seeded,
     row = session.get(LinkedInDraft, value["id"])
     row.kind = "post"
     session.commit()
-    with pytest.raises(ServiceError, match="disclosed publicly"):
+    with pytest.raises(ServiceError, match="shared on LinkedIn"):
         LinkedInPublishingService(session, configured).preview(
             "weekly", LinkedInPreviewInput(draft_id=value["id"], expected_draft_version=1)
         )
@@ -625,3 +625,20 @@ def test_disconnect_after_write_intent_refreshes_cached_connection_without_post(
     assert disconnected == [True] and calls == []
     assert session.get(Job, approved["job_id"]).state == "failed"
     assert service.operation(approved["operation_id"])["state"] == "uncertain"
+
+
+@pytest.mark.parametrize("visibility", ["CONNECTIONS", "PUBLIC"])
+def test_preview_shows_and_hashes_the_configured_audience(
+    session, seeded, configured, monkeypatch, visibility
+):
+    monkeypatch.setattr(settings, "linkedin_post_visibility", visibility)
+    value, _, _ = preview(session, seeded, configured)
+    assert value["audience"] == visibility
+    assert value["payload"]["visibility"] == visibility
+
+
+def test_audience_defaults_to_connections_and_rejects_unknown_values():
+    assert Settings(_env_file=None).linkedin_post_visibility == "CONNECTIONS"
+    assert LinkedInPublishingAdapter.payload("urn:li:person:abc", "Hello")["visibility"] == "CONNECTIONS"
+    with pytest.raises(ServiceError):
+        LinkedInPublishingAdapter.payload("urn:li:person:abc", "Hello", "LOGGED_IN")

@@ -10,7 +10,7 @@ Existing profile context uses OIDC for the consenting private user's own minimal
 
 Local post/outreach drafts require current approved outcome versions and a manually reviewed text body. They preserve exact text, keep source snapshots, detect stale sources and support version-checked edits. They do not copy transcript evidence automatically. Drafts are meeting/workspace-visible to authorized members, including viewers; they are not private personal notes. Authors and workspace owners/reviewers can edit, while contributors can create their own drafts. Local drafts work without LinkedIn credentials, including the synthetic demo.
 
-Publication is a separate, explicit consent path for a private owner/reviewer's own LinkedIn account. Visitor readiness hides saved author/expiry/configuration, and expired/revoked authority blocks queued posts. It supports a public text-only member post. Outreach is a copyable local draft; automated lead messaging and arbitrary participant-name lookup are unsupported. People Operations, Finance and Engineering can use drafts for an intentionally public process update, while reviewing private names/figures before disclosure.
+Publication is a separate, explicit consent path for a private owner/reviewer's own LinkedIn account. Visitor readiness hides saved author/expiry/configuration, and expired/revoked authority blocks queued posts. It supports a text-only member post. `LINKEDIN_POST_VISIBILITY` sets who can see it: `CONNECTIONS` (the default, so a first real post stays off the public feed) or `PUBLIC`. Outreach is a copyable local draft; automated lead messaging and arbitrary participant-name lookup are unsupported. People Operations, Finance and Engineering can use drafts for an intentionally public process update, while reviewing private names/figures before disclosure.
 
 ## Configuration and consent
 
@@ -46,12 +46,12 @@ All scoped routes begin `/api/workspaces/{workspace_id}`.
 | `GET /integrations/linkedin/publishing` | Configuration, consent state, author/expiry and `can_connect/can_publish/can_draft`; messaging/reconciliation are false. |
 | `POST /integrations/linkedin/publishing/connect` | Browser session required; returns consent URL. |
 | `DELETE /integrations/linkedin/publishing` | Clear the publishing grant and pending publishing state. |
-| `POST /meetings/{slug}/linkedin/preview` | `{draft_id, expected_draft_version, disclosure_confirmed: true}`; public post only. |
+| `POST /meetings/{slug}/linkedin/preview` | `{draft_id, expected_draft_version, disclosure_confirmed: true}`; post drafts only. |
 | `POST /linkedin/proposals/{id}/approve` | `{payload_hash}`; returns 202 with operation/job/state. |
 | `GET /linkedin/operations/{id}` | Recover the actor-owned, workspace/meeting-authorized receipt. |
 | `GET /meetings/{slug}/deliveries/linkedin` | Latest 50 receipts for the current publishing actor. |
 
-Draft responses include ID/kind/text/version, actor, timestamps and sources `{item_id, version, revision_id, title}` with `source_stale`. Preview responses include the exact post payload, consenting author, PUBLIC audience, pinned API version, source snapshots, hash and expiry. Approval binds that author, credential generation, draft version, source revision and exact payload/version. A changed draft, source, grant or role blocks sending.
+Draft responses include ID/kind/text/version, actor, timestamps and sources `{item_id, version, revision_id, title}` with `source_stale`. Preview responses include the exact post payload, consenting author, audience (`CONNECTIONS` or `PUBLIC`, from `LINKEDIN_POST_VISIBILITY`), pinned API version, source snapshots, hash and expiry. Approval binds that author, credential generation, draft version, source revision and exact payload/version. A changed draft, source, grant or role blocks sending.
 
 Distinct previews of the same workspace/author/draft version share one durable post intent. A completed delivery does not approve outcomes or complete a personal plan. Reapproval never queues a replacement post for the same intent.
 
