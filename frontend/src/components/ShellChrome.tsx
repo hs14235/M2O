@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-function initial(key: string) {
+// Narrow screens start with the sidebar closed so content comes first; a
+// saved choice always wins.
+function initial(key: string, narrowDefault = true) {
   try {
-    return localStorage.getItem(key) !== "closed";
+    const saved = localStorage.getItem(key);
+    if (saved) return saved !== "closed";
   } catch {
-    return true;
+    /* Fall through to the default. */
   }
+  return narrowDefault || !window.matchMedia?.("(max-width: 850px)").matches;
 }
 export function useShellChrome() {
   const [header, setHeader] = useState(() => initial("m2o-header")),
-    [sidebar, setSidebar] = useState(() => initial("m2o-sidebar"));
+    [sidebar, setSidebar] = useState(() => initial("m2o-sidebar", false));
   function toggle(key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) {
     setter((value) => {
       const next = !value;

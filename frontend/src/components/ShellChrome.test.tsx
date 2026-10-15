@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { ChromeControls, ChromeRegion, useShellChrome } from "./ShellChrome";
 
 beforeEach(() => {
@@ -55,4 +55,19 @@ it("restores focus to its reopening control when a focused region closes", async
   await waitFor(() => expect(screen.getByRole("button", { name: "Show header" })).toHaveFocus());
   expect(document.getElementById("workspace-header")).toHaveAttribute("aria-hidden", "true");
   expect(screen.queryByRole("button", { name: "Account action" })).toBeNull();
+});
+
+it("starts with the sidebar closed on narrow screens unless the person chose otherwise", () => {
+  const narrow = vi.fn(() => ({ matches: true }) as MediaQueryList);
+  vi.stubGlobal("matchMedia", narrow);
+  localStorage.removeItem("m2o-sidebar");
+  const first = renderHook(() => useShellChrome());
+  expect(first.result.current.sidebar).toBe(false);
+  expect(first.result.current.header).toBe(true);
+  localStorage.setItem("m2o-sidebar", "open");
+  expect(renderHook(() => useShellChrome()).result.current.sidebar).toBe(true);
+  narrow.mockReturnValue({ matches: false } as MediaQueryList);
+  localStorage.removeItem("m2o-sidebar");
+  expect(renderHook(() => useShellChrome()).result.current.sidebar).toBe(true);
+  vi.unstubAllGlobals();
 });

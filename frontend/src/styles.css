@@ -570,12 +570,27 @@ code {
   max-width: 1180px;
   min-height: 100vh;
   margin: auto;
-  align-items: center;
+  align-items: start;
   padding: 4rem;
+}
+.login-story {
+  position: sticky;
+  top: 4rem;
 }
 .login h1 {
   font-size: clamp(2.4rem, 5vw, 4.4rem);
   margin-bottom: 1.4rem;
+  text-wrap: balance;
+}
+.login-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
 }
 .login-story p {
   max-width: 430px;
@@ -664,6 +679,7 @@ code {
   }
   .login-story {
     max-width: 650px;
+    position: static;
   }
 }
 @media (max-width: 580px) {
@@ -676,9 +692,17 @@ code {
   .account {
     gap: 0.5rem;
   }
-  .account > span {
-    max-width: 95px;
-    overflow-wrap: anywhere;
+  .account > span,
+  .brand-sub {
+    display: none;
+  }
+  .app-header {
+    flex-wrap: nowrap;
+  }
+  .account button {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
   .outcomes,
   .form-grid {

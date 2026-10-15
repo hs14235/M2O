@@ -314,8 +314,9 @@
   transform: none;
 }
 @media (max-width: 580px) {
+  /* A short banner keeps the studio's identity without pushing work down. */
   .studio-media {
-    min-height: 200px;
+    min-height: 120px;
   }
   .studio-media::after {
     background: linear-gradient(180deg, var(--soft), transparent 22%);
@@ -505,20 +506,31 @@ button.danger:hover:not(:disabled) {
   background: #842338;
   transform: none;
 }
+/* Layout toggles stay reachable when the header is hidden, but read as quiet
+   utilities rather than primary controls. */
 .shell-controls {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.4rem 1rem;
-  background: var(--canvas);
-  border-bottom: 1px solid var(--line);
+  gap: 0.25rem;
+  padding: 0.15rem 1rem;
+  background: transparent;
 }
 .shell-controls button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  min-height: 44px;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  min-height: 32px;
+  padding: 0.25rem 0.6rem;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+.shell-controls button:hover,
+.shell-controls button:focus-visible {
+  border-color: var(--line);
+  color: var(--ink);
 }
 .chrome-region {
   display: grid;
