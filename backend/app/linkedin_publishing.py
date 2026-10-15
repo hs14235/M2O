@@ -126,17 +126,19 @@ class LinkedInPublishingAdapter:
         }
 
     @staticmethod
-    def payload(author: str, text: str) -> dict:
+    def payload(author: str, text: str, visibility: str = "CONNECTIONS") -> dict:
         if not re.fullmatch(r"urn:li:person:[A-Za-z0-9_-]{1,200}", author):
             raise ServiceError(status_code=422, error="Invalid LinkedIn author", where="client")
         if not isinstance(text, str) or not text.strip() or len(text) > 3000:
             raise ServiceError(
                 status_code=422, error="LinkedIn post text must contain 1 to 3000 characters", where="client"
             )
+        if visibility not in {"CONNECTIONS", "PUBLIC"}:
+            raise ServiceError(status_code=422, error="Unsupported LinkedIn visibility", where="client")
         return {
             "author": author,
             "commentary": text,
-            "visibility": "PUBLIC",
+            "visibility": visibility,
             "distribution": {
                 "feedDistribution": "MAIN_FEED",
                 "targetEntities": [],
