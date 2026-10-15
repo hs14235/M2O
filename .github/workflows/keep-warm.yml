@@ -1,15 +1,14 @@
 # Render's free tier sleeps after 15 idle minutes and takes about a minute to
-# wake. Pinging during US working hours keeps the demo instant for visitors
-# while staying well inside the workspace's 750 free instance hours a month,
-# which the author's other Render project shares.
+# wake. Pinging keeps the demo instant for visitors. Always-on uses about 744
+# of the workspace's 750 free instance hours a month, so it assumes no other
+# free web service in the Render workspace is running (Trainline is suspended).
+# To share hours again, limit the schedule to working hours, for example
+# "*/10 12-23 * * 1-5" plus "*/10 0-1 * * 2-6" (about 300 hours).
 name: Keep demo warm
 
 on:
   schedule:
-    # Every 10 minutes, Monday-Friday 8am-10pm US Eastern (12:00-02:00 UTC in
-    # daylight time; an hour earlier in standard time). About 300 hours a month.
-    - cron: "*/10 12-23 * * 1-5"
-    - cron: "*/10 0-1 * * 2-6"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions: {}
