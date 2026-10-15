@@ -1,0 +1,23 @@
+# Render's free tier sleeps after 15 idle minutes and takes about a minute to
+# wake. Pinging during US working hours keeps the demo instant for visitors
+# while staying well inside the workspace's 750 free instance hours a month,
+# which the author's other Render project shares.
+name: Keep demo warm
+
+on:
+  schedule:
+    # Every 10 minutes, Monday-Friday 8am-10pm US Eastern (12:00-02:00 UTC in
+    # daylight time; an hour earlier in standard time). About 300 hours a month.
+    - cron: "*/10 12-23 * * 1-5"
+    - cron: "*/10 0-1 * * 2-6"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the readiness endpoint
+        run: curl --fail --silent --show-error --max-time 120 --retry 2 https://m2o-synthetic-demo.onrender.com/readyz
