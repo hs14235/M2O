@@ -190,7 +190,7 @@ export default function App() {
           <a className="brand" href="#main">
             <img className="brand-mark" src="/brand-mark.png" alt="" width="62" height="32" />
             <span>
-              <strong>M2O</strong> Meeting 2 Outcomes
+              <strong>M2O</strong> <span className="brand-sub">Meeting 2 Outcomes</span>
             </span>
           </a>
           <div className="account">
@@ -297,8 +297,7 @@ export default function App() {
               {user.expires_at && (
                 <details>
                   <summary>
-                    Demo access ends{" "}
-                    <time dateTime={user.expires_at}>{new Date(user.expires_at).toLocaleString()}</time>
+                    Demo available until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
                   </summary>
                   <p>
                     When access expires, start a fresh demo. Access expiry does not immediately erase stored
@@ -401,11 +400,7 @@ function Login({
       <section className="login-story">
         <img className="login-mark" src="/brand-mark.png" alt="" width="125" height="64" />
         <span className="eyebrow">M2O · Meeting 2 Outcomes</span>
-        <h1>
-          A useful meeting
-          <br />
-          has a clear next step.
-        </h1>
+        <h1>A useful meeting has a clear next step.</h1>
         <p>
           Capture actions, decisions, blockers and risks. Confirm the people involved. Keep every outcome
           connected to its source.
@@ -455,13 +450,24 @@ function Login({
         <p className="muted">
           Invited accounts sign in here. If you need help returning, recovery is operator assisted.
         </p>
-        <a href="/recover">Recover account access</a>
-        <button aria-pressed={calm} disabled={reduced} onClick={onToggleMotion}>
-          {reduced ? "Reduced motion active" : calm ? "Calm mode on" : "Enable calm mode"}
-        </button>
+        <div className="login-footer">
+          <a href="/recover">Recover account access</a>
+          <button aria-pressed={calm} disabled={reduced} onClick={onToggleMotion}>
+            {reduced ? "Reduced motion active" : calm ? "Calm mode on" : "Enable calm mode"}
+          </button>
+        </div>
       </section>
     </main>
   );
+}
+
+/** "6:30 PM" today, or "Oct 16, 6:30 PM" when the demo runs past midnight. */
+export function demoUntil(value: string, today = new Date()) {
+  const end = new Date(value);
+  const time = end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return end.toDateString() === today.toDateString()
+    ? time
+    : end.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + time;
 }
 
 function CreateWorkspace({ onCreated }: { onCreated: () => void }) {

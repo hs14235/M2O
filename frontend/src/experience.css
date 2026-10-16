@@ -453,17 +453,13 @@ textarea {
   .hero-copy {
     padding: 1.3rem;
   }
+  /* Logo, motion and sign-out share one row on a phone. */
   .app-header {
-    align-items: flex-start;
+    align-items: center;
   }
   .account {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
-    max-width: 210px;
-  }
-  .account .motion-control {
-    order: 3;
-    width: 100%;
   }
   .department-switch {
     gap: 0.3rem;
