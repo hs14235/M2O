@@ -111,6 +111,8 @@ def extract_tasks_rules(context_chunks: list[dict]) -> list[dict]:
                 if owner_match:
                     owner = owner_match.group(1).strip()
                 title = METADATA_FIELDS.sub("", body).rstrip(".?! ")
+                # "I will add a test" leaves "add a test"; a title reads as a sentence.
+                title = title[:1].upper() + title[1:]
                 candidate = {
                     "kind": kind,
                     "title": title[:200],
