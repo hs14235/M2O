@@ -1,0 +1,22 @@
+# Render's free tier sleeps after 15 idle minutes and takes about a minute to
+# wake. Pinging keeps the demo instant for visitors. Always-on uses about 744
+# of the workspace's 750 free instance hours a month, so it assumes no other
+# free web service in the Render workspace is running (Trainline is suspended).
+# To share hours again, limit the schedule to working hours, for example
+# "*/10 12-23 * * 1-5" plus "*/10 0-1 * * 2-6" (about 300 hours).
+name: Keep demo warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the readiness endpoint
+        run: curl --fail --silent --show-error --max-time 120 --retry 2 https://m2o-synthetic-demo.onrender.com/readyz

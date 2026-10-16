@@ -188,11 +188,9 @@ export default function App() {
       <ChromeRegion id="workspace-header" expanded={chrome.header} calm={motion.calm}>
         <header className="app-header">
           <a className="brand" href="#main">
-            <span aria-hidden="true" className="brand-mark">
-              M2O
-            </span>
+            <img className="brand-mark" src="/brand-mark.png" alt="" width="62" height="32" />
             <span>
-              Meeting <strong>2 Outcomes</strong>
+              <strong>M2O</strong> Meeting 2 Outcomes
             </span>
           </a>
           <div className="account">
@@ -401,6 +399,7 @@ function Login({
   return (
     <main className="login">
       <section className="login-story">
+        <img className="login-mark" src="/brand-mark.png" alt="" width="125" height="64" />
         <span className="eyebrow">M2O · Meeting 2 Outcomes</span>
         <h1>
           A useful meeting
