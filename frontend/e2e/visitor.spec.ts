@@ -4,14 +4,16 @@ import AxeBuilder from "@axe-core/playwright";
 // Documentation captures are opt-in so ordinary runs never rewrite tracked media.
 const docMedia = process.env.MTT_UPDATE_DOC_MEDIA === "1" ? "../docs/media/" : "test-results/doc-media/";
 async function accessible(page: Page) {
-  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
+  // Let finite animations settle; mid-fade colours are not what users read. Poll
+  // instead of awaiting each animation's finished promise: an animation cancelled
+  // because React removed or hid its element goes idle and that promise never settles.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity,
+      ),
   );
   expect(
     (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations,

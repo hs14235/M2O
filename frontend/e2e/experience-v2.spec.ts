@@ -9,14 +9,16 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
 }
 async function accessible(page: Page) {
-  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
+  // Let finite animations settle; mid-fade colours are not what users read. Poll
+  // instead of awaiting each animation's finished promise: an animation cancelled
+  // because React removed or hid its element goes idle and that promise never settles.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity,
+      ),
   );
   expect(
     (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations,

@@ -166,7 +166,10 @@ def main() -> int:
         )
         assert browser.request("GET", "/assets/missing.js")[0] == 404
         assert browser.request("GET", "/api/not-a-route")[0] == 404
-        assert browser.request("HEAD", "/scenes/engineering.mp4")[2]["Content-Type"].startswith("video/mp4")
+        # Root-level public files must be served as themselves, never as the HTML shell:
+        # the theme script runs before first paint and the preview image feeds link cards.
+        assert "javascript" in (browser.request("HEAD", "/theme-init.js")[2]["Content-Type"] or "")
+        assert (browser.request("HEAD", "/og-image.png")[2]["Content-Type"] or "").startswith("image/png")
         assert browser.request("GET", "/", headers={"Host": "attacker.example.test"})[0] == 400
         status, person, headers = browser.request("POST", "/api/demo/start", {})
         assert status == 201

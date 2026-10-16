@@ -240,64 +240,6 @@
 .receipt-panel .primary {
   margin: 0.5rem;
 }
-.studio-media {
-  position: relative;
-  min-height: 220px;
-  overflow: hidden;
-  isolation: isolate;
-}
-.studio-visual {
-  position: absolute;
-  inset: -8px;
-  transform: translateY(var(--studio-shift, 0px));
-}
-.studio-visual img,
-.studio-visual video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.studio-visual video {
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-.studio-media[data-playing="true"] video {
-  opacity: 1;
-}
-.studio-media::after {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, var(--soft), transparent 22%);
-}
-.studio-control {
-  position: absolute;
-  z-index: 1;
-  bottom: 0.7rem;
-  right: 0.7rem;
-  font-size: 0.68rem;
-  padding: 0.5rem 0.7rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 99px;
-  box-shadow: none;
-}
-.studio-control:hover:not(:disabled) {
-  transform: none;
-}
-@media (max-width: 580px) {
-  /* A short banner keeps the studio's identity without pushing work down. */
-  .studio-media {
-    min-height: 120px;
-  }
-  .studio-media::after {
-    background: linear-gradient(180deg, var(--soft), transparent 22%);
-  }
-}
 @media (max-width: 580px) {
   .destination-options {
     grid-template-columns: 1fr;
