@@ -12,6 +12,14 @@ Local post/outreach drafts require current approved outcome versions and a manua
 
 Publication is a separate, explicit consent path for a private owner/reviewer's own LinkedIn account. Visitor readiness hides saved author/expiry/configuration, and expired/revoked authority blocks queued posts. It supports a text-only member post. `LINKEDIN_POST_VISIBILITY` sets who can see it: `CONNECTIONS` (the default, so a first real post stays off the public feed) or `PUBLIC`. Outreach is a copyable local draft; automated lead messaging and arbitrary participant-name lookup are unsupported. People Operations, Finance and Engineering can use drafts for an intentionally public process update, while reviewing private names/figures before disclosure.
 
+## Using it
+
+1. **Connections → LinkedIn posting → Connect LinkedIn posting.** LinkedIn asks you to approve `openid profile w_member_social`, then returns you to Connections. This is separate from the profile connection above it.
+2. **In a meeting, Review & Deliver → choose LinkedIn.** Select approved outcomes. M2O suggests a post listing them; edit it freely (up to 3,000 characters). Your own edits are kept if the selection changes.
+3. **Confirm** that you reviewed the text for private names, figures and details, then **Generate exact LinkedIn preview.** This saves a draft and a stored preview; nothing is posted.
+4. **Check the preview**, including the audience line ("Your connections only" or "Anyone on or off LinkedIn"), and approve it. The worker posts exactly that payload.
+5. **The receipt** links to the live post once LinkedIn returns its ID. An unconfirmed result is shown as uncertain and is never resent automatically; check your LinkedIn activity first.
+
 ## Configuration and consent
 
 Enable `LINKEDIN_PUBLISHING_ENABLED` only after the application has appropriate products and permissions. Backend configuration needs `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `PROVIDER_ENCRYPTION_KEY` and the configured `APP_ORIGIN`. `LINKEDIN_API_VERSION` selects the supported YYYYMM API version (current source default `202609`). Keep secrets in ignored private backend configuration or the approved hosting secret store.
