@@ -18,7 +18,7 @@ Hamza explicitly prioritized overview sections 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, a
 | 7 Functions | Complete capture, extraction, people confirmation, review, planning, delivery, connections, isolation/invitations, completion, accessibility, and privacy lifecycle. |
 | 8 Integrations | Jira, Slack, GitHub, and supported LinkedIn capabilities are all core requirements; order is dependency-driven, not a removal of scope. |
 | 9 Synchronization | Hamza approved separate personal-plan progress and external tool status on October 3. Define ownership/conflicts before implementing deliberate synchronization; delivery alone does not change completion state. |
-| 10 Experience | Vivid bubbly graphics, dimensional scenes, department-wide cinematic transitions, authored video where useful, calm mode, and accessible mobile flows. |
+| 10 Experience | Superseded on October 16, 2026 (see `AGENTS.md`): a calm, Linear-inspired system on the logo palette with light and dark themes and one signature motion. Originally: vivid bubbly graphics, dimensional scenes, department-wide cinematic transitions, authored video where useful. Calm mode and accessible mobile flows remain. |
 | 11 Operations | Credentials, authorization, job recovery, quotas, retention, invitations/recovery, backups, monitoring, and truthful errors. |
 | 12 Hosting | Render Free is the selected budget; distinguish a bounded public synthetic demo from durable private use and local AI. |
 
