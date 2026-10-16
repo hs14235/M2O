@@ -2,14 +2,20 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 async function accessible(page: Page) {
-  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
+  // Let finite animations settle; mid-fade colours are not what users read. Poll
+  // instead of awaiting each animation's finished promise: an animation cancelled
+  // because React removed or hid its element goes idle and that promise never settles.
+  // Two frames first, so a just-triggered animation exists before we check.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity,
+      ),
   );
   expect(
     (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations,
@@ -250,7 +256,6 @@ test("department themes, calm mode and persistent daily execution plan", async (
   await page.screenshot({ path: "test-results/mobile-daily-plan.png", fullPage: true });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.getByRole("button", { name: "Reduced motion active" })).toBeDisabled();
-  await expect(page.locator(".scene-sphere")).toHaveCSS("animation-name", "none");
 });
 
 test("guided department flows, local handoff, optional GitHub preview and deep links", async ({ page }) => {

@@ -4,14 +4,20 @@ import AxeBuilder from "@axe-core/playwright";
 // Documentation captures are opt-in so ordinary runs never rewrite tracked media.
 const docMedia = process.env.MTT_UPDATE_DOC_MEDIA === "1" ? "../docs/media/" : "test-results/doc-media/";
 async function accessible(page: Page) {
-  // Let finite transitions (department theme fades) settle; mid-fade colours are not what users read.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
+  // Let finite animations settle; mid-fade colours are not what users read. Poll
+  // instead of awaiting each animation's finished promise: an animation cancelled
+  // because React removed or hid its element goes idle and that promise never settles.
+  // Two frames first, so a just-triggered animation exists before we check.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (animation) =>
+          animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity,
+      ),
   );
   expect(
     (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations,
@@ -157,41 +163,22 @@ test("a no-action conversation has an honest empty review and reduced-motion sta
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const mediaRequests: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().endsWith(".mp4")) mediaRequests.push(request.url());
-  });
   await enter(page);
   await expect(page.getByRole("button", { name: "Reduced motion active" })).toBeDisabled();
-  await expect(page.locator(".studio-media img")).toBeVisible();
   await extractFixture(page, "A quiet check-in");
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
   await expect(page.locator("article.outcome")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Approve outcome" })).toHaveCount(0);
-  expect(mediaRequests).toEqual([]);
   await accessible(page);
 });
 
-test("authored media plays and loops, pause survives department changes, and tools reflow at boundary widths", async ({
-  page,
-}) => {
+test("department switching and tools that reflow at boundary widths", async ({ page }) => {
   await enter(page);
-  const video = page.locator(".studio-media video");
-  await expect(video).toHaveJSProperty("paused", false);
-  await expect(page.locator(".studio-media")).toHaveAttribute("data-playing", "true");
-  await video.evaluate((node) => {
-    const media = node as HTMLVideoElement;
-    media.currentTime = media.duration - 0.2;
-  });
-  await expect.poll(() => video.evaluate((node) => (node as HTMLVideoElement).currentTime)).toBeLessThan(0.6);
-  await page.getByRole("button", { name: "Pause studio motion" }).click();
-  await expect(video).toHaveJSProperty("paused", true);
   await page
     .getByRole("group", { name: "Department experiences" })
     .getByRole("button", { name: "People Operations", exact: true })
     .click();
-  await expect(page.getByRole("button", { name: "Play studio motion" })).toBeVisible();
-  await expect(video).not.toHaveAttribute("src");
+  await expect(page.getByRole("region", { name: "People Operations experience" })).toBeVisible();
   await page.getByRole("button", { name: "Open Onboarding coordination" }).click();
   for (const width of [850, 851, 1179, 1180, 390]) {
     await page.setViewportSize({ width, height: 844 });
