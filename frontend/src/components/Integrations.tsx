@@ -7,6 +7,7 @@ import GitHubConnection from "./GitHubConnection";
 import SlackConnection from "./SlackConnection";
 import SlackActions from "./SlackActions";
 import GoogleMeetConnection from "./GoogleMeetConnection";
+import LinkedInPublishingConnection from "./LinkedInPublishingConnection";
 
 export const integrationStatus: Record<Integration["status"], string> = {
   ready: "Ready",
@@ -147,6 +148,7 @@ export default function Integrations({
             key={"slack-actions-" + workspace.id + "-" + connectionRevision}
             workspace={workspace}
           />
+          <LinkedInPublishingConnection key={"linkedin-publishing-" + workspace.id} workspace={workspace} />
         </>
       )}
     </div>

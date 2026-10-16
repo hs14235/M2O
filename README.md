@@ -126,7 +126,7 @@ Real browser captures from isolated synthetic workspaces using the real API and 
 | **Jira** | Discover issue types and fields, preview exact create/update content, approve queued delivery, inspect receipts | Contract-tested with synthetic provider responses | [Connection](docs/JIRA_CONNECTION.md) · [Delivery](docs/JIRA_DELIVERY.md) |
 | **Slack** | Post or update messages; meeting actions use signed interaction requests | Contract-tested with synthetic provider responses | [Delivery](docs/SLACK_DELIVERY.md) · [Actions](docs/SLACK_ACTIONS.md) |
 | **GitHub** | Deliver reviewed issues; detect duplicates, content conflicts and uncertain writes | Contract-tested with synthetic provider responses | [Guide](docs/GITHUB_DELIVERY.md) |
-| **LinkedIn** | Own-profile connection and member-posting APIs; the publishing screen is pending | Contract-tested with synthetic provider responses | [Guide](docs/LINKEDIN_DELIVERY.md) |
+| **LinkedIn** | Post reviewed outcomes to your own account: edit the text, approve an exact preview that shows the audience (connections only by default), then follow the receipt to the live post | Contract-tested with synthetic provider responses; live app approved, first live post pending | [Guide](docs/LINKEDIN_DELIVERY.md) |
 | **Google Meet** | Read-only import of the latest existing transcript | Contract-tested with synthetic provider responses | [Guide](docs/GOOGLE_MEET_IMPORT.md) |
 
 The public demo deliberately refuses to start if any provider credentials are configured, since anyone on the internet can use it. Live provider use runs in a private installation with your own approved apps.

@@ -8,6 +8,7 @@ import { JiraPublisher } from "./JiraPublisher";
 import { integrationStatus } from "./Integrations";
 import { PayloadInspection } from "./ExactPayload";
 import { SlackPublisher } from "./SlackPublisher";
+import { LinkedInPublisher } from "./LinkedInPublisher";
 
 const stageNames: Record<HandoffStage, string> = {
   choose: "Choose",
@@ -390,12 +391,16 @@ export function ShareStep({
           onJob={onJob}
         />
       )}
-      {stage !== "choose" && destination === "linkedin" && (
-        <Empty>
-          {catalog.find((item) => item.id === destination)?.description ||
-            "Check Connections for this provider's available capabilities."}
-          <button onClick={onConnections}>Open connections</button>
-        </Empty>
+      {destination === "linkedin" && (
+        <LinkedInPublisher
+          workspace={workspace}
+          meeting={meeting}
+          selected={selected}
+          stage={stage}
+          onStage={go}
+          onJob={onJob}
+          onConnections={onConnections}
+        />
       )}
       <div className="step-actions">
         {stage !== "choose" && (
