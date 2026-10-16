@@ -7,6 +7,10 @@ async function accessible(page: Page) {
   // Let finite animations settle; mid-fade colours are not what users read. Poll
   // instead of awaiting each animation's finished promise: an animation cancelled
   // because React removed or hid its element goes idle and that promise never settles.
+  // Two frames first, so a just-triggered animation exists before we check.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
   await page.waitForFunction(() =>
     document
       .getAnimations()
