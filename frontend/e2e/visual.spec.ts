@@ -70,3 +70,19 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   await expect(system(page)).toBeVisible();
   await snapAll(browser, page, "settings-motion", system);
 });
+
+// The style guide needs no demo session, so each variant simply opens the page.
+test("the style guide matches its baselines in both themes and sizes", async ({ browser, baseURL }) => {
+  for (const { colorScheme, size, device } of variants) {
+    const context = await browser.newContext({ ...device, colorScheme });
+    try {
+      const view = await context.newPage();
+      await view.goto(new URL("/styleguide.html", baseURL).href);
+      await expect(view.getByRole("heading", { level: 1, name: "Style guide" })).toBeVisible();
+      await settle(view);
+      await expect(view).toHaveScreenshot(`styleguide-${colorScheme}-${size}.png`, { fullPage: true });
+    } finally {
+      await context.close();
+    }
+  }
+});
