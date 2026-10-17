@@ -15,6 +15,8 @@ const variants = [
 // Server-issued times (demo expiry, saved and job timestamps) change every run. A fixed
 // box keeps their width from moving the layout, even if React re-renders them, and the
 // mask hides the text itself.
+// The style option injects a <style> tag, which the app's CSP (style-src 'self') blocks,
+// so screenshot contexts bypass CSP; the other browser specs check the real policy.
 const fixedTimes =
   "time { display: inline-block !important; width: 9em !important; overflow: hidden !important; white-space: nowrap !important; vertical-align: bottom !important; }";
 
@@ -24,7 +26,7 @@ const fixedTimes =
 async function snapAll(browser: Browser, page: Page, screen: string, ready: (view: Page) => Locator) {
   const storageState = await page.context().storageState();
   for (const { colorScheme, size, device } of variants) {
-    const context = await browser.newContext({ ...device, colorScheme, storageState });
+    const context = await browser.newContext({ ...device, colorScheme, storageState, bypassCSP: true });
     try {
       const view = await context.newPage();
       await view.goto(page.url());
@@ -79,7 +81,7 @@ test("the open command menu matches its baselines in both themes and sizes", asy
   await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
   const storageState = await page.context().storageState();
   for (const { colorScheme, size, device } of variants) {
-    const context = await browser.newContext({ ...device, colorScheme, storageState });
+    const context = await browser.newContext({ ...device, colorScheme, storageState, bypassCSP: true });
     try {
       const view = await context.newPage();
       await view.goto(page.url());

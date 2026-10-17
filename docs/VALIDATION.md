@@ -11,6 +11,8 @@ Windows 11, Node 22, no Docker:
 - Compose stack with this branch's web image, Playwright 1.63.0 container: `command-menu` (keyboard-only journey, axe WCAG 2.1 AA with the menu open in light and dark, theme and calm from the menu, no script or CSP console errors), `motion`, `dark-theme`, `visitor`: 9 passed, twice.
 - Browser fixes: `?` was ignored right after a menu command, because the closing dialog still counted as open; the "Search or jump…" trigger pushed Sign out off a 390 px header, so it is hidden below the `sm` breakpoint (the shortcut still works; every command is reachable from the page).
 - `npm run test:visual`: 4 new `command-menu-*` baselines; the 16 signed-in screen baselines regenerated for the header trigger, all inspected, then two unchanged reruns. The desktop baselines had still passed with the new trigger: 0.1% of a tall full-page capture is a few thousand pixels, more than a thin outlined button. Phase 7 should look at per-region screenshots or a lower tolerance for headers.
+- After the review fixes (356c8c5): browser specs re-run, 9 passed; `command-menu-*` baselines regenerated for the shorter command list.
+- Screenshot fix found here (affects every phase): `visual.spec.ts` pinned server `<time>` boxes with an injected `<style>`, which the CSP blocks, so their width followed the text and moved with the clock (near midnight the demo expiry changed width and `demo-home-light-mobile` failed). Screenshot contexts now use `bypassCSP: true` so the fixed width applies; the other browser specs still run under the real CSP. All baselines with a `<time>` regenerated, then three unchanged reruns.
 
 ## Redesign foundation — October 17, 2026 (local; CI pending)
 
