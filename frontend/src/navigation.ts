@@ -14,6 +14,13 @@ export type Page =
   | "audit";
 export const settingsSections = ["people", "connections", "privacy", "access", "motion"] as const;
 export type SettingsSection = (typeof settingsSections)[number];
+export const settingsLabels: Record<SettingsSection, string> = {
+  people: "People",
+  connections: "Connections",
+  privacy: "Privacy & data",
+  access: "Access",
+  motion: "Motion & layout",
+};
 export const handoffStages = ["choose", "configure", "preview", "receipt"] as const;
 export type HandoffStage = (typeof handoffStages)[number];
 export type ProviderId = "local" | "github" | "jira" | "slack" | "linkedin";
@@ -77,6 +84,16 @@ export function parseRoute(path: string): Route {
 }
 export function settingsPath(workspace: string, section: SettingsSection = "people") {
   return routePath(workspace, "settings") + "/" + section;
+}
+/** Audit history is limited to owners and reviewers, matching the server check. */
+export function canAudit(workspace?: { role: string }) {
+  return Boolean(workspace && ["owner", "reviewer"].includes(workspace.role));
+}
+/** Demo visitors see only the settings that make sense in a synthetic session. */
+export function visibleSettingsSections(user: { is_visitor?: boolean }): SettingsSection[] {
+  return settingsSections.filter(
+    (value) => !user.is_visitor || ["people", "connections", "motion"].includes(value),
+  );
 }
 export function settingsSection(route: Route): SettingsSection | null {
   return route.page === "settings"

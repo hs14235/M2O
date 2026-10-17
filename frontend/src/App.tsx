@@ -2,12 +2,13 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { api, ApiError } from "./api";
 import type { User, Workspace } from "./types";
 import { ErrorNotice } from "./components/Feedback";
-import { primaryPage, routePath, settingsPath, settingsSection, useNavigation } from "./navigation";
+import { canAudit, primaryPage, routePath, settingsPath, settingsSection, useNavigation } from "./navigation";
 import { DepartmentHero, DepartmentSwitch, useMotionPreference } from "./components/DepartmentExperience";
 import DemoEntry from "./components/DemoEntry";
 import AccessPortal from "./components/AccessPortal";
 import { captureAccessLink, clearCapturedAccessLink } from "./access-link";
 import { ChromeControls, ChromeRegion, useShellChrome } from "./components/ShellChrome";
+import { CommandCenter } from "./components/CommandMenu";
 
 const Workbench = lazy(() => import("./components/Workbench"));
 const SettingsPage = lazy(() => import("./components/SettingsPage"));
@@ -178,7 +179,7 @@ export default function App() {
     );
     navigate("/", true);
   };
-  const auditAllowed = Boolean(workspace && ["owner", "reviewer"].includes(workspace.role));
+  const auditAllowed = canAudit(workspace);
   return (
     <>
       <a className="skip-link" href="#main">
@@ -195,6 +196,13 @@ export default function App() {
             </span>
           </a>
           <div className="account">
+            <CommandCenter
+              user={user}
+              workspace={workspace}
+              workspaces={workspaces}
+              motion={motion}
+              navigate={navigate}
+            />
             <button
               className="motion-control"
               aria-pressed={motion.calm}
