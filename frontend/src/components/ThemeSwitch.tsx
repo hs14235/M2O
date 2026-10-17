@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type ThemeChoice = "system" | "light" | "dark";
 const choices: { value: ThemeChoice; label: string }[] = [
@@ -27,9 +27,28 @@ export function applyTheme(choice: ThemeChoice) {
   }
 }
 
+/**
+ * Apply a theme from anywhere (the switch or the command menu). The page cross-fades
+ * unless motion is off, and an "m2o:theme" event keeps every switch in step.
+ */
+export function chooseTheme(choice: ThemeChoice) {
+  const change = () => {
+    applyTheme(choice);
+    window.dispatchEvent(new CustomEvent<ThemeChoice>("m2o:theme", { detail: choice }));
+  };
+  if (document.startViewTransition && document.documentElement.dataset.motion !== "calm")
+    document.startViewTransition(change);
+  else change();
+}
+
 /** Light, Dark or the device setting. public/theme-init.js applies a saved choice before first paint. */
 export function ThemeSwitch() {
   const [choice, setChoice] = useState(savedTheme);
+  useEffect(() => {
+    const sync = (event: Event) => setChoice((event as CustomEvent<ThemeChoice>).detail);
+    window.addEventListener("m2o:theme", sync);
+    return () => window.removeEventListener("m2o:theme", sync);
+  }, []);
   return (
     <div
       role="radiogroup"
@@ -42,16 +61,7 @@ export function ThemeSwitch() {
           type="button"
           role="radio"
           aria-checked={choice === item.value}
-          onClick={() => {
-            const change = () => {
-              applyTheme(item.value);
-              setChoice(item.value);
-            };
-            // Cross-fade the whole page unless motion is turned off.
-            if (document.startViewTransition && document.documentElement.dataset.motion !== "calm")
-              document.startViewTransition(change);
-            else change();
-          }}
+          onClick={() => chooseTheme(item.value)}
           className={
             "min-h-9 rounded-sm border-0 px-3 text-sm font-medium " +
             (choice === item.value
