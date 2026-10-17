@@ -31,6 +31,9 @@ test("the dark theme meets WCAG AA across the visitor journey", async ({ page })
   await accessible(page);
   await page.getByRole("button", { name: "Explore the isolated demo" }).click();
   await expect(page.getByRole("region", { name: "Synthetic demo session" })).toBeVisible();
+  // The workspace content mounts after the banner; scan it once it exists, or its
+  // entrance fade starts after the animation wait and axe reads mid-fade colours.
+  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
   await accessible(page);
   await page.getByRole("button", { name: "Open Release readiness", exact: true }).click();
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
