@@ -24,7 +24,7 @@ export function ContextBubble({
   const [open, setOpen] = useState(false);
   const pinned = useRef(false),
     suppressHover = useRef(false),
-    timer = useRef<ReturnType<typeof setTimeout>>();
+    timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const stopTimer = () => {
     clearTimeout(timer.current);
   };
