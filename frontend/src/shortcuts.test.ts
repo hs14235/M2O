@@ -87,6 +87,13 @@ describe("the menu shortcut", () => {
     expect(shortcutFor(press(body, { key: "k", ctrlKey: true, shiftKey: true }), false)).toBeNull();
   });
 
+  it("ignores keydowns without a key, such as Chrome's autofill events", () => {
+    const autofill = new Event("keydown", { bubbles: true }) as KeyboardEvent;
+    expect(autofill.key).toBeUndefined();
+    expect(shortcutFor(autofill, false)).toBeNull();
+    expect(shortcutFor(autofill, true)).toBeNull();
+  });
+
   it("detects the platform and labels the shortcut to match", () => {
     expect(isApplePlatform({ platform: "MacIntel", userAgent: "" })).toBe(true);
     expect(isApplePlatform({ platform: "Win32", userAgent: "" })).toBe(false);

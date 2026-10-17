@@ -8,7 +8,7 @@ import DemoEntry from "./components/DemoEntry";
 import AccessPortal from "./components/AccessPortal";
 import { captureAccessLink, clearCapturedAccessLink } from "./access-link";
 import { ChromeControls, ChromeRegion, useShellChrome } from "./components/ShellChrome";
-import { CommandCenter } from "./components/CommandMenu";
+import { CommandCenter } from "./components/CommandCenter";
 
 const Workbench = lazy(() => import("./components/Workbench"));
 const SettingsPage = lazy(() => import("./components/SettingsPage"));

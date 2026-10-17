@@ -37,7 +37,8 @@ function dialogOpen() {
  * handler already used the key, or while a dialog is open.
  */
 export function shortcutFor(event: KeyboardEvent, apple = isApplePlatform()): Shortcut | null {
-  if (event.isComposing || event.keyCode === 229) return null;
+  // Some synthetic keydowns (Chrome autofill, for one) carry no key at all.
+  if (typeof event.key !== "string" || event.isComposing || event.keyCode === 229) return null;
   if (event.key.toLowerCase() === "k" && !event.altKey && !event.shiftKey) {
     const modifier = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
     return modifier ? "menu" : null;

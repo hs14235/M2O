@@ -1,4 +1,4 @@
-import { departmentExperience } from "./components/DepartmentExperience";
+import { departmentExperience, departmentTarget } from "./components/DepartmentExperience";
 import type { ThemeChoice } from "./components/ThemeSwitch";
 import { canAudit, routePath, settingsLabels, settingsPath, visibleSettingsSections } from "./navigation";
 import type { Department, User, Workspace } from "./types";
@@ -23,15 +23,6 @@ export interface CommandContext {
   openHelp: () => void;
 }
 
-/** Same rule as the sidebar's DepartmentSwitch: stay in the active workspace if it matches, else the first one. */
-export function departmentTarget(
-  workspaces: Workspace[],
-  active: Workspace | undefined,
-  department: Department,
-) {
-  return active?.department === department ? active : workspaces.find((w) => w.department === department);
-}
-
 /**
  * Every command the current person may run, built from the same permission rules as
  * the visible UI. A command the UI would disable is left out rather than shown disabled.
@@ -46,14 +37,13 @@ export function buildCommands(context: CommandContext): Command[] {
     go("go-meetings", "Go to", "Meetings", routePath(workspace.id), ["home", "list", "transcripts"]);
     if (canAudit(workspace))
       go("go-audit", "Go to", "Audit", routePath(workspace.id, "audit"), ["history", "events", "log"]);
-    go("go-settings", "Go to", "Settings", settingsPath(workspace.id), ["preferences", "options"]);
     for (const section of visibleSettingsSections(user))
       go(
         "settings-" + section,
         "Go to",
         "Settings: " + settingsLabels[section],
         settingsPath(workspace.id, section),
-        ["settings", section],
+        ["settings", "preferences", section],
       );
     if (workspace.role !== "viewer" && !user.is_visitor)
       go("new-meeting", "Create", "New meeting", routePath(workspace.id, "meetings", "new", "transcript"), [
@@ -62,19 +52,24 @@ export function buildCommands(context: CommandContext): Command[] {
         "add",
       ]);
   }
+  // One entry per destination: other departments go to the workspace the sidebar's
+  // department switch would; any remaining workspaces are listed by name.
+  const targets = new Set<string>();
   for (const department of Object.keys(departmentExperience) as Department[]) {
+    if (department === workspace?.department) continue;
     const target = departmentTarget(workspaces, workspace, department);
-    if (!target || department === workspace?.department) continue;
+    if (!target) continue;
+    targets.add(target.id);
     go(
       "department-" + department,
       "Workspace",
       "Switch department: " + departmentExperience[department].name,
       routePath(target.id),
-      ["department", department],
+      ["department", "workspace", department, target.name],
     );
   }
   for (const value of workspaces)
-    if (value.id !== workspace?.id)
+    if (value.id !== workspace?.id && !targets.has(value.id))
       go("workspace-" + value.id, "Workspace", "Switch workspace: " + value.name, routePath(value.id), [
         "workspace",
       ]);
