@@ -1,10 +1,10 @@
 import { ViewTransition } from "react";
 import type { Kind, Outcome } from "../../types";
 import { kindNames } from "../OutcomeCard";
+import { isPlainClick } from "./links";
 import { evidenceLines, momentName } from "./signatureMoment";
 import "../../signature.css";
 
-const order: Kind[] = ["action", "decision", "blocker", "follow_up", "risk"];
 const kindColor: Record<Kind, string> = {
   action: "text-k-action",
   decision: "text-k-decision",
@@ -13,33 +13,25 @@ const kindColor: Record<Kind, string> = {
   risk: "text-k-risk",
 };
 
-/** Outcomes in the order Review lists them. */
-export function sortDrafts(outcomes: readonly Outcome[]): Outcome[] {
-  return [...outcomes].sort(
-    (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.id.localeCompare(b.id),
-  );
-}
-
 /**
  * The end state of the signature moment: one compact card per outcome, each naming
- * the line it came from and linking to its review. A card paired with a transcript
- * line shares that line's view-transition-name, so the line morphs into it; the
- * other cards arrive with the list stagger.
+ * the line its evidence starts on and linking to its review. A card whose name is in
+ * `paired` shares a transcript line's view-transition-name, so that line morphs into
+ * it; the other cards arrive with the list stagger.
  */
 export function DraftOutcomes({
   outcomes,
   lines,
-  pairs,
+  paired,
   hrefFor,
   onOpen,
 }: {
   outcomes: readonly Outcome[];
   lines: readonly string[];
-  pairs: ReadonlyMap<number, string>;
+  paired: ReadonlySet<string>;
   hrefFor: (id: string) => string;
   onOpen?: (id: string) => void;
 }) {
-  const pairedLine = new Map([...pairs].map(([line, name]) => [name, line]));
   const drafts = outcomes.every((item) => item.status === "draft");
   return (
     <div className="grid gap-3">
@@ -52,28 +44,18 @@ export function DraftOutcomes({
         {outcomes.map((item) => {
           const name = momentName(item.id),
             evidence = item.evidence[0],
-            line =
-              pairedLine.get(name) ??
-              (evidence ? (evidenceLines(lines, evidence)[0] ?? evidence.start_line) : undefined);
+            line = evidence ? (evidenceLines(lines, evidence)[0] ?? evidence.start_line) : undefined;
           const source = [
             line !== undefined ? "line " + line : "",
             evidence?.speaker || item.assignee_hint || "",
             drafts ? "" : item.status,
           ].filter(Boolean);
           const card = (
-            <li key={item.id} className={pairedLine.has(name) ? "animate-none" : undefined}>
+            <li key={item.id} className={paired.has(name) ? "animate-none" : undefined}>
               <a
                 href={hrefFor(item.id)}
                 onClick={(event) => {
-                  if (
-                    !onOpen ||
-                    event.button !== 0 ||
-                    event.metaKey ||
-                    event.ctrlKey ||
-                    event.shiftKey ||
-                    event.altKey
-                  )
-                    return;
+                  if (!onOpen || !isPlainClick(event)) return;
                   event.preventDefault();
                   onOpen(item.id);
                 }}
@@ -87,7 +69,7 @@ export function DraftOutcomes({
               </a>
             </li>
           );
-          return pairedLine.has(name) ? (
+          return paired.has(name) ? (
             <ViewTransition key={item.id} name={name} share="outcome-morph" default="none">
               {card}
             </ViewTransition>

@@ -12,6 +12,13 @@ export const kindNames: Record<Kind, string> = {
 };
 const kinds = Object.keys(kindNames) as Kind[];
 
+/** Outcomes in review order: by kind as listed in kindNames, then by id. */
+export function sortOutcomes(outcomes: readonly Outcome[]): Outcome[] {
+  return [...outcomes].sort(
+    (a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind) || a.id.localeCompare(b.id),
+  );
+}
+
 export function OutcomeCard({
   item,
   participants,

@@ -1,11 +1,12 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { api, scoped } from "../api";
-import { routePath } from "../navigation";
+import { useStepReveal } from "../motion";
 import type { Department, Kind, Meeting, Participant, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
-import { kindNames, OutcomeCard } from "./OutcomeCard";
+import { kindNames, OutcomeCard, sortOutcomes } from "./OutcomeCard";
 import GoogleMeetImport, { type ImportedMeeting } from "./GoogleMeetImport";
-import { DraftOutcomes, sortDrafts } from "./workbench/DraftOutcomes";
+import { DraftOutcomes } from "./workbench/DraftOutcomes";
+import { reviewOutcomePath } from "./workbench/links";
 import { TranscriptLines } from "./workbench/TranscriptLines";
 import {
   canAnimate,
@@ -43,8 +44,9 @@ export function TranscriptStep(props: {
   onImported?: (value: ImportedMeeting) => Promise<void>;
 }) {
   const p = props;
+  const reveal = useStepReveal();
   return (
-    <section className="panel step-panel reveal-seq step-reveal">
+    <section className={"panel step-panel " + reveal}>
       <span className="eyebrow">Step 1 of 4</span>
       <h1>Bring the conversation.</h1>
       <p>
@@ -196,6 +198,7 @@ export function PeopleStep({
   directoryEditable = true,
   extracting = false,
   moment = null,
+  onMomentDone,
   onOpenOutcome,
 }: {
   meeting: Meeting;
@@ -212,10 +215,13 @@ export function PeopleStep({
   directoryEditable?: boolean;
   /** An extraction started here is still running or its meeting is reloading. */
   extracting?: boolean;
-  /** Id of a live extraction that just finished with outcomes: play the signature moment. */
-  moment?: string | null;
+  /** A live extraction that just finished with outcomes, and the revision it produced. */
+  moment?: { job: string; revision: number } | null;
+  /** Called once the moment was played or skipped, so it cannot play again. */
+  onMomentDone?: (job: string) => void;
   onOpenOutcome?: (id: string) => void;
 }) {
+  const reveal = useStepReveal();
   const [name, setName] = useState(""),
     [role, setRole] = useState(""),
     [error, setError] = useState<unknown>(null),
@@ -232,18 +238,28 @@ export function PeopleStep({
   // inside a transition, which React runs as a view transition. Without the API, in
   // calm mode or with reduced motion, the cards simply replace the lines.
   const lines = useMemo(() => transcriptLines(meeting.raw_text || ""), [meeting.raw_text]),
-    drafts = useMemo(() => sortDrafts(meeting.tasks), [meeting.tasks]);
+    drafts = useMemo(() => sortOutcomes(meeting.tasks), [meeting.tasks]);
   const seenKey = meeting.id + ":" + meeting.current_revision;
   const [stage, setStage] = useState<{ moment: string; morphing: boolean } | null>(null),
     [pairs, setPairs] = useState<ReadonlyMap<number, string>>(new Map());
+  // Storage is read once per revision and again after this step marks it (stage changes).
+  const seen = useMemo(() => momentSeen(seenKey), [seenKey, stage]);
   const region = useRef<HTMLDivElement>(null);
+  // Only a moment for the revision on screen plays; either way it is consumed once.
+  const fresh = Boolean(
+    moment && moment.revision === meeting.current_revision && stage?.moment !== moment.job,
+  );
   useEffect(() => {
-    if (!moment || stage?.moment === moment) return;
-    const animate = !momentSeen(seenKey) && canAnimate();
-    markMomentSeen(seenKey);
-    if (animate) setPairs(pairNames(drafts, lines, visibleLines(region.current)) ?? new Map());
-    setStage({ moment, morphing: animate });
-  }, [moment, stage, seenKey, drafts, lines]);
+    if (!moment || stage?.moment === moment.job) return;
+    if (moment.revision === meeting.current_revision) {
+      const animate = !momentSeen(seenKey) && canAnimate();
+      markMomentSeen(seenKey);
+      // Names only for an animated moment, so none linger on the cards otherwise.
+      setPairs(animate ? (pairNames(drafts, lines, visibleLines(region.current)) ?? new Map()) : new Map());
+      setStage({ moment: moment.job, morphing: animate });
+    }
+    onMomentDone?.(moment.job);
+  }, [moment, stage, seenKey, meeting.current_revision, drafts, lines, onMomentDone]);
   useEffect(() => {
     if (!stage?.morphing) return;
     const timer = setTimeout(
@@ -252,10 +268,7 @@ export function PeopleStep({
     );
     return () => clearTimeout(timer);
   }, [stage]);
-  const showLines =
-    !drafts.length ||
-    stage?.morphing ||
-    ((extracting || (moment && stage?.moment !== moment)) && !momentSeen(seenKey));
+  const showLines = !drafts.length || stage?.morphing || ((extracting || fresh) && !seen);
   const highlight = useMemo(
     () =>
       stage?.morphing
@@ -263,8 +276,7 @@ export function PeopleStep({
         : undefined,
     [stage, drafts, lines],
   );
-  const reviewHref = (id: string) =>
-    routePath(workspace.id, "meetings", meeting.id, "review") + "?" + new URLSearchParams({ outcome: id });
+  const paired = useMemo(() => new Set(pairs.values()), [pairs]);
   async function add(event: React.FormEvent) {
     event.preventDefault();
     setAdding(true);
@@ -284,7 +296,7 @@ export function PeopleStep({
     }
   }
   return (
-    <section className="panel step-panel reveal-seq step-reveal">
+    <section className={"panel step-panel " + reveal}>
       <span className="eyebrow">Step 2 of 4</span>
       <h1>Put people in context.</h1>
       <p>
@@ -309,8 +321,8 @@ export function PeopleStep({
             <DraftOutcomes
               outcomes={drafts}
               lines={lines}
-              pairs={pairs}
-              hrefFor={reviewHref}
+              paired={paired}
+              hrefFor={(id) => reviewOutcomePath(workspace.id, meeting.id, id)}
               onOpen={onOpenOutcome}
             />
             <details>
@@ -444,6 +456,7 @@ export function ReviewStep({
   onContinue: () => void;
   focusItem?: string;
 }) {
+  const reveal = useStepReveal();
   const [filter, setFilter] = useState<Kind | "all">("all"),
     [active, setActive] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -459,10 +472,7 @@ export function ReviewStep({
     const timer = setTimeout(() => setSavedAt(null), 900);
     return () => clearTimeout(timer);
   }, [savedAt]);
-  const order: Kind[] = ["action", "decision", "blocker", "follow_up", "risk"];
-  const items = meeting.tasks
-      .filter((item) => filter === "all" || item.kind === filter)
-      .sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.id.localeCompare(b.id)),
+  const items = sortOutcomes(meeting.tasks.filter((item) => filter === "all" || item.kind === filter)),
     item = items.find((value) => value.id === active) || items[0];
   const itemIds = items.map((value) => value.id).join(",");
   useEffect(() => {
@@ -472,7 +482,7 @@ export function ReviewStep({
   const position = item ? items.indexOf(item) : -1,
     approved = meeting.tasks.filter((value) => value.status === "approved").length;
   return (
-    <section className="step-panel reveal-seq step-reveal">
+    <section className={"step-panel " + reveal}>
       <span className="eyebrow">Step 3 of 4 · Review</span>
       {savedAt !== null && (
         <div className="save-spark" role="status" key={savedAt}>

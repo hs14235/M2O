@@ -142,6 +142,18 @@ details:not([open])
 :is(.reveal-seq, .stagger) > :nth-child(n + 7) {
   --i: 6;
 }
+/* A step screen (useStepReveal in motion.ts) reveals its eyebrow, heading and lead
+   in reading order, then everything else together, instead of a panel's own settle
+   playing as well. After the entrance, content added later reveals without delay. */
+.step-reveal.reveal-seq {
+  animation: none;
+}
+.step-reveal.reveal-seq > :nth-child(n + 4) {
+  --i: 3;
+}
+.step-reveal.step-entered > * {
+  animation-delay: 0s;
+}
 /* Only a starting state, held during the stagger delay (fill: backwards). When
    it ends the element returns to its own styles, with no lingering filter. */
 @keyframes reveal {

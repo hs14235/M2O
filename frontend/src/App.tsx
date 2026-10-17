@@ -282,36 +282,35 @@ export default function App() {
         <main id="main" tabIndex={-1}>
           {workspace && <DepartmentHero workspace={workspace} compact />}
           <ErrorNotice error={error} />
-          {/* The banner waits with the page content, so a lazily loaded page arrives as one
-              sequence; the fallback holds roughly a step's height so nothing jumps. */}
+          {user.is_visitor && (
+            <section className="notice visitor-banner" aria-label="Synthetic demo session">
+              <strong>Your isolated synthetic demo</strong>
+              <p>
+                Use synthetic data. Your reviews and plan are isolated; real uploads and external sends are
+                disabled.
+              </p>
+              {user.expires_at && (
+                <details>
+                  <summary>
+                    Demo available until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
+                  </summary>
+                  <p>
+                    When access expires, start a fresh demo. Access expiry does not immediately erase stored
+                    data.
+                  </p>
+                </details>
+              )}
+            </section>
+          )}
+          {/* While a page loads, hold about a step's height so the content does not push
+              anything when it arrives. */}
           <Suspense
             fallback={
-              <div role="status" className="min-h-[min(70svh,720px)]">
-                <span className="sr-only">Loading workspace…</span>
-              </div>
+              <p role="status" className="muted min-h-[min(70svh,720px)]">
+                Loading…
+              </p>
             }
           >
-            {user.is_visitor && (
-              <section className="notice visitor-banner" aria-label="Synthetic demo session">
-                <strong>Your isolated synthetic demo</strong>
-                <p>
-                  Use synthetic data. Your reviews and plan are isolated; real uploads and external sends are
-                  disabled.
-                </p>
-                {user.expires_at && (
-                  <details>
-                    <summary>
-                      Demo available until{" "}
-                      <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
-                    </summary>
-                    <p>
-                      When access expires, start a fresh demo. Access expiry does not immediately erase stored
-                      data.
-                    </p>
-                  </details>
-                )}
-              </section>
-            )}
             {!route.valid ? (
               <section className="panel">
                 <h1>Page not found</h1>

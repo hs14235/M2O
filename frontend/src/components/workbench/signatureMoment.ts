@@ -18,15 +18,37 @@ export function transcriptLines(raw: string): string[] {
 }
 
 /**
- * Line numbers an evidence chunk covers. A chunk starts at start_line and joins the
- * non-blank lines after it with "\n" (backend/app/chunking.py), so it spans as many
- * non-blank lines as it has text lines.
+ * Line numbers an evidence chunk covers. The backend (app/chunking.py) strips each
+ * non-blank line, cuts a long one into pieces, and joins a chunk's pieces with "\n"
+ * from start_line on. So each piece is matched where the previous one ended: on the
+ * same line while it continues it, otherwise on a following line.
  */
 export function evidenceLines(lines: readonly string[], evidence: Evidence): number[] {
-  const count = evidence.text.split("\n").length,
-    found: number[] = [];
-  for (let n = Math.max(1, evidence.start_line); n <= lines.length && found.length < count; n++)
-    if (lines[n - 1].trim()) found.push(n);
+  const found: number[] = [];
+  let n = Math.max(1, evidence.start_line),
+    offset = 0;
+  for (const piece of evidence.text.split("\n")) {
+    while (n <= lines.length) {
+      const line = lines[n - 1].trim();
+      // The first piece may be the overlap tail of a long line, so it may start mid-line.
+      const at = !piece
+        ? -1
+        : found.length
+          ? line.startsWith(piece, offset)
+            ? offset
+            : -1
+          : line.indexOf(piece);
+      if (at >= 0) {
+        offset = at;
+        break;
+      }
+      n += 1;
+      offset = 0;
+    }
+    if (n > lines.length) break;
+    if (found.at(-1) !== n) found.push(n);
+    offset += piece.length;
+  }
   return found;
 }
 
