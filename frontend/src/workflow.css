@@ -54,7 +54,7 @@
   border-radius: 50%;
 }
 .bubble-trigger:hover .bubble-glyph {
-  animation: bubble-pop 0.32s ease-out both;
+  animation: bubble-pop var(--dur-3) var(--ease-press) both;
 }
 .bubble-panel {
   position: absolute;
@@ -66,7 +66,7 @@
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  animation: bubble-reveal 0.18s ease-out;
+  animation: bubble-reveal var(--dur-2) var(--ease-out);
 }
 .bubble-panel[hidden] {
   display: none;
@@ -454,7 +454,7 @@ button.danger:hover:not(:disabled) {
   display: grid;
   grid-template-rows: 1fr;
   min-width: 0;
-  transition: grid-template-rows 0.2s ease;
+  transition: grid-template-rows var(--dur-2) var(--ease-in-out);
 }
 .chrome-region[data-expanded="false"] {
   grid-template-rows: 0fr;
@@ -468,13 +468,13 @@ button.danger:hover:not(:disabled) {
   overflow: hidden;
 }
 .chrome-region[data-expanded="true"] > .chrome-inner {
-  animation: chrome-arrive 0.18s ease-out;
+  animation: chrome-arrive var(--dur-2) var(--ease-out);
 }
 .chrome-sidebar .app-nav {
   height: 100%;
 }
 .app-shell {
-  transition: grid-template-columns 0.2s ease;
+  transition: grid-template-columns var(--dur-2) var(--ease-in-out);
 }
 .app-shell[data-sidebar="closed"] {
   grid-template-columns: 0 minmax(0, 1fr);
@@ -528,15 +528,218 @@ button.danger:hover:not(:disabled) {
   .shell-controls {
     justify-content: space-between;
   }
-  .settings-sections {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 0.3rem;
-  }
+  /* Tabs wrap rather than scroll sideways, so every section stays visible. */
   .settings-sections a {
     white-space: nowrap;
   }
   .chrome-sidebar .app-nav {
     height: auto;
   }
+}
+
+/* Moved from constellation.css when the decorative calendar scene was retired. */
+.review-deliver-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+.review-deliver-tabs button {
+  border-radius: 999px;
+}
+.review-deliver-tabs button[aria-pressed="true"] {
+  color: var(--accent-fg);
+  background: var(--green);
+  border-color: var(--green);
+}
+.step-panel {
+  min-height: min(70svh, 720px);
+}
+.save-spark {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: fit-content;
+  color: var(--success);
+  background: var(--success-soft);
+  border: 1px solid var(--border);
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  animation: settle var(--dur-3) var(--ease-out) both;
+}
+.save-spark > span {
+  font-size: 1.1rem;
+}
+.calendar-toolbar,
+.calendar-scope,
+.calendar-view {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.calendar-toolbar {
+  justify-content: space-between;
+  margin: 1.3rem 0 0.7rem;
+}
+.calendar-scope button,
+.calendar-view button {
+  border-radius: 999px;
+}
+.calendar-scope button[aria-pressed="true"],
+.calendar-view button[aria-pressed="true"] {
+  color: var(--accent-fg);
+  background: var(--green);
+  border-color: var(--green);
+}
+.calendar-range {
+  border: 1px solid var(--line);
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-lg);
+  background: var(--white);
+  margin-bottom: 1rem;
+}
+.calendar-range .form-grid {
+  margin-top: 1rem;
+}
+.calendar-count {
+  color: var(--muted);
+  font-weight: 600;
+}
+.calendar-view {
+  margin: 1rem 0;
+}
+.calendar-agenda {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--white);
+}
+.calendar-agenda ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.calendar-agenda button {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+}
+.calendar-agenda button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--soft);
+}
+.calendar-detail {
+  margin-top: 1.7rem;
+}
+.calendar-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+}
+.calendar-card {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--kind, var(--accent));
+  border-radius: var(--r-lg);
+  padding: 1.2rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.calendar-card.action {
+  --kind: var(--k-action);
+}
+.calendar-card.decision {
+  --kind: var(--k-decision);
+}
+.calendar-card.blocker {
+  --kind: var(--k-blocker);
+}
+.calendar-card.follow_up {
+  --kind: var(--k-follow);
+}
+.calendar-card.risk {
+  --kind: var(--k-risk);
+}
+.calendar-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.calendar-card h3 {
+  margin-top: 0.7rem;
+  font-size: 1.05rem;
+}
+.calendar-card p {
+  font-size: 0.86rem;
+}
+.calendar-card-owner {
+  font-weight: 650;
+}
+.calendar-card-owner span {
+  font-weight: 400;
+}
+.calendar-card details {
+  margin-bottom: 1rem;
+}
+.calendar-card code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .calendar-toolbar {
+    align-items: stretch;
+  }
+}
+.transcript-sources {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+.google-import {
+  display: contents;
+}
+.google-import-panel {
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.google-import-panel .payload-text {
+  max-height: 340px;
+  overflow: auto;
+}
+.google-source-preview {
+  margin-top: 1rem;
+}
+.meeting-identifier {
+  font-size: 0.73rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.meeting-list time {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.meeting-groups {
+  display: grid;
+  gap: 0.7rem;
+}
+.meeting-groups > details {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 0.9rem;
+  background: var(--white);
+}
+.meeting-groups > details > summary {
+  font-weight: 700;
+}
+.meeting-groups ul {
+  margin-top: 1rem;
 }
