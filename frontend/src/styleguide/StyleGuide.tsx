@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import themeCss from "../theme.css?raw";
 import motionCss from "../motion.css?raw";
-import { contrast, pairs, themes, tokenValue } from "../design-tokens";
+import { contrast, pairs, themes, tokenValues } from "../design-tokens";
 import { departmentExperience, useMotionPreference } from "../components/DepartmentExperience";
 import { ErrorNotice, Empty } from "../components/Feedback";
 import MeetingList from "../components/MeetingList";
@@ -16,7 +16,16 @@ import { apiError, jobs, meetings, outcomes, participants } from "./fixtures";
 // shipped stylesheets, and components are the real ones fed synthetic records.
 
 const { light, dark } = themes(themeCss);
-const value = (name: string) => tokenValue(themeCss, name) ?? tokenValue(motionCss, name) ?? "";
+// Parsed once: every declared value, light and dark, from both stylesheets.
+const lightValues = { ...tokenValues(motionCss), ...tokenValues(themeCss) };
+const darkValues = { ...tokenValues(motionCss, "dark"), ...tokenValues(themeCss, "dark") };
+const value = (name: string) => lightValues[name] ?? "";
+const themedValue = (name: string) =>
+  light[name]
+    ? "light " + light[name] + " · dark " + dark[name]
+    : lightValues[name] === darkValues[name]
+      ? value(name)
+      : "light " + lightValues[name] + " · dark " + darkValues[name];
 const noop = () => {};
 
 const sections = [
@@ -102,7 +111,7 @@ function Swatch({ name }: { name: string }) {
         <Token name={name} />
         <span className="block text-text-2">{info.note}</span>
         <span className="block font-mono text-xs text-text-3">
-          {light[name] ? "light " + light[name] + " · dark " + dark[name] : value(name)}
+          {name === "dept" ? "follows the department above" : themedValue(name)}
           {info.utility && " · " + info.utility}
         </span>
       </span>
@@ -506,7 +515,11 @@ function Components() {
       </ul>
 
       <h3>Outcome card</h3>
-      <div className="mb-8 grid items-start gap-4 lg:grid-cols-2">
+      <p className="text-sm text-text-2">
+        Shown for reference only: these examples are inert, so their buttons send nothing.
+      </p>
+      {/* inert: the real cards save through the API, and these records exist nowhere. */}
+      <div inert className="mb-8 grid items-start gap-4 lg:grid-cols-2">
         {outcomes.map(({ label, item, workspace }) => (
           <figure key={item.id} className="m-0">
             <figcaption className="mb-2 text-sm font-semibold text-text-2">{label}</figcaption>
@@ -529,7 +542,7 @@ function Components() {
       <Empty>No permitted meetings match this title or identifier.</Empty>
 
       <h3>Job status</h3>
-      <div className="mb-8">
+      <div inert className="mb-8">
         {jobs.map((job) => (
           <JobStatus key={job.id} job={job} role="owner" onReconcile={noop} />
         ))}
