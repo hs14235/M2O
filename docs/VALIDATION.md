@@ -1,5 +1,15 @@
 # Verification evidence
 
+## Redesign foundation — October 17, 2026 (local; CI pending)
+
+Branch `feat/foundation-tokens-motion`, after React 19.3.0 (#82). Shared tokens and motion primitives for phases 4–6 (`docs/REDESIGN_PHASES_3_7.md`), plus approved cleanups.
+
+Windows 11, Node 22, Docker Desktop, Compose stack built from the branch with `VISITOR_START_LIMIT=50`:
+- `npm run format:check && npm run typecheck && npm test && npm run build`: 176 tests, including 45 new token contrast checks (`src/theme.test.ts`: text tokens 4.5:1 on all four backgrounds, `success` on `success-soft` 4.5:1, new `--border-control` 3:1, both dark declarations identical).
+- `npm run test:visual` before updating: the first difference was the darker login input borders, as intended. After `test:visual:update`, 9 of 20 baselines changed (light screens with form fields; phone Settings tabs now wrap), inspected by eye; two unchanged reruns passed.
+- `e2e/motion.spec.ts` ×3: calm preference and reduced motion set `data-motion="calm"` before the app runs with no running animations; revealed content ends at opacity 1 with no filter or transform. `dark-theme.spec.ts` and `visitor.spec.ts` passed in the Playwright container.
+- Not verified locally: `experience-v2.spec.ts` (calendar card selectors and dark calendar cards; needs the synthetic account) — CI.
+
 ## Phase 9 diagnostics and retention — October 10, 2026 (local only)
 
 Branch `codex/m2o-phase9` (PR #55), merged with `main` after Phase 8. Adds the read-only aggregate diagnostics snapshot and retention preview/apply accuracy for expired temporary records. Decision: expired invitations and API tokens are deleted as temporary security records (USER_LIFECYCLE.md). The diagnostics test canary was shortened to fit `varchar(36)` columns; it failed on PostgreSQL before that change and passed on SQLite, which ignores the length.

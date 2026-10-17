@@ -16,7 +16,6 @@
 @import "./styles.css" layer(legacy);
 @import "./experience.css" layer(legacy);
 @import "./workflow.css" layer(legacy);
-@import "./constellation.css" layer(legacy);
 @import "./motion.css" layer(motion);
 @import "tailwindcss/utilities.css" layer(utilities);
 
@@ -27,6 +26,8 @@
   --hover: #edf1f5;
   --border: #e3e8ee;
   --border-strong: #cdd5df;
+  /* Form field outlines: at least 3:1 on every background (WCAG 1.4.11). */
+  --border-control: #7d8b9d;
   --text: #0f1b2d;
   --text-2: #4a5a70;
   --text-3: #5f6f85;
@@ -41,7 +42,7 @@
   --danger-fg: #ffffff;
   --danger-soft: #fdecec;
   --success: #1d7f4e;
-  --success-soft: #e5f4ec;
+  --success-soft: #ebf7f1;
   --navy: #17375e;
   --k-action: #0a7273;
   --k-decision: #4f5bd5;
@@ -70,8 +71,6 @@
   --green: var(--accent);
   --soft: var(--accent-soft);
   --white: var(--surface);
-  --canvas: var(--bg);
-  --accent-bright: var(--accent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -82,6 +81,7 @@
     --hover: #1b2230;
     --border: #232b39;
     --border-strong: #313b4d;
+    --border-control: #626e81;
     --text: #e7ecf3;
     --text-2: #a7b1c0;
     --text-3: #8290a3;
@@ -120,6 +120,7 @@
   --hover: #1b2230;
   --border: #232b39;
   --border-strong: #313b4d;
+  --border-control: #626e81;
   --text: #e7ecf3;
   --text-2: #a7b1c0;
   --text-3: #8290a3;
@@ -169,6 +170,7 @@
   --color-hover: var(--hover);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-control: var(--border-control);
   --color-text: var(--text);
   --color-text-2: var(--text-2);
   --color-text-3: var(--text-3);
@@ -179,14 +181,22 @@
   --color-signal: var(--signal);
   --color-signal-soft: var(--signal-soft);
   --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-fg: var(--danger-fg);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-navy: var(--navy);
+  --color-overlay: var(--overlay);
   --color-k-action: var(--k-action);
   --color-k-decision: var(--k-decision);
   --color-k-blocker: var(--k-blocker);
   --color-k-follow: var(--k-follow);
   --color-k-risk: var(--k-risk);
   --color-dept: var(--dept);
+  --color-dept-engineering: var(--dept-engineering);
+  --color-dept-hr: var(--dept-hr);
+  --color-dept-finance: var(--dept-finance);
   --font-sans: var(--font);
   --font-mono: var(--mono);
   --radius-sm: var(--r-sm);
@@ -195,4 +205,13 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+}
+
+/* Motion curves replace Tailwind's ease-* defaults on purpose, so ease-out in a
+   utility and var(--ease-out) in hand-written CSS are the same curve. */
+@theme static {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-press: cubic-bezier(0.3, 1.4, 0.6, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
 }
