@@ -45,6 +45,8 @@ Cross-check corrections to this plan:
                                                    7 release audit
 ```
 
+Status: the foundation step (F) is done; it merged in PR #84 on October 17, 2026.
+
 - 2 before everything: later phases change how things look, so the screenshot tests need to exist first.
 - 3 before the rest: new code is written against React 19 once.
 - F before 4–6: it owns the shared files (`theme.css`, `motion.css`, `ThemeSwitch.tsx` helper) so the parallel phases don't collide.
