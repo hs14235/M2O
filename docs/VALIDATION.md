@@ -1,5 +1,16 @@
 # Verification evidence
 
+## Phase 6 — style guide — October 17, 2026 (local; CI pending)
+
+Branch `feat/phase6-style-guide`, from `main` at 424fbfe. A second Vite entry, `frontend/styleguide.html` (`noindex`), served as a file by nginx and `backend/app/hosted.py` under the same content security policy; its code ships only in its own bundle.
+
+Windows 11, Node 22, no Docker:
+- `npm run format:check && npm run typecheck && npm test && npm run build`: 35 files, 183 tests. New: `src/styleguide/catalog.test.ts` (every token declared in `theme.css` and `motion.css` is catalogued and vice versa; every Tailwind theme name maps onto a catalogued token), `src/styleguide/StyleGuide.test.tsx` (every token name rendered, 22 contrast rows with no failure, real components render without a request). The 45 contrast checks in `src/theme.test.ts` now read from `src/design-tokens.ts` and still pass. `dist/styleguide.html` is built.
+- `python -m pytest -q tests/test_hosted_runtime.py` (26 passed, including a new check that a root-level `.html` file is served with the CSP headers) and `ruff check` / `ruff format --check` on that file.
+- Compose stack with this branch's web image, Playwright 1.63.0 in `mcr.microsoft.com/playwright:v1.63.0-noble`: `e2e/styleguide.spec.ts` (200 with CSP, no console or CSP errors, axe WCAG 2.1 AA in light and dark system themes and after choosing Dark, no running animations in calm mode) together with `motion`, `dark-theme` and `visitor`: 13 passed.
+- `npm run test:visual`: the 20 existing baselines pass unchanged; 4 new `styleguide-{light,dark}-{desktop,mobile}` baselines, inspected by eye, then two unchanged reruns.
+- Found while making the baselines stable: nothing used the `--mono` token, so every `<code>` used the browser's default monospace, whose late load moved lines by 1–2 px between captures. `code`, `kbd` and `samp` now use `var(--mono)` (`styles.css`); no existing baseline changed.
+
 ## Redesign foundation — October 17, 2026 (local; CI pending)
 
 Branch `feat/foundation-tokens-motion`, after React 19.3.0 (#82). Shared tokens and motion primitives for phases 4–6 (`docs/REDESIGN_PHASES_3_7.md`), plus approved cleanups.
