@@ -39,6 +39,8 @@ test("the dark theme meets WCAG AA across the visitor journey", async ({ page })
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Extract outcomes", exact: true }).click();
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });
+  // Scan the draft cards, not the transcript lines they replace after the reload.
+  await expect(page.getByRole("heading", { name: /draft outcomes? found/ })).toBeVisible();
   await accessible(page);
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
   await expect(page.getByRole("heading", { name: "Review what matters." })).toBeVisible();

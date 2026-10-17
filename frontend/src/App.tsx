@@ -282,27 +282,36 @@ export default function App() {
         <main id="main" tabIndex={-1}>
           {workspace && <DepartmentHero workspace={workspace} compact />}
           <ErrorNotice error={error} />
-          {user.is_visitor && (
-            <section className="notice visitor-banner" aria-label="Synthetic demo session">
-              <strong>Your isolated synthetic demo</strong>
-              <p>
-                Use synthetic data. Your reviews and plan are isolated; real uploads and external sends are
-                disabled.
-              </p>
-              {user.expires_at && (
-                <details>
-                  <summary>
-                    Demo available until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
-                  </summary>
-                  <p>
-                    When access expires, start a fresh demo. Access expiry does not immediately erase stored
-                    data.
-                  </p>
-                </details>
-              )}
-            </section>
-          )}
-          <Suspense fallback={<p role="status">Loading workspace…</p>}>
+          {/* The banner waits with the page content, so a lazily loaded page arrives as one
+              sequence; the fallback holds roughly a step's height so nothing jumps. */}
+          <Suspense
+            fallback={
+              <div role="status" className="min-h-[min(70svh,720px)]">
+                <span className="sr-only">Loading workspace…</span>
+              </div>
+            }
+          >
+            {user.is_visitor && (
+              <section className="notice visitor-banner" aria-label="Synthetic demo session">
+                <strong>Your isolated synthetic demo</strong>
+                <p>
+                  Use synthetic data. Your reviews and plan are isolated; real uploads and external sends are
+                  disabled.
+                </p>
+                {user.expires_at && (
+                  <details>
+                    <summary>
+                      Demo available until{" "}
+                      <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
+                    </summary>
+                    <p>
+                      When access expires, start a fresh demo. Access expiry does not immediately erase stored
+                      data.
+                    </p>
+                  </details>
+                )}
+              </section>
+            )}
             {!route.valid ? (
               <section className="panel">
                 <h1>Page not found</h1>

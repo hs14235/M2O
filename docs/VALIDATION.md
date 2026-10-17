@@ -1,5 +1,16 @@
 # Verification evidence
 
+## Phase 4 — signature moment — October 17, 2026 (local; CI pending)
+
+Branch `feat/phase4-signature-moment`, from `main` at `424fbfe`. People shows the transcript as numbered lines (first 60, then "Show all"); when an extraction started there finishes and its reloaded meeting has outcomes, the evidence lines light up for 160 ms and the on-screen ones morph into compact draft cards through React 19.3's `<ViewTransition name share="outcome-morph" default="none">` (`--dur-4`, `--ease-emphasized`). It plays once per `meetingId:revision` (`localStorage` key `m2o-moment`, newest 50). Without the View Transitions API, in calm mode or with reduced motion, the cards replace the lines with no animation. Also: step panels, the meetings intro and the demo transcript reveal in reading order; meeting lists, demo scenarios and plan cards stagger in; the demo banner now waits inside `<Suspense>` with the content; the calendar count uses singular forms.
+
+Windows 11, Node 22:
+- `npm run format:check && npm run typecheck && npm test && npm run build`: passed, 188 tests in 34 files. New: `signatureMoment.test.ts` (line numbering across line-break styles and blank lines, chunks spanning lines, unique names and the pair limit, duplicate names refusing the transition, storage cap and the in-memory fallback when storage throws, motion checks), PeopleStep line view and end states (no API, calm mode, already-played revision), and a Workbench test that the moment waits for the finished extraction's reload.
+- Compose stack with this branch's web image, Playwright 1.63.0 container: `signature` (one `document.startViewTransition` call with motion on and at least one named line; none in calm mode or with reduced motion; cards end at opacity 1, no filter or transform), `motion`, `dark-theme`, `visitor`: 9 passed. `support.ts`, `visitor.spec.ts` and `dark-theme.spec.ts` now wait for the draft cards before scanning.
+- `npm run test:visual`: only the 4 `people-*` baselines changed (inspected); the other 16 pass unchanged, three reruns.
+- The review sidebar list does not stagger: a full-page capture restarted its entrance animation (Chromium's capture, not a real resize, which did not), so the screenshot showed an empty list. It is persistent navigation, so it now just stays put.
+- Screen capture (1280×800, transcript in view): evidence lines highlight, then morph into the five draft cards over about 0.5 s and settle on "5 draft outcomes found". On a short screen with the lines below the fold, the cards fade in instead (only on-screen lines are paired, by design).
+
 ## Redesign foundation — October 17, 2026 (local; CI pending)
 
 Branch `feat/foundation-tokens-motion`, after React 19.3.0 (#82). Shared tokens and motion primitives for phases 4–6 (`docs/REDESIGN_PHASES_3_7.md`), plus approved cleanups.

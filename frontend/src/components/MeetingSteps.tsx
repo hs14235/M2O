@@ -1,9 +1,21 @@
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { api, scoped } from "../api";
+import { routePath } from "../navigation";
 import type { Department, Kind, Meeting, Participant, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
 import { kindNames, OutcomeCard } from "./OutcomeCard";
 import GoogleMeetImport, { type ImportedMeeting } from "./GoogleMeetImport";
+import { DraftOutcomes, sortDrafts } from "./workbench/DraftOutcomes";
+import { TranscriptLines } from "./workbench/TranscriptLines";
+import {
+  canAnimate,
+  evidenceLines,
+  markMomentSeen,
+  momentSeen,
+  pairNames,
+  transcriptLines,
+  visibleLines,
+} from "./workbench/signatureMoment";
 
 export function TranscriptStep(props: {
   meeting: Meeting | null;
@@ -32,7 +44,7 @@ export function TranscriptStep(props: {
 }) {
   const p = props;
   return (
-    <section className="panel step-panel">
+    <section className="panel step-panel reveal-seq step-reveal">
       <span className="eyebrow">Step 1 of 4</span>
       <h1>Bring the conversation.</h1>
       <p>
@@ -182,6 +194,9 @@ export function PeopleStep({
   onBack,
   onContinue,
   directoryEditable = true,
+  extracting = false,
+  moment = null,
+  onOpenOutcome,
 }: {
   meeting: Meeting;
   people: Participant[];
@@ -195,6 +210,11 @@ export function PeopleStep({
   onBack: () => void;
   onContinue: () => void;
   directoryEditable?: boolean;
+  /** An extraction started here is still running or its meeting is reloading. */
+  extracting?: boolean;
+  /** Id of a live extraction that just finished with outcomes: play the signature moment. */
+  moment?: string | null;
+  onOpenOutcome?: (id: string) => void;
 }) {
   const [name, setName] = useState(""),
     [role, setRole] = useState(""),
@@ -206,6 +226,45 @@ export function PeopleStep({
     onDirty("participant-form", Boolean(name || role));
     return () => onDirty("participant-form", false);
   }, [name, role, onDirty]);
+
+  // Signature moment: the transcript lines show while an extraction runs; when it
+  // finishes, the evidence lines light up (160 ms) and then morph into draft cards
+  // inside a transition, which React runs as a view transition. Without the API, in
+  // calm mode or with reduced motion, the cards simply replace the lines.
+  const lines = useMemo(() => transcriptLines(meeting.raw_text || ""), [meeting.raw_text]),
+    drafts = useMemo(() => sortDrafts(meeting.tasks), [meeting.tasks]);
+  const seenKey = meeting.id + ":" + meeting.current_revision;
+  const [stage, setStage] = useState<{ moment: string; morphing: boolean } | null>(null),
+    [pairs, setPairs] = useState<ReadonlyMap<number, string>>(new Map());
+  const region = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!moment || stage?.moment === moment) return;
+    const animate = !momentSeen(seenKey) && canAnimate();
+    markMomentSeen(seenKey);
+    if (animate) setPairs(pairNames(drafts, lines, visibleLines(region.current)) ?? new Map());
+    setStage({ moment, morphing: animate });
+  }, [moment, stage, seenKey, drafts, lines]);
+  useEffect(() => {
+    if (!stage?.morphing) return;
+    const timer = setTimeout(
+      () => startTransition(() => setStage({ moment: stage.moment, morphing: false })),
+      160,
+    );
+    return () => clearTimeout(timer);
+  }, [stage]);
+  const showLines =
+    !drafts.length ||
+    stage?.morphing ||
+    ((extracting || (moment && stage?.moment !== moment)) && !momentSeen(seenKey));
+  const highlight = useMemo(
+    () =>
+      stage?.morphing
+        ? new Set(drafts.flatMap((item) => item.evidence.flatMap((e) => evidenceLines(lines, e))))
+        : undefined,
+    [stage, drafts, lines],
+  );
+  const reviewHref = (id: string) =>
+    routePath(workspace.id, "meetings", meeting.id, "review") + "?" + new URLSearchParams({ outcome: id });
   async function add(event: React.FormEvent) {
     event.preventDefault();
     setAdding(true);
@@ -225,7 +284,7 @@ export function PeopleStep({
     }
   }
   return (
-    <section className="panel step-panel">
+    <section className="panel step-panel reveal-seq step-reveal">
       <span className="eyebrow">Step 2 of 4</span>
       <h1>Put people in context.</h1>
       <p>
@@ -236,6 +295,31 @@ export function PeopleStep({
       <button disabled={!editable || !ready || pending || adding} onClick={onExtract}>
         {meeting.tasks.length ? "Extract outcomes again" : "Extract outcomes"}
       </button>
+      {/* One stable wrapper: its entrance plays once, never while lines become cards. */}
+      <div className="my-4 grid gap-3">
+        {showLines ? (
+          <TranscriptLines
+            lines={lines}
+            highlight={highlight}
+            names={stage?.morphing ? pairs : undefined}
+            regionRef={region}
+          />
+        ) : (
+          <>
+            <DraftOutcomes
+              outcomes={drafts}
+              lines={lines}
+              pairs={pairs}
+              hrefFor={reviewHref}
+              onOpen={onOpenOutcome}
+            />
+            <details>
+              <summary>Transcript lines</summary>
+              <TranscriptLines lines={lines} />
+            </details>
+          </>
+        )}
+      </div>
       {meeting.mentions.length ? (
         <ul className="mentions">
           {meeting.mentions.map((mention) => (
@@ -388,7 +472,7 @@ export function ReviewStep({
   const position = item ? items.indexOf(item) : -1,
     approved = meeting.tasks.filter((value) => value.status === "approved").length;
   return (
-    <section className="step-panel">
+    <section className="step-panel reveal-seq step-reveal">
       <span className="eyebrow">Step 3 of 4 · Review</span>
       {savedAt !== null && (
         <div className="save-spark" role="status" key={savedAt}>

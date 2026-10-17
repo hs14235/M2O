@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as client from "../api";
 import type { Meeting, Outcome, Workspace } from "../types";
 import { PeopleStep, ReviewStep, TranscriptStep } from "./MeetingSteps";
@@ -133,4 +133,104 @@ it("shows finite save feedback only after the review request is acknowledged", a
   await userEvent.click(screen.getByRole("button", { name: "Approve outcome" }));
   expect(await screen.findByText("Review saved.")).toBeInTheDocument();
   request.mockRestore();
+});
+
+describe("the transcript-to-outcome moment on People", () => {
+  const evidence = (start_line: number, text: string, speaker: string) => ({
+    id: "e" + start_line,
+    i: 0,
+    text,
+    speaker,
+    start_line,
+  });
+  const extracted = {
+    ...meeting,
+    index_status: "ready",
+    mentions: [],
+    raw_text: "Alex: Review onboarding\n\nSam: Use the checklist",
+    tasks: [
+      { ...action, evidence: [evidence(1, "Alex: Review onboarding", "Alex")] },
+      { ...decision, evidence: [evidence(3, "Sam: Use the checklist", "Sam")] },
+    ],
+  } as Meeting;
+  const people = {
+    people: [],
+    workspace,
+    pending: false,
+    ready: true,
+    onExtract: vi.fn(),
+    onConfirm: vi.fn(),
+    onParticipantAdded: vi.fn(),
+    onDirty: vi.fn(),
+    onBack: vi.fn(),
+    onContinue: vi.fn(),
+  };
+  afterEach(() => {
+    localStorage.clear();
+    delete document.documentElement.dataset.motion;
+    Reflect.deleteProperty(document, "startViewTransition");
+  });
+
+  it("shows the numbered transcript lines before extraction, the first 60 at first", async () => {
+    const raw = Array.from({ length: 75 }, (_, n) => "Alex: Synthetic line " + (n + 1)).join("\n\n");
+    render(<PeopleStep {...people} meeting={{ ...extracted, raw_text: raw, tasks: [] }} />);
+    const region = screen.getByRole("region", { name: "Transcript lines" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(within(region).getAllByRole("listitem")).toHaveLength(60);
+    // Blank lines keep their numbers, so the 60th shown line is transcript line 119.
+    expect(within(region).getByText("119")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show all 75 lines" }));
+    expect(within(region).getAllByRole("listitem")).toHaveLength(75);
+  });
+
+  it("goes straight to the draft cards when the browser has no view transitions", () => {
+    const view = render(<PeopleStep {...people} meeting={extracted} extracting />);
+    expect(screen.getByRole("region", { name: "Transcript lines" })).toBeInTheDocument();
+    expect(screen.queryByText(/draft outcomes found/)).toBeNull();
+    view.rerender(<PeopleStep {...people} meeting={extracted} moment="job" />);
+    expect(screen.getByRole("status")).toHaveTextContent("2 draft outcomes found");
+    const card = screen.getByRole("link", { name: /Review onboarding/ });
+    expect(card).toHaveAttribute("href", "/workspaces/workspace/meetings/weekly/review?outcome=action");
+    expect(card).toHaveTextContent("line 1 · Alex");
+    expect(screen.getByRole("link", { name: /Use the checklist/ })).toHaveTextContent("line 3 · Sam");
+    expect(screen.getByText("Transcript lines").closest("details")).not.toHaveAttribute("open");
+    expect(JSON.parse(localStorage.getItem("m2o-moment")!)).toEqual(["weekly:1"]);
+  });
+
+  it("skips the animation in calm mode even when view transitions exist", () => {
+    const start = vi.fn();
+    Object.defineProperty(document, "startViewTransition", { value: start, configurable: true });
+    document.documentElement.dataset.motion = "calm";
+    const view = render(<PeopleStep {...people} meeting={extracted} extracting />);
+    view.rerender(<PeopleStep {...people} meeting={extracted} moment="job" />);
+    expect(screen.getByRole("status")).toHaveTextContent("2 draft outcomes found");
+    // The only line view left is the collapsed one below the cards.
+    expect(screen.getByRole("region", { name: "Transcript lines" }).closest("details")).not.toHaveAttribute(
+      "open",
+    );
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("shows the end state for a revision that already played the moment", () => {
+    localStorage.setItem("m2o-moment", JSON.stringify(["weekly:1"]));
+    const start = vi.fn();
+    Object.defineProperty(document, "startViewTransition", { value: start, configurable: true });
+    const view = render(<PeopleStep {...people} meeting={extracted} extracting />);
+    // Re-extracting a revision that already played keeps the cards instead of the lines.
+    expect(screen.getByText("2 draft outcomes found")).toBeInTheDocument();
+    view.rerender(<PeopleStep {...people} meeting={extracted} moment="job" />);
+    expect(screen.getByText("2 draft outcomes found")).toBeInTheDocument();
+    // The only line view left is the collapsed one below the cards.
+    expect(screen.getByRole("region", { name: "Transcript lines" }).closest("details")).not.toHaveAttribute(
+      "open",
+    );
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("opens a draft card's review inside the app", async () => {
+    const onOpenOutcome = vi.fn();
+    render(<PeopleStep {...people} meeting={extracted} onOpenOutcome={onOpenOutcome} />);
+    await userEvent.click(screen.getByRole("link", { name: /Use the checklist/ }));
+    expect(onOpenOutcome).toHaveBeenCalledWith("decision");
+  });
 });

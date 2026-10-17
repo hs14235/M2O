@@ -167,7 +167,7 @@ export function ShareStep({
     go("receipt");
   }
   return (
-    <section className="step-panel share-workflow">
+    <section className="step-panel share-workflow reveal-seq step-reveal">
       <span className="eyebrow">Step 3 of 4 · Deliver · {stageNames[stage]}</span>
       <h1>
         {stage === "choose"
