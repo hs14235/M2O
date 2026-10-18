@@ -9,6 +9,7 @@ import { integrationStatus } from "./Integrations";
 import { PayloadInspection } from "./ExactPayload";
 import { SlackPublisher } from "./SlackPublisher";
 import { LinkedInPublisher } from "./LinkedInPublisher";
+import { useStepReveal } from "../motion";
 
 const stageNames: Record<HandoffStage, string> = {
   choose: "Choose",
@@ -52,6 +53,7 @@ export function ShareStep({
   onPlan?: () => void;
   onCalendar?: () => void;
 }) {
+  const reveal = useStepReveal();
   const [catalog, setCatalog] = useState<Integration[]>([]),
     [localDestination, setLocalDestination] = useState<ProviderId>("local"),
     [localStage, setLocalStage] = useState<HandoffStage>("choose");
@@ -167,7 +169,7 @@ export function ShareStep({
     go("receipt");
   }
   return (
-    <section className="step-panel share-workflow">
+    <section className={"step-panel share-workflow " + reveal}>
       <span className="eyebrow">Step 3 of 4 · Deliver · {stageNames[stage]}</span>
       <h1>
         {stage === "choose"

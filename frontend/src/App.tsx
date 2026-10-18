@@ -310,7 +310,15 @@ export default function App() {
               )}
             </section>
           )}
-          <Suspense fallback={<p role="status">Loading workspace…</p>}>
+          {/* While a page loads, hold about a step's height so the content does not push
+              anything when it arrives. */}
+          <Suspense
+            fallback={
+              <p role="status" className="muted min-h-[min(70svh,720px)]">
+                Loading…
+              </p>
+            }
+          >
             {!route.valid ? (
               <section className="panel">
                 <h1>Page not found</h1>

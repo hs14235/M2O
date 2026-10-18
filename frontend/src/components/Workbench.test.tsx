@@ -43,7 +43,48 @@ const meeting = {
   revisions: [],
 } as Meeting;
 const route: Route = { workspace: "space", page: "meetings", meeting: "weekly", step: "people", valid: true };
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
+
+it("plays the outcome moment only after the finished extraction's meeting has reloaded", async () => {
+  let extracted = false;
+  const outcome = {
+    id: "action",
+    kind: "action",
+    title: "Synthetic follow-up",
+    body: "",
+    labels: [],
+    status: "draft",
+    version: 1,
+    owner_id: null,
+    assignee_hint: null,
+    due_hint: null,
+    due_date: null,
+    confidence: 0.6,
+    evidence: [{ id: "e", i: 0, text: "Synthetic source", speaker: null, start_line: 1 }],
+  };
+  vi.spyOn(client, "api").mockImplementation(async (path, options) => {
+    if (path.endsWith("/extract")) return { job_id: "job" } as never;
+    if (path.endsWith("/jobs/job")) {
+      extracted = true;
+      return { id: "job", kind: "extract", state: "completed", error_code: null, result: null } as never;
+    }
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [meeting], next_offset: null } as never;
+    if (path.endsWith("/meetings/weekly") && !options?.method)
+      return { ...meeting, tasks: extracted ? [outcome] : [] } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  render(<Workbench workspace={workspace} user={user} onDirty={vi.fn()} route={route} navigate={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Extract outcomes" })).toBeEnabled());
+  expect(screen.getByRole("region", { name: "Transcript lines" })).toHaveTextContent("Synthetic source");
+  await userEvent.click(screen.getByRole("button", { name: "Extract outcomes" }));
+  expect(await screen.findByText("1 draft outcome found")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Synthetic follow-up/ })).toHaveTextContent("line 1");
+  expect(JSON.parse(localStorage.getItem("m2o-moment")!)).toEqual(["weekly:1"]);
+});
 
 it("retries a failed job read without issuing a second extraction", async () => {
   let jobReads = 0;

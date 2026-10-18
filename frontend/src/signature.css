@@ -1,0 +1,22 @@
+/*
+ * The signature moment (phase 4). Added to the motion layer declared in theme.css,
+ * so the calm-mode and reduced-motion guards in motion.css (!important) still stop
+ * these view-transition pseudo-elements.
+ */
+@layer motion {
+  /* A transcript line becoming its draft card: longer than an interaction
+     (--dur-4) on the emphasized curve. The line's text fades out quickly so the
+     two never read as overlapping words. */
+  ::view-transition-group(.outcome-morph) {
+    animation-duration: var(--dur-4);
+    animation-timing-function: var(--ease-emphasized);
+  }
+  ::view-transition-old(.outcome-morph) {
+    animation-duration: var(--dur-3);
+    animation-timing-function: var(--ease-out);
+  }
+  ::view-transition-new(.outcome-morph) {
+    animation-duration: var(--dur-4);
+    animation-timing-function: var(--ease-emphasized);
+  }
+}

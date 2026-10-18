@@ -332,7 +332,7 @@ export default function DailyPlanner({
                 </div>
               </div>
             )}
-            <div className="plan-grid">
+            <div className="plan-grid stagger">
               {active.slice(safeEntryPage * 6, (safeEntryPage + 1) * 6).map(card)}
             </div>
             {active.length > 6 && (

@@ -18,7 +18,9 @@ import { useDirtyTracking } from "./workbench/useDirtyTracking";
 import { useJobPolling } from "./workbench/useJobPolling";
 import { useMeetingSearch } from "./workbench/useMeetingSearch";
 import { usePeople } from "./workbench/usePeople";
+import { stagger, useStepReveal } from "../motion";
 import { useRouteFence } from "./workbench/useRouteFence";
+import { reviewOutcomePath } from "./workbench/links";
 
 const stepHints: Record<Step, string> = {
   transcript: "Next: confirm the people and extract outcomes.",
@@ -68,6 +70,15 @@ export default function Workbench({
     [meetingReadFailed, setMeetingReadFailed] = useState(false);
   const mutation = useRef(false),
     detailRequest = useRef<AbortController | null>(null);
+  // The signature moment on People (see PeopleStep): the extraction started here, and
+  // once that job finished with outcomes, its id and the revision it produced. People
+  // reports when it played the moment, which consumes it.
+  const [extractJob, setExtractJob] = useState<string | null>(null),
+    [moment, setMoment] = useState<{ job: string; revision: number } | null>(null);
+  const momentDone = useCallback(
+    (job: string) => setMoment((current) => (current?.job === job ? null : current)),
+    [],
+  );
 
   const { meetings, nextOffset, search, setSearch, list, reset: resetList } = useMeetingSearch(workspace.id);
   const example = examples[workspace.department],
@@ -157,6 +168,8 @@ export default function Workbench({
     setJobId(null);
     setJob(null);
     setJobReadError(null);
+    setExtractJob(null);
+    setMoment(null);
     setAcceptedSave(null);
     setMeetingReadFailed(false);
     setMeeting(null);
@@ -177,11 +190,7 @@ export default function Workbench({
     navigate(routePath(workspace.id, "meetings", id || "new", step));
   }
   function reviewCalendar(entry: CalendarEntry) {
-    navigate(
-      routePath(workspace.id, "meetings", entry.meeting_id, "review") +
-        "?" +
-        new URLSearchParams({ outcome: entry.item_id }),
-    );
+    navigate(reviewOutcomePath(workspace.id, entry.meeting_id, entry.item_id));
   }
   async function openDemo(result: { meeting_id: string; job_id: string | null }) {
     const saved = await loadMeeting(result.meeting_id);
@@ -316,6 +325,7 @@ export default function Workbench({
       if (mounted.current && routeGeneration.current === generation) {
         setJobId(result.job_id);
         setJob(null);
+        setExtractJob(result.job_id);
       }
     } catch (e) {
       if (mounted.current && routeGeneration.current === generation) setError(e);
@@ -324,7 +334,7 @@ export default function Workbench({
       if (mounted.current) setBusy(false);
     }
   }
-  const { job, setJob, jobReadError, setJobReadError, jobReading, readAgain } = useJobPolling({
+  const { job, setJob, reloaded, jobReadError, setJobReadError, jobReading, readAgain } = useJobPolling({
     workspaceId: workspace.id,
     jobId,
     active,
@@ -338,6 +348,21 @@ export default function Workbench({
     openedTranscription.current = job.id;
     navigate(routePath(workspace.id, "meetings", job.result.meeting_id, "transcript"));
   }, [job, navigate, workspace.id]);
+  // Decide the moment once per extraction. "Job completed" shows before the meeting
+  // reloads, so wait for the reload of this job: only its meeting carries the new
+  // outcomes. A refused or failed reload shows the result without the moment. The ref
+  // keeps late polls and StrictMode's repeated effects from deciding twice.
+  const momentJob = useRef<string | null>(null);
+  useEffect(() => {
+    if (!extractJob || job?.id !== extractJob || ["queued", "running"].includes(job.state)) return;
+    const live = job.state === "completed" && route.step === "people";
+    if (live && reloaded?.job !== job.id) return;
+    setExtractJob(null);
+    if (live && reloaded?.ok && meeting?.tasks.length && momentJob.current !== job.id) {
+      momentJob.current = job.id;
+      setMoment({ job: job.id, revision: meeting.current_revision });
+    }
+  }, [extractJob, job, reloaded, meeting, route.step]);
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => {
@@ -445,7 +470,7 @@ export default function Workbench({
       {!route.meeting ? (
         <>
           <section className="intro">
-            <div>
+            <div className="reveal-seq">
               <span className="eyebrow">{workspace.name}</span>
               <h1>Make the next step clear.</h1>
               <p>
@@ -454,7 +479,7 @@ export default function Workbench({
               </p>
             </div>
             {editable && !user.is_visitor && (
-              <button className="primary" onClick={() => go("transcript", "new")}>
+              <button className="primary reveal" style={stagger(3)} onClick={() => go("transcript", "new")}>
                 New meeting
               </button>
             )}
@@ -518,18 +543,7 @@ export default function Workbench({
           {user.is_visitor &&
             step === "transcript" &&
             (meeting ? (
-              <section className="panel step-panel">
-                <span className="eyebrow">Synthetic source</span>
-                <h1>Inspect the conversation.</h1>
-                <p>
-                  This is an approved, immutable demo transcript. Your outcome reviews and personal plan are
-                  editable; real uploads belong in invited private workspaces.
-                </p>
-                <pre className="payload-text">{meeting.raw_text}</pre>
-                <button className="primary" onClick={() => go("people")}>
-                  Continue to people
-                </button>
-              </section>
+              <SyntheticSource text={meeting.raw_text} onContinue={() => go("people")} />
             ) : (
               <DemoScenarios workspace={workspace} disabled={pending} onLoaded={openDemo} />
             ))}
@@ -576,6 +590,10 @@ export default function Workbench({
               onDirty={notifyDirty}
               onBack={() => go("transcript")}
               onContinue={() => go("review")}
+              extracting={Boolean(extractJob)}
+              moment={moment}
+              onMomentDone={momentDone}
+              onOpenOutcome={(id) => navigate(reviewOutcomePath(workspace.id, meeting.id, id))}
             />
           )}
           {meeting && step === "review" && (
@@ -632,5 +650,24 @@ export default function Workbench({
         </>
       )}
     </div>
+  );
+}
+
+/** The visitor's read-only demo transcript, revealed like the other steps. */
+function SyntheticSource({ text, onContinue }: { text: string; onContinue: () => void }) {
+  const reveal = useStepReveal();
+  return (
+    <section className={"panel step-panel " + reveal}>
+      <span className="eyebrow">Synthetic source</span>
+      <h1>Inspect the conversation.</h1>
+      <p>
+        This is an approved, immutable demo transcript. Your outcome reviews and personal plan are editable;
+        real uploads belong in invited private workspaces.
+      </p>
+      <pre className="payload-text">{text}</pre>
+      <button className="primary" onClick={onContinue}>
+        Continue to people
+      </button>
+    </section>
   );
 }
