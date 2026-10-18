@@ -45,6 +45,8 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         "WORKER_HEARTBEAT_FILE",
         "WORKER_HEARTBEAT_TIMEOUT",
         "WORKER_JOB_DEADLINE",
+        "WORKER_IDLE_POLL_MAX",
+        "WORKER_WAKE_FILE",
         "APP_ENVIRONMENT",
         "COOKIE_SECURE",
         "LINKEDIN_PUBLISHING_ENABLED",
@@ -67,8 +69,10 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("Hosted free demo uses deterministic rules and hash retrieval")
     if any(values.get(key, "").strip() for key in PRIVATE_CREDENTIAL_KEYS):
         raise ValueError("Provider credentials must not be configured in the hosted synthetic demo")
-    if values.get("WORKER_HEARTBEAT_FILE", "").strip():
+    if values.get("WORKER_HEARTBEAT_FILE", "").strip() or values.get("WORKER_WAKE_FILE", "").strip():
         raise ValueError("Hosted worker health file must be supervisor-managed")
+    # Idle, the worker reads the database at most every 30 minutes, so Neon can scale to zero.
+    idle_poll_max = values.get("WORKER_IDLE_POLL_MAX", "1800")
     mode = values.get("CLIENT_IDENTITY_MODE", "")
     if mode not in {"trusted_proxy", "shared"}:
         raise ValueError("Hosted demo requires an explicit trusted_proxy or shared client budget policy")
@@ -83,6 +87,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
             trusted_proxy_cidrs=values.get("TRUSTED_PROXY_CIDRS", ""),
             worker_heartbeat_timeout=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
             worker_job_deadline=values.get("WORKER_JOB_DEADLINE", "600"),
+            worker_idle_poll_max=idle_poll_max,
         )
     except ValueError:
         raise ValueError("Invalid hosted client identity or worker health policy") from None
@@ -132,6 +137,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         TRANSCRIPTION_ENABLED="false",
         WORKER_HEARTBEAT_TIMEOUT=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
         WORKER_JOB_DEADLINE=values.get("WORKER_JOB_DEADLINE", "600"),
+        WORKER_IDLE_POLL_MAX=idle_poll_max,
     )
     return env
 
@@ -198,6 +204,8 @@ def main() -> int:
         return migration.returncode
     with TemporaryDirectory(prefix="m2o-worker-") as directory:
         env["WORKER_HEARTBEAT_FILE"] = str(Path(directory) / "health.json")
+        # API and worker share this container, so a file is enough to wake the worker.
+        env["WORKER_WAKE_FILE"] = str(Path(directory) / "wake")
         return supervise(
             [
                 [

@@ -43,7 +43,7 @@ from .services.linkedin_publishing import publish_linkedin
 from .services.meetings import MeetingService
 from .settings import settings
 from .slack_delivery import SlackDeliveryAdapter, UncertainSlackWrite, content_hash
-from .worker_health import WorkerPulse
+from .worker_health import WorkerPulse, wake_stamp
 
 log = logging.getLogger("meeting.worker")
 
@@ -646,11 +646,29 @@ async def run_once(adapter=None, *, linkedin_adapter=None, runtime: WorkerPulse 
     return True
 
 
+async def idle_wait(seconds: int, runtime: WorkerPulse, stamp) -> bool:
+    """Wait without touching the database; True as soon as an enqueue rings the wake file."""
+    for elapsed in range(1, seconds + 1):
+        await asyncio.sleep(1)
+        if wake_stamp(settings.worker_wake_file) != stamp:
+            return True
+        if elapsed % 10 == 0:
+            runtime.idle()  # Polling used to refresh the health signal; long waits must too.
+    return False
+
+
 async def serve():
     runtime = WorkerPulse(settings.worker_heartbeat_file)
+    delay = 1
     while True:
-        if not await run_once(runtime=runtime):
-            await asyncio.sleep(1)
+        # Read before claiming, so a job committed during the claim still wakes the wait.
+        stamp = wake_stamp(settings.worker_wake_file)
+        if await run_once(runtime=runtime):
+            delay = 1
+        elif await idle_wait(delay, runtime, stamp):
+            delay = 1
+        else:
+            delay = min(delay * 2, settings.worker_idle_poll_max)
 
 
 def main():

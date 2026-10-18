@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     worker_heartbeat_file: str = ""
     worker_heartbeat_timeout: int = Field(default=45, ge=25, le=300)
     worker_job_deadline: int = Field(default=600, ge=60, le=3600)
+    # Idle polling backs off to this many seconds; the hosted demo raises it so Neon can
+    # scale to zero, and the API's wake file starts new jobs without waiting.
+    worker_idle_poll_max: int = Field(default=1, ge=1, le=3600)
+    worker_wake_file: str = ""
     # Local speech-to-text (faster-whisper on CPU). Off by default: it needs requirements-ai.txt,
     # a model download and real CPU time, so the public demo never enables it.
     transcription_enabled: bool = False
