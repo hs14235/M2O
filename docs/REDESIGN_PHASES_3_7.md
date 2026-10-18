@@ -155,5 +155,7 @@ Recommendation: decide by how many components need isolated states. If the answe
 8. **Calm mode and reduced motion:** verify no motion anywhere, including the phase 4 moment and the command menu.
 9. **Docs media:** refresh `docs/media/` with `MTT_UPDATE_DOC_MEDIA=1` and update the README screenshots.
 10. **Evidence:** add a dated "Redesign release audit" section to `docs/VALIDATION.md` with every result and anything not verified.
+11. **Screenshot tolerance:** the single `maxDiffPixelRatio: 0.001` in `playwright.config.ts` is a ratio, so tall full-page captures can hide small header changes. Add a fixed-viewport (above-the-fold) snapshot or a `maxDiffPixels` limit for the header area, and show it catches a deliberate one-line header change.
+12. **Docs formatting:** `docs/VALIDATION.md` isn't Prettier-formatted, and CI's `format:check` covers only `src` and `e2e`. Format it in a formatting-only commit (listed in `.git-blame-ignore-revs`) and decide whether `format:check` should include `docs/`.
 
 **Done when:** every item has a recorded result or an explicitly accepted gap. Deploying is a separate step the user authorizes.
