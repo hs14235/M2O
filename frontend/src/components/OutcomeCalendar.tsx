@@ -3,7 +3,6 @@ import { api, scoped } from "../api";
 import type { CalendarEntry, CalendarFeed, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
 import { kindNames } from "./OutcomeCard";
-import { useStepReveal } from "../motion";
 
 function iso(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -44,7 +43,6 @@ export default function OutcomeCalendar({
   onReview: (entry: CalendarEntry) => void;
   onBack: () => void;
 }) {
-  const reveal = useStepReveal();
   const [start, setStart] = useState(() => iso(new Date())),
     [end, setEnd] = useState(() => shift(iso(new Date()), 41)),
     [overview, setOverview] = useState(!meetingId),
@@ -168,7 +166,7 @@ export default function OutcomeCalendar({
     );
   }
   return (
-    <section className={"outcome-calendar step-panel " + reveal}>
+    <section className="outcome-calendar step-panel reveal-seq step-reveal">
       <span className="eyebrow">Step 4 of 4 · Outcome calendar</span>
       <h1>See what is due, and when.</h1>
       <p>

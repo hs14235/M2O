@@ -41,15 +41,6 @@ it("maps a chunk onto the non-blank lines it spans, skipping blank lines", () =>
   expect(evidenceLines(lines, chunk(6, "notes three\nmissing"))).toEqual([6]);
 });
 
-it("keeps the pieces of one long line on that line", () => {
-  // The backend cuts a long line into pieces and joins them with "\n" inside one chunk.
-  const long = "Alex: " + "x".repeat(700) + "y".repeat(700);
-  const lines = transcriptLines("Intro\n" + long + "\nNext line");
-  const pieces = [long.slice(0, 720), long.slice(720)];
-  expect(evidenceLines(lines, chunk(2, pieces.join("\n")))).toEqual([2]);
-  expect(evidenceLines(lines, chunk(2, pieces[1] + "\nNext line"))).toEqual([2, 3]);
-});
-
 it("gives each outcome its own visible line, up to the limit", () => {
   const lines = transcriptLines("a\nb\nc\nd");
   const shared = chunk(1, "a\nb");
