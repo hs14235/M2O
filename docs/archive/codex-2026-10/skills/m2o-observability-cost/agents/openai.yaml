@@ -1,0 +1,4 @@
+interface:
+  display_name: "M2O Observability and Cost"
+  short_description: "Plan privacy-safe operations and costs"
+  default_prompt: "Use $m2o-observability-cost to inspect the current M2O source and complete the requested work with scoped verification."
