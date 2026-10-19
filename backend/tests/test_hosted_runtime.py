@@ -55,6 +55,15 @@ def test_site_root_serves_the_shell_regardless_of_accept_header(hosted, accept):
     assert "script-src 'self'" in page.headers["Content-Security-Policy"]
 
 
+def test_demo_recording_is_served_as_audio_with_media_allowed(hosted, tmp_path):
+    (tmp_path / "demo").mkdir()
+    (tmp_path / "demo" / "standup.m4a").write_bytes(b"synthetic-audio")
+    audio = hosted.get("/demo/standup.m4a")
+    assert audio.status_code == 200 and audio.content == b"synthetic-audio"
+    assert audio.headers["content-type"] == "audio/mp4"
+    assert "media-src 'self'" in audio.headers["Content-Security-Policy"]
+
+
 def test_assets_are_immutable_and_build_is_required(hosted, tmp_path):
     response = hosted.get("/assets/app-abc123.js")
     assert response.status_code == 200 and "immutable" in response.headers["Cache-Control"]

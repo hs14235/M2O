@@ -73,14 +73,32 @@ export default function DemoScenarios({
             .map((item) => (
               <article key={item.id}>
                 <span className="eyebrow">
-                  {item.id === "no-outcomes" ? "No-action case" : "Department example"}
+                  {item.recording
+                    ? "From a recording"
+                    : item.id === "no-outcomes"
+                      ? "No-action case"
+                      : "Department example"}
                 </span>
                 <h3>{item.title}</h3>
                 <p>
-                  {item.id === "no-outcomes"
-                    ? "An update with no work to manufacture. An empty result can be the right result."
-                    : "Confirm names, review evidence and make a tangible plan."}
+                  {item.recording
+                    ? "Listen to the meeting, then follow its transcript into reviewed outcomes."
+                    : item.id === "no-outcomes"
+                      ? "An update with no work to manufacture. An empty result can be the right result."
+                      : "Confirm names, review evidence and make a tangible plan."}
                 </p>
+                {item.recording && (
+                  <>
+                    <audio className="w-full" controls preload="none" src={item.recording.audio}>
+                      Your browser cannot play this recording; the transcript is below.
+                    </audio>
+                    <p className="text-sm text-text-2">
+                      Synthetic voices, transcribed offline by {item.recording.model} on {item.recording.date}
+                      : {(item.recording.wer * 100).toFixed(1)}% word error rate against the script. Speaker
+                      names come from the script.
+                    </p>
+                  </>
+                )}
                 <details>
                   <summary>Read the synthetic transcript</summary>
                   <pre className="payload-text">{item.transcript}</pre>

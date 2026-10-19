@@ -1,0 +1,12 @@
+{
+  "model": "faster-whisper large-v3 (int8, CPU)",
+  "date": "2026-10-19",
+  "machine": "Windows 11, Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+  "audio_seconds": 43.0,
+  "transcription_seconds": 236.1,
+  "real_time_factor": 5.48,
+  "wer": 0.011,
+  "reference_words": 91,
+  "audio_bytes": 246575,
+  "transcript": "Morgan: Good morning. Let's keep this quick and go through the launch checklist.\nAlex: I will finish the release notes by Thursday.\nMorgan: Thanks. Decision, we ship the mobile update on Monday, not Friday.\nAlex: Blocker, the payment sandbox keys still have not been approved.\nMorgan: I will ask the finance team to approve the sandbox keys today.\nAlex: If the approval slips, the App Store review could miss the launch window.\nMorgan: Follow-up, confirm the store review timeline with the platform team.\nAlex: Taylor will update the onboarding screenshots by Wednesday.\nMorgan: Great. That's everything. Thanks, everyone."
+}

@@ -1,5 +1,12 @@
 # Verification evidence
 
+## Demo recording transcribed offline by faster-whisper large-v3 — October 19, 2026 (local; CI pending)
+
+Branch `feat/demo-recording-whisper`. A new demo example, "Launch stand-up recording", is available in every department. It has a 43-second synthetic recording (Windows System.Speech voices, AAC, 246 KB) and the transcript `large-v3` produced offline (int8, CPU, Windows 11 Intel laptop):
+- word error rate 1.1% against the script (91 words);
+- 236 s to transcribe, so 5.5× slower than real time.
+
+The demo card plays the audio (`preload="none"`) and states its provenance. In rules mode, extraction finds 3 actions in Whisper's unedited text (details in `docs/AUDIO_TRANSCRIPTION.md`). The hosted app now registers `.m4a` as `audio/mp4`, because the slim Linux image has no MIME table for it and responses carry `nosniff`.
 ## Original design restored with three kept effects — October 19, 2026 (local; CI pending)
 
 Branch `revert/linear-redesign`, from `main` at `7648b94`. Hamza chose the pre-redesign look (PR #79) plus three effects from the Linear redesign: content reveal, the transcript-to-outcome signature moment, and the Ctrl+K command menu.

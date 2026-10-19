@@ -84,6 +84,28 @@ python -m pytest tests/test_transcription.py -k real_model -s
 
 It passed on 2026-10-11 with the synthetic recording above. The `small` model produced the expected transcript in about 15 seconds, including model load, and the audio was deleted afterwards.
 
+## The demo's recorded meeting
+
+The public demo can't run Whisper: Render Free has 512 MB of memory, and even `small` needs about 1 GB. Instead, its "Launch stand-up recording" example was made offline on 2026-10-19 and committed:
+
+- `backend/evals/audio/standup.txt` is the script: two synthetic speakers, nine lines.
+- `python -m scripts.make_demo_audio`, from `backend` on Windows with `faster-whisper==1.2.1` and `av==18.1.0` installed:
+  - speaks each line with an offline Windows voice (System.Speech: Zira for Morgan, David for Alex);
+  - joins the clips into `frontend/public/demo/standup.m4a` (AAC, 246 KB);
+  - transcribes each clip with `large-v3` (int8, CPU);
+  - writes `backend/evals/audio/standup.whisper.json`.
+- The fixture in `backend/app/demo_fixtures.py` is copied from that JSON by hand after review. The words are Whisper's, unedited. Speaker names come from the script, because Whisper doesn't identify speakers.
+
+| Measured on Windows 11, Intel laptop CPU, 2026-10-19 | Result |
+| --- | --- |
+| Audio | 43.0 s, 91 reference words |
+| Word error rate | 1.1% (the spoken "Risk:" was dropped) |
+| Transcription time | 236 s, so 5.5× slower than real time; model download and load, one time: 332 s, 2.9 GB |
+
+What extraction finds in it, in rules mode: 3 actions, each with its owner and 2 with due dates. Whisper wrote "Decision," "Blocker," and "Follow-up," with commas, and the rules extractor only recognizes those labels before a colon, so the decision, blocker, follow-up and risk aren't extracted. The extractor wasn't tuned to this sample. Accepting a label followed by a comma at the start of a sentence is a candidate improvement, to be scored with `scripts.evaluate_extraction` before changing the rules.
+
+Text-to-speech audio is cleaner than a real meeting, so expect a higher error rate on real recordings.
+
 ## Licenses
 
 faster-whisper and CTranslate2 are MIT. Their dependencies are MIT, Apache-2.0 or BSD, apart from tqdm (MPL-2.0, used unmodified). The Whisper model weights are MIT. Checked with `pip-licenses` in an isolated environment on 2026-10-11.

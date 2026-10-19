@@ -39,6 +39,38 @@ const catalog: DemoCatalog = {
   ],
 };
 afterEach(() => vi.restoreAllMocks());
+it("offers the recording with a player and its transcription provenance", async () => {
+  vi.spyOn(client, "api").mockResolvedValueOnce({
+    ...catalog,
+    scenarios: [
+      ...catalog.scenarios,
+      {
+        id: "recording",
+        department: null,
+        title: "Launch stand-up recording",
+        transcript: "Alex: I will finish the release notes by Thursday.",
+        synthetic: true,
+        recording: {
+          audio: "/demo/standup.m4a",
+          model: "faster-whisper large-v3 (int8, CPU)",
+          wer: 0.025,
+          date: "2026-10-19",
+        },
+      },
+    ],
+  });
+  const { container } = render(<DemoScenarios workspace={workspace} disabled={false} onLoaded={vi.fn()} />);
+  await screen.findByRole("button", { name: "Open Launch stand-up recording" });
+  const players = container.querySelectorAll("audio");
+  expect(players).toHaveLength(1);
+  expect(players[0].getAttribute("src")).toBe("/demo/standup.m4a");
+  expect(players[0].getAttribute("preload")).toBe("none");
+  expect(
+    screen.getByText(/transcribed offline by faster-whisper large-v3 \(int8, CPU\)/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/2\.5% word error rate/)).toBeInTheDocument();
+  expect(screen.getByText(/speaker names come from the script/i)).toBeInTheDocument();
+});
 it("shows department and no-action fixtures and submits their identifier without a transcript upload", async () => {
   const loaded = { meeting_id: "demo-hr", job_id: "index-job" },
     onLoaded = vi.fn();

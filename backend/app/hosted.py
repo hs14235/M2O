@@ -1,5 +1,6 @@
 """Same-origin frontend serving for the bounded hosted demo container."""
 
+import mimetypes
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -9,6 +10,10 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+# Python's built-in table lacks .m4a, and slim images have no /etc/mime.types; with nosniff,
+# a missing audio type can stop browsers playing the demo recording.
+mimetypes.add_type("audio/mp4", ".m4a")
 
 STATIC_HEADERS = {
     "X-Content-Type-Options": "nosniff",

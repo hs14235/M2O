@@ -37,6 +37,27 @@ Morgan: Risk: An unresolved relative due date could be interpreted incorrectly."
 Morgan: Thanks for joining. We are sharing an update today.
 Taylor: Everything is as reported yesterday. Have a good day.""",
     },
+    # Whisper's words, unedited, from scripts/make_demo_audio.py (evals/audio/standup.whisper.json).
+    # Speaker names come from the script: Whisper does not identify speakers.
+    "recording": {
+        "department": None,
+        "title": "Launch stand-up recording",
+        "transcript": """Morgan: Good morning. Let's keep this quick and go through the launch checklist.
+Alex: I will finish the release notes by Thursday.
+Morgan: Thanks. Decision, we ship the mobile update on Monday, not Friday.
+Alex: Blocker, the payment sandbox keys still have not been approved.
+Morgan: I will ask the finance team to approve the sandbox keys today.
+Alex: If the approval slips, the App Store review could miss the launch window.
+Morgan: Follow-up, confirm the store review timeline with the platform team.
+Alex: Taylor will update the onboarding screenshots by Wednesday.
+Morgan: Great. That's everything. Thanks, everyone.""",
+        "recording": {
+            "audio": "/demo/standup.m4a",
+            "model": "faster-whisper large-v3 (int8, CPU)",
+            "wer": 0.011,
+            "date": "2026-10-19",
+        },
+    },
 }
 
 DEPARTMENTS = {"engineering": "Engineering", "hr": "People Operations", "finance": "Finance Control"}
