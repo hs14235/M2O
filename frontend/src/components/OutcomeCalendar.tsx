@@ -46,7 +46,9 @@ export default function OutcomeCalendar({
   const [start, setStart] = useState(() => iso(new Date())),
     [end, setEnd] = useState(() => shift(iso(new Date()), 41)),
     [overview, setOverview] = useState(!meetingId),
+    [agenda, setAgenda] = useState(false),
     [chosen, setChosen] = useState(""),
+    [skyPage, setSkyPage] = useState(0),
     [cardPage, setCardPage] = useState(0);
   const [entries, setEntries] = useState<CalendarEntry[]>([]),
     [next, setNext] = useState<number | null>(null),
@@ -109,6 +111,7 @@ export default function OutcomeCalendar({
     setBusy(false);
     setError(null);
     setChosen("");
+    setSkyPage(0);
     setCardPage(0);
     void load();
     return () => pending.current?.abort();
@@ -118,21 +121,34 @@ export default function OutcomeCalendar({
     ].sort(),
     undated = entries.filter((entry) => !entry.due_date),
     selected = chosen && (chosen === "undated" || dates.includes(chosen)) ? chosen : dates[0] || "undated";
-  const cards = selected === "undated" ? undated : entries.filter((entry) => entry.due_date === selected);
+  const cards = selected === "undated" ? undated : entries.filter((entry) => entry.due_date === selected),
+    safePage = Math.min(skyPage, Math.max(0, Math.ceil(dates.length / 12) - 1)),
+    skyDates = dates.slice(safePage * 12, safePage * 12 + 12);
   const safeCardPage = Math.min(cardPage, Math.max(0, Math.ceil(cards.length / 6) - 1));
   function choose(value: string) {
     setChosen(value);
     setCardPage(0);
   }
+  function point(index: number) {
+    const row = Math.floor(index / 4),
+      column = row % 2 ? 3 - (index % 4) : index % 4;
+    return { x: 14 + column * 24, y: 30 + row * 25 };
+  }
+  const curve = skyDates
+    .map((_date, index) => {
+      const p = point(index);
+      return `${index ? "L" : "M"} ${p.x * 10} ${p.y * 5}`;
+    })
+    .join(" ");
   function card(entry: CalendarEntry) {
     return (
-      <article key={entry.item_id} className={"calendar-card " + entry.kind}>
-        <div className="calendar-card-top">
+      <article key={entry.item_id} className={"outcome-arcana " + entry.kind}>
+        <div className="arcana-top">
           <span className="eyebrow">{kindNames[entry.kind]}</span>
           <span className="badge">Approved · v{entry.item_version}</span>
         </div>
         <h3>{entry.title}</h3>
-        <p className="calendar-card-owner">
+        <p className="arcana-owner">
           {entry.owner_confirmed ? entry.owner_name : "Unassigned"}
           {entry.owner_confirmed && <span> · confirmed directory owner</span>}
         </p>
@@ -167,11 +183,11 @@ export default function OutcomeCalendar({
   }
   return (
     <section className="outcome-calendar step-panel">
-      <span className="eyebrow">Step 4 of 4 · Outcome calendar</span>
-      <h1>See what is due, and when.</h1>
+      <span className="eyebrow">Step 4 of 4 · Outcome constellation</span>
+      <h1>A little clarity, written in stars.</h1>
       <p>
-        All approved outcome kinds in the current transcript revision. Outcomes with a reviewed date are
-        listed by day; undated work keeps its own place.
+        All approved outcome kinds in the current transcript revision. Only reviewed dates land on the sky;
+        undated work keeps its own place.
       </p>
       <div className="calendar-toolbar">
         <div className="calendar-scope" role="group" aria-label="Calendar scope">
@@ -228,26 +244,114 @@ export default function OutcomeCalendar({
             undated{next !== null ? " · more outcomes available" : ""}
           </p>
           <div className="calendar-view" role="group" aria-label="Calendar presentation">
+            <button aria-pressed={!agenda} onClick={() => setAgenda(false)}>
+              Constellation
+            </button>
+            <button aria-pressed={agenda} onClick={() => setAgenda(true)}>
+              Agenda
+            </button>
             <button aria-pressed={selected === "undated"} onClick={() => choose("undated")}>
               Undated · {undated.length}
             </button>
           </div>
-          <nav className="calendar-agenda" aria-label="Reviewed dates">
-            <ul>
-              {dates.map((date) => (
-                <li key={date}>
-                  <button aria-pressed={selected === date} onClick={() => choose(date)}>
-                    <strong>{calendarLabel(date)}</strong>
-                    <span>{entries.filter((entry) => entry.due_date === date).length} approved outcomes</span>
+          {agenda ? (
+            <nav className="calendar-agenda" aria-label="Reviewed dates">
+              <ul>
+                {dates.map((date) => (
+                  <li key={date}>
+                    <button aria-pressed={selected === date} onClick={() => choose(date)}>
+                      <strong>{calendarLabel(date)}</strong>
+                      <span>
+                        {entries.filter((entry) => entry.due_date === date).length} approved outcomes
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {!dates.length && <p>No reviewed dates in this range.</p>}
+            </nav>
+          ) : (
+            <div className="lunar-sky">
+              <svg className="lunar-art" viewBox="0 0 1000 500" aria-hidden="true">
+                <defs>
+                  <radialGradient id="moonlight">
+                    <stop stopColor="#f5e4ad" />
+                    <stop offset="1" stopColor="#f5e4ad" stopOpacity="0" />
+                  </radialGradient>
+                  <linearGradient id="starlane">
+                    <stop stopColor="#d8b96e" />
+                    <stop offset="1" stopColor="#9f91e8" />
+                  </linearGradient>
+                </defs>
+                <circle cx="500" cy="90" r="95" fill="url(#moonlight)" opacity=".3" />
+                <path d="M 518 40 A 44 44 0 1 0 544 114 A 35 35 0 0 1 518 40" fill="#f6dca0" />
+                <ellipse
+                  cx="500"
+                  cy="95"
+                  rx="112"
+                  ry="51"
+                  fill="none"
+                  stroke="#d6ba7b"
+                  opacity=".22"
+                  transform="rotate(-15 500 95)"
+                />
+                <path d={curve} fill="none" stroke="url(#starlane)" strokeWidth="2" strokeDasharray="4 6" />
+                {Array.from({ length: 24 }, (_, i) => (
+                  <circle
+                    key={i}
+                    cx={(i * 137 + 41) % 1000}
+                    cy={(i * 89 + 35) % 500}
+                    r={i % 3 ? 1 : 2}
+                    fill="#f5e4b9"
+                    opacity=".45"
+                  />
+                ))}
+              </svg>
+              {skyDates.map((date, index) => {
+                const p = point(index),
+                  count = entries.filter((entry) => entry.due_date === date).length;
+                return (
+                  <button
+                    key={date}
+                    className="lunar-point"
+                    style={{ left: p.x + "%", top: p.y + "%" }}
+                    aria-pressed={selected === date}
+                    aria-label={calendarLabel(date) + ", " + count + " approved outcomes"}
+                    onClick={() => choose(date)}
+                  >
+                    <span className="point-orb" aria-hidden="true">
+                      ✦
+                    </span>
+                    <strong>{calendarLabel(date, true)}</strong>
+                    <span>
+                      {count} outcome{count === 1 ? "" : "s"}
+                    </span>
                   </button>
-                </li>
-              ))}
-            </ul>
-            {!dates.length && <p>No reviewed dates in this range.</p>}
-          </nav>
+                );
+              })}
+              {!dates.length && (
+                <p className="sky-empty">
+                  No reviewed dates yet. The undated cluster holds work that still needs a date.
+                </p>
+              )}
+            </div>
+          )}
+          {dates.length > 12 && !agenda && (
+            <div className="page-controls">
+              <button disabled={safePage === 0} onClick={() => setSkyPage(safePage - 1)}>
+                Previous date points
+              </button>
+              <span>
+                Sky {safePage + 1} of {Math.ceil(dates.length / 12)}
+              </span>
+              <button disabled={(safePage + 1) * 12 >= dates.length} onClick={() => setSkyPage(safePage + 1)}>
+                Next date points
+              </button>
+            </div>
+          )}
           <section className="calendar-detail" aria-labelledby="calendar-detail-heading">
             <h2 id="calendar-detail-heading">
-              {selected === "undated" ? "Undated outcomes" : calendarLabel(selected)}
+              {selected === "undated" ? "The undated constellation" : calendarLabel(selected)}
             </h2>
             {!cards.length ? (
               <Empty>
@@ -256,7 +360,7 @@ export default function OutcomeCalendar({
                   : "No approved outcomes in this view. Review a meeting before mapping its next steps."}
               </Empty>
             ) : (
-              <div className="calendar-cards">
+              <div className="arcana-cards">
                 {cards.slice(safeCardPage * 6, safeCardPage * 6 + 6).map(card)}
               </div>
             )}

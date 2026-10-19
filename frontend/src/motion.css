@@ -4,17 +4,12 @@
  * the system reduced-motion setting turn all of it off (see experience.css).
  */
 :root {
-  /* Curves (--ease-out, --ease-in-out, --ease-press, --ease-emphasized) live in
-     theme.css so Tailwind's ease-* utilities share them. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-press: cubic-bezier(0.3, 1.4, 0.6, 1);
   --dur-1: 120ms;
   --dur-2: 180ms;
   --dur-3: 280ms;
-  /* Content arriving: a screen's heading, lead text and body, in reading order. */
-  --dur-reveal: 320ms;
-  /* Reserved for the one signature moment (transcript to outcome). */
-  --dur-4: 560ms;
-  --stagger-section: 140ms;
-  --stagger-item: 40ms;
   interpolate-size: allow-keywords;
 }
 html {
@@ -104,52 +99,8 @@ summary:hover {
 }
 /* Browsers do not run animations inside a collapsed section, so one started
    there would never finish. Cards settle when their section actually opens. */
-details:not([open])
-  :is(.panel, .outcome, .notice, .preview, .plan-card, .reveal, .reveal-seq > *, .stagger > *) {
+details:not([open]) :is(.panel, .outcome, .notice, .preview, .plan-card) {
   animation: none;
-}
-
-/* Content arrives: it fades in, comes into focus and rises slightly, like the
-   Linear reference (October 17). The animation only supplies the starting state,
-   so when calm mode or reduced motion removes it the content simply shows.
-   .reveal-seq reveals its children in reading order; .stagger does the same
-   for list items, faster. Set --i (see stagger() in motion.ts) for a position
-   beyond the nth-child defaults. */
-.reveal,
-.reveal-seq > * {
-  animation: reveal var(--dur-reveal) var(--ease-out) backwards;
-  animation-delay: calc(min(var(--i, 0), 6) * var(--stagger-section));
-}
-.stagger > * {
-  animation: settle var(--dur-3) var(--ease-out) backwards;
-  animation-delay: calc(min(var(--i, 0), 8) * var(--stagger-item));
-}
-:is(.reveal-seq, .stagger) > :nth-child(2) {
-  --i: 1;
-}
-:is(.reveal-seq, .stagger) > :nth-child(3) {
-  --i: 2;
-}
-:is(.reveal-seq, .stagger) > :nth-child(4) {
-  --i: 3;
-}
-:is(.reveal-seq, .stagger) > :nth-child(5) {
-  --i: 4;
-}
-:is(.reveal-seq, .stagger) > :nth-child(6) {
-  --i: 5;
-}
-:is(.reveal-seq, .stagger) > :nth-child(n + 7) {
-  --i: 6;
-}
-/* Only a starting state, held during the stagger delay (fill: backwards). When
-   it ends the element returns to its own styles, with no lingering filter. */
-@keyframes reveal {
-  from {
-    opacity: 0;
-    filter: blur(8px);
-    transform: translateY(8px);
-  }
 }
 @keyframes settle {
   from {
@@ -171,18 +122,4 @@ details:not([open])
 
 :root[data-motion="calm"] {
   scroll-behavior: auto;
-}
-/* The element kill rule in experience.css does not reach view-transition
-   pseudo-elements, so calm mode and reduced motion stop them here. */
-:root[data-motion="calm"]::view-transition-group(*),
-:root[data-motion="calm"]::view-transition-old(*),
-:root[data-motion="calm"]::view-transition-new(*) {
-  animation: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
 }

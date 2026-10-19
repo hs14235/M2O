@@ -392,7 +392,7 @@ export function ReviewStep({
       <span className="eyebrow">Step 3 of 4 · Review</span>
       {savedAt !== null && (
         <div className="save-spark" role="status" key={savedAt}>
-          <span aria-hidden="true">✓</span>Review saved.
+          <span aria-hidden="true">✦</span>Review saved.
         </div>
       )}
       <h1>Review what matters.</h1>

@@ -24,7 +24,7 @@ input,
 select,
 textarea {
   border-radius: var(--r-sm);
-  border-color: var(--border-control);
+  border-color: var(--border-strong);
 }
 .panel,
 .outcome {
@@ -128,7 +128,7 @@ textarea {
 .guided,
 .daily-planner,
 .connections {
-  animation: workflow-enter var(--dur-2) var(--ease-out) both;
+  animation: workflow-enter 0.2s ease-out both;
 }
 .stepper button {
   border-radius: 999px;
