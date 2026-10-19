@@ -6,7 +6,6 @@ import { isApplePlatform, menuShortcutLabel, useShortcuts } from "../shortcuts";
 import type { User, Workspace } from "../types";
 import { Modal } from "./Modal";
 import { kbdClass, ShortcutHelp } from "./ShortcutHelp";
-import { chooseTheme } from "./ThemeSwitch";
 
 // cmdk and the menu contents load on first open, or once the browser is idle.
 const loadContent = () => import("./CommandMenu");
@@ -103,7 +102,6 @@ export function CommandCenter({
         workspaces,
         motion: { calm, reduced, toggle },
         navigate,
-        chooseTheme,
         openHelp: () => setHelp(true),
       }),
     [user, workspace, workspaces, calm, reduced, toggle, navigate],

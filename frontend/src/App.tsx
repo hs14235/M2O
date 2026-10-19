@@ -189,8 +189,7 @@ export default function App() {
       <ChromeRegion id="workspace-header" expanded={chrome.header} calm={motion.calm}>
         <header className="app-header">
           <a className="brand" href="#main">
-            <img className="brand-mark on-light" src="/brand-mark.png" alt="" width="62" height="32" />
-            <img className="brand-mark on-dark" src="/brand-mark-dark.png" alt="" width="62" height="32" />
+            <img className="brand-mark" src="/brand-mark.png" alt="" width="62" height="32" />
             <span>
               <strong>M2O</strong> <span className="brand-sub">Meeting 2 Outcomes</span>
             </span>
@@ -288,7 +287,13 @@ export default function App() {
           </aside>
         </ChromeRegion>
         <main id="main" tabIndex={-1}>
-          {workspace && <DepartmentHero workspace={workspace} compact />}
+          {workspace && (
+            <DepartmentHero
+              workspace={workspace}
+              calm={motion.calm}
+              compact={route.page !== "meetings" || Boolean(route.meeting)}
+            />
+          )}
           <ErrorNotice error={error} />
           {user.is_visitor && (
             <section className="notice visitor-banner" aria-label="Synthetic demo session">
@@ -409,20 +414,7 @@ function Login({
   return (
     <main className="login">
       <section className="login-story">
-        <img
-          className="login-mark brand-mark on-light"
-          src="/brand-mark.png"
-          alt=""
-          width="125"
-          height="64"
-        />
-        <img
-          className="login-mark brand-mark on-dark"
-          src="/brand-mark-dark.png"
-          alt=""
-          width="125"
-          height="64"
-        />
+        <img className="login-mark" src="/brand-mark.png" alt="" width="125" height="64" />
         <span className="eyebrow">M2O · Meeting 2 Outcomes</span>
         <h1>A useful meeting has a clear next step.</h1>
         <p>

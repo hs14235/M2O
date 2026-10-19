@@ -94,15 +94,15 @@ test("compact stages, approved calendar, settings and reversible workspace frame
   await page.getByRole("button", { name: "View outcome calendar", exact: true }).click();
   await expect(page).toHaveURL(/\/calendar$/);
   await expect(page.getByText(new RegExp(count + " approved outcomes loaded"))).toBeVisible();
-  await expect(page.locator(".calendar-cards article")).toHaveCount(count - 1);
-  await expect(page.locator("article.calendar-card.action .calendar-card-owner")).toContainText(
+  await expect(page.locator(".arcana-cards article")).toHaveCount(count - 1);
+  await expect(page.locator("article.outcome-arcana.action .arcana-owner")).toContainText(
     "Alex · confirmed directory owner",
   );
   await accessible(page);
   await page.screenshot({ path: "test-results/v2-calendar-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Undated · 1" }).click();
-  await expect(page.getByRole("heading", { name: "Undated outcomes" })).toBeVisible();
-  await expect(page.locator(".calendar-card-owner")).toHaveText("Unassigned");
+  await expect(page.getByRole("heading", { name: "The undated constellation" })).toBeVisible();
+  await expect(page.locator(".arcana-owner")).toHaveText("Unassigned");
   await page.getByRole("button", { name: "Review outcome and date" }).click();
   await expect(page).toHaveURL(/\/review\?outcome=/);
   await expect(page.getByLabel("Outcome to review")).toHaveValue(ids.at(-1)!);

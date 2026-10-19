@@ -1,7 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./theme.css";
+import "./styles.css";
+import "./experience.css";
+import "./workflow.css";
+import "./constellation.css";
+import "./motion.css";
+import "./signature.css";
+import "./utilities.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

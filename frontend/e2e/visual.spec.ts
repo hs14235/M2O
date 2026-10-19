@@ -76,25 +76,9 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   await snapAll(browser, page, "review", review);
 
   await page.goto(`/workspaces/${workspace}/settings/motion`);
-  const system = (view: Page) => view.getByRole("radio", { name: "System" });
-  await expect(system(page)).toBeVisible();
-  await snapAll(browser, page, "settings-motion", system);
-});
-
-// The style guide needs no demo session, so each variant simply opens the page.
-test("the style guide matches its baselines in both themes and sizes", async ({ browser, baseURL }) => {
-  for (const { colorScheme, size, device } of variants) {
-    const context = await browser.newContext({ ...device, colorScheme });
-    try {
-      const view = await context.newPage();
-      await view.goto(new URL("/styleguide.html", baseURL).href);
-      await expect(view.getByRole("heading", { level: 1, name: "Style guide" })).toBeVisible();
-      await settle(view);
-      await expect(view).toHaveScreenshot(`styleguide-${colorScheme}-${size}.png`, { fullPage: true });
-    } finally {
-      await context.close();
-    }
-  }
+  const motionHeading = (view: Page) => view.getByRole("heading", { name: "Motion that follows your pace" });
+  await expect(motionHeading(page)).toBeVisible();
+  await snapAll(browser, page, "settings-motion", motionHeading);
 });
 
 // Phase 5: the open command menu, with its own demo session. Each variant opens the
@@ -105,7 +89,7 @@ test("the open command menu matches its baselines in both themes and sizes", asy
   await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
   const storageState = await page.context().storageState();
   for (const { colorScheme, size, device } of variants) {
-    const context = await browser.newContext({ ...device, colorScheme, storageState, bypassCSP: true });
+    const context = await browser.newContext({ ...device, colorScheme, storageState });
     try {
       const view = await context.newPage();
       await view.goto(page.url());
@@ -116,7 +100,6 @@ test("the open command menu matches its baselines in both themes and sizes", asy
       await view.keyboard.press("ControlOrMeta+K");
       await expect(view.getByRole("dialog", { name: "Command menu" })).toBeVisible();
       await settle(view);
-      await pinTimes(view);
       await expect(view).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`, {
         mask: [view.locator("time")],
         style: fixedTimes,

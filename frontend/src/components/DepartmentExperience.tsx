@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Department, Workspace } from "../types";
+import { StudioMedia } from "./StudioMedia";
 
 export const departmentExperience = {
   hr: {
@@ -98,7 +99,52 @@ export function DepartmentSwitch({
   );
 }
 
-export function DepartmentHero({ workspace, compact = false }: { workspace: Workspace; compact?: boolean }) {
+export function DepartmentScene({ department, calm }: { department: Department; calm: boolean }) {
+  const container = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = container.current;
+    if (!node) return;
+    if (calm) {
+      node.style.setProperty("--scene-scroll", "0px");
+      return;
+    }
+    let frame = 0;
+    const update = () => {
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          node.style.setProperty("--scene-scroll", Math.min(window.scrollY * 0.06, 24) + "px");
+        });
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    update();
+    return () => {
+      window.removeEventListener("scroll", update);
+      cancelAnimationFrame(frame);
+    };
+  }, [calm, department]);
+  return (
+    <div ref={container} className={"department-scene scene-" + department} aria-hidden="true">
+      <div className="scene-orbit" />
+      <div className="scene-sphere" />
+      <div className="scene-block" />
+      <div className="scene-chip chip-one" />
+      <div className="scene-chip chip-two" />
+      <span className="scene-spark spark-one" />
+      <span className="scene-spark spark-two" />
+    </div>
+  );
+}
+
+export function DepartmentHero({
+  workspace,
+  calm,
+  compact = false,
+}: {
+  workspace: Workspace;
+  calm: boolean;
+  compact?: boolean;
+}) {
   const experience = departmentExperience[workspace.department];
   return (
     <section
@@ -106,20 +152,24 @@ export function DepartmentHero({ workspace, compact = false }: { workspace: Work
       key={workspace.department}
       aria-label={experience.name + " experience"}
     >
-      <span className="eyebrow">
-        <span className={"department-dot " + workspace.department} aria-hidden="true" />
-        {experience.name}
-      </span>
-      {!compact && (
-        <>
-          <h2>{experience.headline}</h2>
-          <p>{experience.detail}</p>
-          <div className="hero-tags">
-            {experience.tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
-        </>
+      <div className="hero-copy">
+        <span className="eyebrow">M2O / {experience.motif}</span>
+        <h2>{compact ? experience.name : experience.headline}</h2>
+        {!compact && (
+          <>
+            <p>{experience.detail}</p>
+            <div className="hero-tags">
+              {experience.tags.map((tag) => (
+                <span key={tag}>{tag}</span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      {compact ? (
+        <DepartmentScene department={workspace.department} calm={calm} />
+      ) : (
+        <StudioMedia department={workspace.department} calm={calm} />
       )}
     </section>
   );

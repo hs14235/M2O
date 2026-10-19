@@ -1,5 +1,4 @@
 import { departmentExperience, departmentTarget } from "./components/DepartmentExperience";
-import type { ThemeChoice } from "./components/ThemeSwitch";
 import { canAudit, routePath, settingsLabels, settingsPath, visibleSettingsSections } from "./navigation";
 import type { Department, User, Workspace } from "./types";
 
@@ -19,7 +18,6 @@ export interface CommandContext {
   workspaces: Workspace[];
   motion: { calm: boolean; reduced: boolean; toggle: () => void };
   navigate: (path: string) => void;
-  chooseTheme: (choice: ThemeChoice) => void;
   openHelp: () => void;
 }
 
@@ -73,19 +71,6 @@ export function buildCommands(context: CommandContext): Command[] {
       go("workspace-" + value.id, "Workspace", "Switch workspace: " + value.name, routePath(value.id), [
         "workspace",
       ]);
-  for (const [choice, name] of [
-    ["system", "System"],
-    ["light", "Light"],
-    ["dark", "Dark"],
-  ] as const)
-    commands.push({
-      id: "theme-" + choice,
-      group: "Appearance",
-      label: "Theme: " + name,
-      keywords: ["theme", "appearance", "color", "mode"],
-      navigates: false,
-      run: () => context.chooseTheme(choice),
-    });
   // The system reduced-motion setting already keeps motion off, so there is nothing to toggle.
   if (!motion.reduced)
     commands.push({

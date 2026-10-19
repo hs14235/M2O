@@ -7,6 +7,25 @@ Branch `feat/demo-recording-whisper`. A new demo example, "Launch stand-up recor
 - 236 s to transcribe, so 5.5× slower than real time.
 
 The demo card plays the audio (`preload="none"`) and states its provenance. In rules mode, extraction finds 3 actions in Whisper's unedited text (details in `docs/AUDIO_TRANSCRIPTION.md`). The hosted app now registers `.m4a` as `audio/mp4`, because the slim Linux image has no MIME table for it and responses carry `nosniff`.
+## Original design restored with three kept effects — October 19, 2026 (local; CI pending)
+
+Branch `revert/linear-redesign`, from `main` at `7648b94`. Hamza chose the pre-redesign look (PR #79) plus three effects from the Linear redesign: content reveal, the transcript-to-outcome signature moment, and the Ctrl+K command menu.
+
+How it was built:
+- Nine redesign commits were reverted with `git revert`, with docs and screenshot images held back.
+- The four commits for the kept effects were cherry-picked back.
+- The stitch:
+  - a trimmed `motion.css` (reveal, stagger, settle, signature guards);
+  - `utilities.css` (Tailwind utilities only, unlayered, colors mapped to the original palette);
+  - no theme switch;
+  - a single Vite page.
+- React stays at 19.3.0. Kept from the Phase 1 fix: the polling animation wait in browser tests.
+
+Windows 11, Node 22, Docker Desktop:
+- `npm run format:check`, `npm run typecheck`, `npm test` (187 tests in 36 files) and `npm run build` pass.
+- `python scripts/run_e2e.py`: 16 passed, 5 skipped. The keyboard journey no longer chooses a theme.
+- `npm run test:visual:update`: all 24 baselines regenerated for the restored design, and inspected. The settings screen now waits on its heading, not on the removed "System" radio.
+- Backend: `tests/test_hosted_runtime.py` passes apart from the known local-only failure. The hosted check verifies the restored scene video and the link-preview image.
 
 ## Hosted worker purges expired visitors; Phase 9 public-demo status — October 19, 2026 (local; CI pending)
 

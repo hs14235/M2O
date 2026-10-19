@@ -55,16 +55,6 @@ def test_site_root_serves_the_shell_regardless_of_accept_header(hosted, accept):
     assert "script-src 'self'" in page.headers["Content-Security-Policy"]
 
 
-def test_root_level_pages_are_served_as_files_with_security_headers(hosted, tmp_path):
-    # The style guide is a second Vite entry (styleguide.html), not a route of the SPA shell.
-    (tmp_path / "styleguide.html").write_text("<html>M2O style guide</html>", encoding="utf-8")
-    page = hosted.get("/styleguide.html", headers={"Accept": "text/html"})
-    assert page.status_code == 200 and "M2O style guide" in page.text
-    assert "script-src 'self'; style-src 'self'" in page.headers["Content-Security-Policy"]
-    assert page.headers["X-Content-Type-Options"] == "nosniff"
-    assert page.headers["Cache-Control"] == "no-cache"
-
-
 def test_demo_recording_is_served_as_audio_with_media_allowed(hosted, tmp_path):
     (tmp_path / "demo").mkdir()
     (tmp_path / "demo" / "standup.m4a").write_bytes(b"synthetic-audio")
