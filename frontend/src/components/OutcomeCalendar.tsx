@@ -182,7 +182,7 @@ export default function OutcomeCalendar({
     );
   }
   return (
-    <section className="outcome-calendar step-panel">
+    <section className="outcome-calendar step-panel reveal-seq step-reveal">
       <span className="eyebrow">Step 4 of 4 · Outcome constellation</span>
       <h1>A little clarity, written in stars.</h1>
       <p>
@@ -240,8 +240,9 @@ export default function OutcomeCalendar({
       {loaded && (
         <>
           <p className="calendar-count" role="status">
-            {entries.length} approved outcomes loaded · {dates.length} reviewed dates · {undated.length}{" "}
-            undated{next !== null ? " · more outcomes available" : ""}
+            {entries.length} approved outcome{entries.length === 1 ? "" : "s"} loaded · {dates.length}{" "}
+            reviewed {dates.length === 1 ? "date" : "dates"} · {undated.length} undated
+            {next !== null ? " · more outcomes available" : ""}
           </p>
           <div className="calendar-view" role="group" aria-label="Calendar presentation">
             <button aria-pressed={!agenda} onClick={() => setAgenda(false)}>
