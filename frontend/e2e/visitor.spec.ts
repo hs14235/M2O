@@ -36,9 +36,6 @@ async function extractFixture(page: Page, title: string) {
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Extract outcomes", exact: true }).click();
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });
-  // With outcomes, the transcript lines become draft cards after the meeting reloads.
-  if (title !== "A quiet check-in")
-    await expect(page.getByRole("heading", { name: /draft outcomes? found/ })).toBeVisible();
   await expect(page.getByText(/Rule-based extraction/)).toBeVisible();
   await expect(page.getByText("Add a person to this workspace")).toHaveCount(0);
 }

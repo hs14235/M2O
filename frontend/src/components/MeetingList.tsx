@@ -84,12 +84,12 @@ export default function MeetingList({
               <summary>
                 {group.title} · {group.rows.length} loaded record{group.rows.length === 1 ? "" : "s"}
               </summary>
-              <ul className="stagger">{group.rows.map(row)}</ul>
+              <ul>{group.rows.map(row)}</ul>
             </details>
           ))}
         </div>
       ) : (
-        <ul className="stagger">{meetings.map(row)}</ul>
+        <ul>{meetings.map(row)}</ul>
       )}
       {hasMore && (
         <button disabled={loading} onClick={onMore}>

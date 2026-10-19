@@ -166,7 +166,7 @@ export default function OutcomeCalendar({
     );
   }
   return (
-    <section className="outcome-calendar step-panel reveal-seq step-reveal">
+    <section className="outcome-calendar step-panel">
       <span className="eyebrow">Step 4 of 4 · Outcome calendar</span>
       <h1>See what is due, and when.</h1>
       <p>
@@ -224,9 +224,8 @@ export default function OutcomeCalendar({
       {loaded && (
         <>
           <p className="calendar-count" role="status">
-            {entries.length} approved outcome{entries.length === 1 ? "" : "s"} loaded · {dates.length}{" "}
-            reviewed {dates.length === 1 ? "date" : "dates"} · {undated.length} undated
-            {next !== null ? " · more outcomes available" : ""}
+            {entries.length} approved outcomes loaded · {dates.length} reviewed dates · {undated.length}{" "}
+            undated{next !== null ? " · more outcomes available" : ""}
           </p>
           <div className="calendar-view" role="group" aria-label="Calendar presentation">
             <button aria-pressed={selected === "undated"} onClick={() => choose("undated")}>

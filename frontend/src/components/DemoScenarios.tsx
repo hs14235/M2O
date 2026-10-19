@@ -67,7 +67,7 @@ export default function DemoScenarios({
       ) : !catalog.enabled ? (
         <p>New example loading is disabled on this installation.</p>
       ) : (
-        <div className="scenario-grid stagger">
+        <div className="scenario-grid">
           {catalog.scenarios
             .filter((item) => item.department === null || item.department === workspace.department)
             .map((item) => (

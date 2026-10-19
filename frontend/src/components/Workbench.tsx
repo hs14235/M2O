@@ -18,7 +18,6 @@ import { useDirtyTracking } from "./workbench/useDirtyTracking";
 import { useJobPolling } from "./workbench/useJobPolling";
 import { useMeetingSearch } from "./workbench/useMeetingSearch";
 import { usePeople } from "./workbench/usePeople";
-import { stagger } from "../motion";
 import { useRouteFence } from "./workbench/useRouteFence";
 
 const stepHints: Record<Step, string> = {
@@ -69,10 +68,6 @@ export default function Workbench({
     [meetingReadFailed, setMeetingReadFailed] = useState(false);
   const mutation = useRef(false),
     detailRequest = useRef<AbortController | null>(null);
-  // The signature moment on People (see PeopleStep): the extraction started here, and
-  // its job id once that job finished and the reloaded meeting has outcomes.
-  const [extractJob, setExtractJob] = useState<string | null>(null),
-    [moment, setMoment] = useState<string | null>(null);
 
   const { meetings, nextOffset, search, setSearch, list, reset: resetList } = useMeetingSearch(workspace.id);
   const example = examples[workspace.department],
@@ -162,8 +157,6 @@ export default function Workbench({
     setJobId(null);
     setJob(null);
     setJobReadError(null);
-    setExtractJob(null);
-    setMoment(null);
     setAcceptedSave(null);
     setMeetingReadFailed(false);
     setMeeting(null);
@@ -323,7 +316,6 @@ export default function Workbench({
       if (mounted.current && routeGeneration.current === generation) {
         setJobId(result.job_id);
         setJob(null);
-        setExtractJob(result.job_id);
       }
     } catch (e) {
       if (mounted.current && routeGeneration.current === generation) setError(e);
@@ -332,7 +324,7 @@ export default function Workbench({
       if (mounted.current) setBusy(false);
     }
   }
-  const { job, setJob, reloaded, jobReadError, setJobReadError, jobReading, readAgain } = useJobPolling({
+  const { job, setJob, jobReadError, setJobReadError, jobReading, readAgain } = useJobPolling({
     workspaceId: workspace.id,
     jobId,
     active,
@@ -346,21 +338,6 @@ export default function Workbench({
     openedTranscription.current = job.id;
     navigate(routePath(workspace.id, "meetings", job.result.meeting_id, "transcript"));
   }, [job, navigate, workspace.id]);
-  // Decide the moment once per extraction. "Job completed" shows before the meeting
-  // reloads, so wait for the reload of this job: only its meeting carries the new
-  // outcomes. A refused or failed reload shows the result without the moment. The ref
-  // keeps late polls and StrictMode's repeated effects from deciding twice.
-  const momentJob = useRef<string | null>(null);
-  useEffect(() => {
-    if (!extractJob || job?.id !== extractJob || ["queued", "running"].includes(job.state)) return;
-    const live = job.state === "completed" && route.step === "people";
-    if (live && reloaded?.job !== job.id) return;
-    setExtractJob(null);
-    if (live && reloaded?.ok && meeting?.tasks.length && momentJob.current !== job.id) {
-      momentJob.current = job.id;
-      setMoment(job.id);
-    }
-  }, [extractJob, job, reloaded, meeting, route.step]);
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => {
@@ -468,7 +445,7 @@ export default function Workbench({
       {!route.meeting ? (
         <>
           <section className="intro">
-            <div className="reveal-seq">
+            <div>
               <span className="eyebrow">{workspace.name}</span>
               <h1>Make the next step clear.</h1>
               <p>
@@ -477,7 +454,7 @@ export default function Workbench({
               </p>
             </div>
             {editable && !user.is_visitor && (
-              <button className="primary reveal" style={stagger(3)} onClick={() => go("transcript", "new")}>
+              <button className="primary" onClick={() => go("transcript", "new")}>
                 New meeting
               </button>
             )}
@@ -541,7 +518,7 @@ export default function Workbench({
           {user.is_visitor &&
             step === "transcript" &&
             (meeting ? (
-              <section className="panel step-panel reveal-seq step-reveal">
+              <section className="panel step-panel">
                 <span className="eyebrow">Synthetic source</span>
                 <h1>Inspect the conversation.</h1>
                 <p>
@@ -599,15 +576,6 @@ export default function Workbench({
               onDirty={notifyDirty}
               onBack={() => go("transcript")}
               onContinue={() => go("review")}
-              extracting={Boolean(extractJob)}
-              moment={moment}
-              onOpenOutcome={(id) =>
-                navigate(
-                  routePath(workspace.id, "meetings", meeting.id, "review") +
-                    "?" +
-                    new URLSearchParams({ outcome: id }),
-                )
-              }
             />
           )}
           {meeting && step === "review" && (
