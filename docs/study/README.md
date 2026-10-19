@@ -21,6 +21,7 @@ Each guide is tied to the current source. Every `path:line` reference was checke
 | 02 | [Rate-limit identity](02-rate-limit-identity.md) | `backend/app/client_identity.py`, `backend/app/limits.py`, `backend/app/settings.py`, `backend/tests/test_client_identity.py` |
 | 03 | [Migration lock and schema guard](03-migration-lock.md) | `backend/scripts/migrate.py`, `backend/migrations/env.py`, `backend/app/schema_compatibility.py`, `docs/OPERATIONS.md` |
 | 04 | [Workspace erasure flow](04-erasure-flow.md) | `backend/app/services/privacy.py`, `backend/app/services/retention.py`, `backend/app/services/diagnostics.py`, `docs/USER_LIFECYCLE.md` |
+| 05 | [Test database isolation and speed](05-test-database-isolation.md) | `backend/tests/conftest.py`, `backend/app/database.py`, `backend/tests/test_concurrency.py` |
 
 Suggested order: 01 first, because 04 depends on it (erasure waits on the worker's lease recovery). 02 and 03 stand alone.
 

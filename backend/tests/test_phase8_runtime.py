@@ -67,6 +67,7 @@ def test_demo_overrides_dotenv_and_requires_an_explicit_policy():
     assert environment["TRUSTED_PROXY_CIDRS"] == "192.0.2.10/32"
 
 
+@pytest.mark.fresh_schema
 @pytest.mark.parametrize("revision", ["20261004_10", "unknown_revision", None])
 def test_ready_and_startup_reject_incompatible_schema_without_echo(client, engine, revision):
     from app.main import app

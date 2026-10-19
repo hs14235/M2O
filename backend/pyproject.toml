@@ -11,6 +11,9 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Form", "fa
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "fresh_schema: with --postgres, run on a schema of its own (the test changes alembic_version or the schema)",
+]
 
 [tool.pyright]
 include = ["app"]

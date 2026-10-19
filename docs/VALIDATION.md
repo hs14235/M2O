@@ -1,5 +1,15 @@
 # Verification evidence
 
+## PostgreSQL tests migrate once per run — October 19, 2026 (local; CI pending)
+
+Branch `test/session-scoped-postgres`, from `main` at `e66053d` (issue #90). A session-scoped fixture migrates one schema; after each test every table except `alembic_version` is truncated (with a 10 s `lock_timeout`) and migration-seeded rows (`demo_admission`) are restored. `@pytest.mark.fresh_schema` keeps the old per-test schema for the test that rewrites `alembic_version`.
+
+Windows 11, Python 3.13, PostgreSQL 17 in Docker Desktop:
+- `pytest -q --postgres` on `main`: 535 s, 528 passed, 1 skipped, 1 failed. With this change: 227 s, the same counts. Test files in reverse order: 232 s, the same counts.
+- `pytest -q` (SQLite): 499 passed, 30 skipped, 1 failed.
+- The failure is `test_production_settings_import_uses_render_url_without_app_origin` in every run; it fails on unmodified `main` on this machine too.
+- `ruff check` and `ruff format --check` pass.
+- CI baseline for comparison: the `pytest --postgres` step took 292 s (run 39148630974).
 ## Worker idle backoff for Neon scale-to-zero — October 18, 2026 (local; CI pending)
 
 Branch `fix/worker-idle-backoff`, from `main` at `e66053d`. Idle, the worker's polling backs off from 1 second to `WORKER_IDLE_POLL_MAX`. The default stays 1; the hosted demo uses 1800. Long waits refresh the worker health file every 10 seconds without querying the database. Any commit that queues a job touches `WORKER_WAKE_FILE`, through SQLAlchemy `Session` events in `database.py`, and that ends the wait. Render's health check and the keep-warm workflow moved from `/readyz` to `/healthz`. Expected effect: Neon is awake about 5 of every 30 idle minutes instead of all the time. That's an estimate, not measured on Neon.
