@@ -104,7 +104,7 @@ Composite foreign keys keep workspace and source relationships consistent. Versi
 | **3 · Review & Deliver** | Approve source-linked outcomes, then choose a destination and approve its exact preview. Review approval and delivery approval are separate actions. |
 | **4 · Calendar** | See approved outcomes in a calendar or an accessible agenda; undated work stays visible. |
 
-**My day** holds personal priorities and progress without changing review approval or external issue status. Three department experiences (Engineering, People Operations and Finance Control) share the same permission and review rules, each with its own examples and visual identity. Calm mode and the system reduced-motion setting turn off decorative motion.
+**My day** holds personal priorities and progress without changing review approval or external issue status. Three department experiences (Engineering, People Operations and Finance Control) share the same permission and review rules, each with its own examples and visual identity. Content reveals in reading order, extracted outcomes grow out of the transcript lines they came from, and Ctrl+K (⌘K on a Mac) opens a command menu. Calm mode and the system reduced-motion setting turn off decorative motion.
 
 <details>
 <summary><b>More screenshots</b></summary>
