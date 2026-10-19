@@ -12,9 +12,16 @@ const variants = [
   { colorScheme: "dark", size: "desktop", device: desktop },
   { colorScheme: "dark", size: "mobile", device: mobile },
 ] as const;
-// Server-issued times (demo expiry, saved and job timestamps) change every run. A fixed
-// box keeps their width from moving the layout, even if React re-renders them, and the
-// mask hides the text itself.
+// Server-issued times (demo expiry, saved and job timestamps) change every run, and so
+// does their format: the demo expiry gains a date once it falls on another day. A fixed
+// box (the style below) did not hold that width, so baselines taken before midnight UTC
+// failed after it. Replacing the text with one constant keeps the width identical; the
+// mask still hides it.
+async function pinTimes(view: Page) {
+  await view.locator("time").evaluateAll((times) => {
+    for (const time of times) time.textContent = "Oct 1, 12:00 PM";
+  });
+}
 // The style option injects a <style> tag, which the app's CSP (style-src 'self') blocks,
 // so screenshot contexts bypass CSP; the other browser specs check the real policy.
 const fixedTimes =
@@ -32,6 +39,7 @@ async function snapAll(browser: Browser, page: Page, screen: string, ready: (vie
       await view.goto(page.url());
       await expect(ready(view)).toBeVisible({ timeout: 30000 });
       await settle(view);
+      await pinTimes(view);
       await expect(view).toHaveScreenshot(`${screen}-${colorScheme}-${size}.png`, {
         fullPage: true,
         mask: [view.locator("time")],
@@ -108,6 +116,7 @@ test("the open command menu matches its baselines in both themes and sizes", asy
       await view.keyboard.press("ControlOrMeta+K");
       await expect(view.getByRole("dialog", { name: "Command menu" })).toBeVisible();
       await settle(view);
+      await pinTimes(view);
       await expect(view).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`, {
         mask: [view.locator("time")],
         style: fixedTimes,
