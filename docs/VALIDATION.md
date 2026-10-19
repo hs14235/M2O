@@ -1,5 +1,16 @@
 # Verification evidence
 
+## PostgreSQL tests migrate once per run — October 19, 2026 (local; CI pending)
+
+Branch `test/session-scoped-postgres`, from `main` at `e66053d` (issue #90). A session-scoped fixture migrates one schema; after each test every table except `alembic_version` is truncated (with a 10 s `lock_timeout`) and migration-seeded rows (`demo_admission`) are restored. `@pytest.mark.fresh_schema` keeps the old per-test schema for the test that rewrites `alembic_version`.
+
+Windows 11, Python 3.13, PostgreSQL 17 in Docker Desktop:
+- `pytest -q --postgres` on `main`: 535 s, 528 passed, 1 skipped, 1 failed. With this change: 227 s, the same counts. Test files in reverse order: 232 s, the same counts.
+- `pytest -q` (SQLite): 499 passed, 30 skipped, 1 failed.
+- The failure is `test_production_settings_import_uses_render_url_without_app_origin` in every run; it fails on unmodified `main` on this machine too.
+- `ruff check` and `ruff format --check` pass.
+- CI baseline for comparison: the `pytest --postgres` step took 292 s (run 39148630974).
+
 ## Phase 4 — signature moment — October 17, 2026 (local; CI pending)
 
 Branch `feat/phase4-signature-moment`, from `main` at `424fbfe`. People shows the transcript as numbered lines (first 60, then "Show all"); when an extraction started there finishes and its reloaded meeting has outcomes, the evidence lines light up for 160 ms and the on-screen ones morph into compact draft cards through React 19.3's `<ViewTransition name share="outcome-morph" default="none">` (`--dur-4`, `--ease-emphasized`). It plays once per `meetingId:revision` (`localStorage` key `m2o-moment`, newest 50). Without the View Transitions API, in calm mode or with reduced motion, the cards replace the lines with no animation. Also: step panels, the meetings intro and the demo transcript reveal in reading order; meeting lists, demo scenarios and plan cards stagger in; the page loading fallback shows a quiet "Loading…" in a step-height space; the calendar count uses singular forms.

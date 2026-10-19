@@ -31,23 +31,84 @@ def offline_models(monkeypatch):
     monkeypatch.setattr(settings, "ollama_model", "")
 
 
-@pytest.fixture
-def engine(tmp_path, monkeypatch, request):
-    postgres = request.config.getoption("--postgres")
-    if postgres:
-        base = create_engine(settings.database_url.get_secret_value(), hide_parameters=True)
-        schema = "mtt_test_" + uuid.uuid4().hex
-        with base.begin() as connection:
-            connection.execute(text(f'CREATE SCHEMA "{schema}"'))
-        engine = create_engine(
-            settings.database_url.get_secret_value(),
-            hide_parameters=True,
-            connect_args={"options": "-csearch_path=" + schema},
+def migrated_schema():
+    base = create_engine(settings.database_url.get_secret_value(), hide_parameters=True)
+    schema = "mtt_test_" + uuid.uuid4().hex
+    with base.begin() as connection:
+        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    engine = create_engine(
+        settings.database_url.get_secret_value(),
+        hide_parameters=True,
+        connect_args={"options": "-csearch_path=" + schema},
+    )
+    with engine.begin() as connection:
+        config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+    return base, schema, engine
+
+
+def drop_schemas(base, engine, *schemas):
+    engine.dispose()
+    with base.begin() as connection:
+        # Only the randomly named schemas created by these fixtures are removed.
+        for schema in schemas:
+            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+    base.dispose()
+
+
+@pytest.fixture(scope="session")
+def shared_postgres(request):
+    # Migrating once per run and emptying every table after each test keeps tests
+    # isolated without running all migrations per test (docs/study/05-test-database-isolation.md).
+    if not request.config.getoption("--postgres"):
+        yield None
+        return
+    base, schema, engine = migrated_schema()
+    seed = schema + "_seed"
+    with engine.begin() as connection:
+        tables = (
+            connection.execute(
+                text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = current_schema() "
+                    "AND tablename <> 'alembic_version' ORDER BY tablename"
+                )
+            )
+            .scalars()
+            .all()
         )
+        # Rows that migrations insert (such as the demo admission counter) are restored
+        # after each truncate; alembic_version is never emptied, the schema guard reads it.
+        seeded = [
+            table
+            for table in tables
+            if connection.execute(text(f'SELECT EXISTS (SELECT 1 FROM "{table}")')).scalar_one()
+        ]
+        connection.execute(text(f'CREATE SCHEMA "{seed}"'))
+        for table in seeded:
+            connection.execute(text(f'CREATE TABLE "{seed}"."{table}" AS TABLE "{table}"'))
+    truncate = "TRUNCATE " + ", ".join(f'"{table}"' for table in tables) + " RESTART IDENTITY CASCADE"
+
+    def reset():
         with engine.begin() as connection:
-            config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-            config.attributes["connection"] = connection
-            command.upgrade(config, "head")
+            # A test that leaks an open transaction fails here instead of hanging the run.
+            connection.execute(text("SET LOCAL lock_timeout = '10s'"))
+            connection.execute(text(truncate))
+            for table in seeded:
+                connection.execute(text(f'INSERT INTO "{table}" SELECT * FROM "{seed}"."{table}"'))
+
+    yield engine, reset
+    drop_schemas(base, engine, schema, seed)
+
+
+@pytest.fixture
+def engine(tmp_path, monkeypatch, request, shared_postgres):
+    postgres = request.config.getoption("--postgres")
+    fresh = postgres and request.node.get_closest_marker("fresh_schema") is not None
+    if fresh:
+        base, schema, engine = migrated_schema()
+    elif postgres:
+        engine, reset = shared_postgres
     else:
         engine = create_engine(
             "sqlite:///" + (tmp_path / "test.db").as_posix(), connect_args={"check_same_thread": False}
@@ -76,12 +137,12 @@ def engine(tmp_path, monkeypatch, request):
     monkeypatch.setattr(settings, "public_demo_mode", True)
     monkeypatch.setattr(settings, "github_token", SecretStr(""))
     yield engine
-    engine.dispose()
-    if postgres:
-        with base.begin() as connection:
-            # Only the randomly named schema created by this fixture is removed.
-            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
-        base.dispose()
+    if fresh:
+        drop_schemas(base, engine, schema)
+    elif postgres:
+        reset()
+    else:
+        engine.dispose()
 
 
 @pytest.fixture
