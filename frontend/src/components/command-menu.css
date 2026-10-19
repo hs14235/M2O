@@ -1,0 +1,30 @@
+/* Native <dialog> modals (Modal.tsx): the command menu and the shortcut list. */
+
+/* Page scroll stays put while a modal is open; a class, because the CSP allows no inline styles. */
+html.modal-open {
+  overflow: hidden;
+}
+
+/* The fallback covers browsers whose ::backdrop does not inherit custom properties. */
+.m2o-modal::backdrop {
+  background: var(--overlay, rgb(15 27 45 / 0.35));
+}
+.m2o-modal[open]::backdrop {
+  animation: overlay-in var(--dur-2, 180ms) var(--ease-out, ease-out);
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The calm and reduced-motion rules in experience.css cover elements and ::before/::after,
+   not ::backdrop, so it is stopped here (the dialog itself is covered there). */
+:root[data-motion="calm"] .m2o-modal::backdrop {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .m2o-modal::backdrop {
+    animation: none;
+  }
+}

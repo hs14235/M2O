@@ -16,6 +16,7 @@
     "format:check": "prettier --check src e2e"
   },
   "dependencies": {
+    "cmdk": "1.1.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
