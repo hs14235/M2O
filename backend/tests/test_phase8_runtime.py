@@ -17,7 +17,7 @@ from app.schemas import IndexInput
 from app.services.errors import ServiceError
 from app.services.meetings import MeetingService
 from app.settings import Settings, settings
-from app.worker_health import WorkerPulse, worker_available
+from app.worker_health import WorkerPulse, signal_wake, wake_stamp, worker_available
 from scripts import migrate
 from scripts.serve_demo import PRIVATE_CREDENTIAL_KEYS, demo_environment, supervise
 
@@ -54,6 +54,8 @@ def test_demo_overrides_dotenv_and_requires_an_explicit_policy():
     ):
         with pytest.raises(ValueError):
             demo_environment({**demo_config(), **extra})
+    with pytest.raises(ValueError):
+        demo_environment({**demo_config(), "WORKER_WAKE_FILE": "/not-owned"})
     environment = demo_environment(
         {
             **demo_config(),
@@ -140,6 +142,128 @@ def test_real_job_signals_busy_then_idle_without_source_data(session, seeded, tm
     assert set(value) == {"seen_at", "started_at"} and value["started_at"] is None
     assert "synthetic" not in path.read_text()
     assert worker_available(str(path), 45, 600)
+
+
+def test_hosted_idle_poll_cap_defaults_long_and_is_bounded():
+    assert Settings(_env_file=None).worker_idle_poll_max == 1  # Compose, local and CI keep 1-second polling.
+    assert demo_environment(demo_config())["WORKER_IDLE_POLL_MAX"] == "1800"
+    assert demo_environment({**demo_config(), "WORKER_IDLE_POLL_MAX": "60"})["WORKER_IDLE_POLL_MAX"] == "60"
+    for value in ("0", "3601", "soon"):
+        with pytest.raises(ValueError):
+            demo_environment({**demo_config(), "WORKER_IDLE_POLL_MAX": value})
+
+
+class StopServing(Exception):
+    pass
+
+
+def test_idle_backoff_doubles_to_cap_and_resets_after_work_or_wake(monkeypatch):
+    monkeypatch.setattr(settings, "worker_idle_poll_max", 8)
+    claims = iter([False, False, False, False, False, True, False, False])
+    wakes = iter([False, False, False, False, False, True, False])
+    waits = []
+
+    async def run_once(**kwargs):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise StopServing from None
+
+    async def idle_wait(seconds, runtime, stamp):
+        waits.append(seconds)
+        return next(wakes)
+
+    monkeypatch.setattr(worker, "run_once", run_once)
+    monkeypatch.setattr(worker, "idle_wait", idle_wait)
+    with pytest.raises(StopServing):
+        asyncio.run(worker.serve())
+    assert waits == [1, 2, 4, 8, 8, 1, 1]
+
+
+def test_idle_wait_refreshes_health_without_database_and_ends_on_wake(monkeypatch, tmp_path):
+    wake = str(tmp_path / "wake")
+    monkeypatch.setattr(settings, "worker_wake_file", wake)
+    events = []
+
+    class Pulse:
+        def idle(self):
+            events.append("pulse")
+
+    async def sleep(seconds):
+        assert seconds == 1
+        events.append("sleep")
+        if events.count("sleep") == 33:
+            signal_wake(wake)
+
+    def no_database():
+        raise AssertionError("An idle worker must not query the database")
+
+    monkeypatch.setattr(worker, "session_scope", no_database)
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    assert not asyncio.run(worker.idle_wait(30, Pulse(), wake_stamp(wake)))
+    # The supervisor's 45-second freshness window never lapses during a long wait.
+    assert events.count("sleep") == 30 and max(map(len, "".join(e[0] for e in events).split("p"))) <= 10
+    assert asyncio.run(worker.idle_wait(1800, Pulse(), wake_stamp(wake)))
+    assert events.count("sleep") == 33
+
+
+def test_committed_job_rings_wake_file_but_rollback_and_other_writes_do_not(
+    session, seeded, monkeypatch, tmp_path
+):
+    wake = tmp_path / "wake"
+    monkeypatch.setattr(settings, "worker_wake_file", str(wake))
+    service = MeetingService(session, seeded["principal"])
+    seeded["workspace"].name = "Renamed synthetic workspace"
+    session.commit()
+    assert not wake.exists()
+    service.index(IndexInput(meeting_id="wake-rollback", transcript="Action: Synthetic work that is undone."))
+    session.flush()
+    session.rollback()
+    session.commit()
+    assert not wake.exists()
+    service.index(IndexInput(meeting_id="wake-commit", transcript="Action: Synthetic work for the worker."))
+    session.commit()
+    assert wake.exists() and wake.read_bytes() == b""
+    stamp = wake_stamp(str(wake))
+    monkeypatch.setattr(settings, "worker_wake_file", "")
+    service.index(
+        IndexInput(meeting_id="wake-unset", transcript="Action: Synthetic work without a wake file.")
+    )
+    session.commit()
+    assert wake_stamp(str(wake)) == stamp
+
+
+def test_wake_file_starts_new_job_without_waiting_for_backoff(session, seeded, monkeypatch, tmp_path):
+    from app.models import Job
+
+    monkeypatch.setattr(settings, "worker_wake_file", str(tmp_path / "wake"))
+    monkeypatch.setattr(settings, "worker_idle_poll_max", 1800)
+
+    async def scenario():
+        serving = asyncio.create_task(worker.serve())
+        # Polls at 0, 1 and 3 seconds, then waits until 7: without a wake the job would sit ~3.8 seconds.
+        await asyncio.sleep(3.2)
+        result = MeetingService(session, seeded["principal"]).index(
+            IndexInput(meeting_id="wake-end-to-end", transcript="Action: Synthetic work picked up promptly.")
+        )
+        session.commit()
+        started = time.monotonic()
+        try:
+            while time.monotonic() - started < 5:
+                session.expire_all()
+                if session.get(Job, result["job_id"]).state == "completed":
+                    return time.monotonic() - started
+                await asyncio.sleep(0.1)
+            return None
+        finally:
+            serving.cancel()
+            try:
+                await serving
+            except asyncio.CancelledError:
+                pass
+
+    elapsed = asyncio.run(scenario())
+    assert elapsed is not None and elapsed < 2.5
 
 
 def test_supervisor_stops_children_on_missing_signal(monkeypatch, tmp_path, capsys):

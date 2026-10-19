@@ -18,5 +18,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Ping the readiness endpoint
-        run: curl --fail --silent --show-error --max-time 120 --retry 2 https://m2o-synthetic-demo.onrender.com/readyz
+      - name: Ping the liveness endpoint (no database query, so Neon can still scale to zero)
+        run: curl --fail --silent --show-error --max-time 120 --retry 2 https://m2o-synthetic-demo.onrender.com/healthz

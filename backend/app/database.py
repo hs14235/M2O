@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 from functools import lru_cache
 from time import sleep
@@ -7,8 +8,34 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from .models import Job
 from .services.errors import ServiceError
 from .settings import settings
+from .worker_health import signal_wake
+
+log = logging.getLogger("meeting.database")
+
+
+@event.listens_for(Session, "after_flush")
+def note_queued_job(session, flush_context):
+    if any(isinstance(row, Job) for row in session.new):
+        session.info["job_queued"] = True
+
+
+@event.listens_for(Session, "after_commit")
+def wake_worker(session):
+    # Only after commit: a woken worker must be able to see the row.
+    if session.info.pop("job_queued", False):
+        try:
+            signal_wake(settings.worker_wake_file)
+        except OSError:
+            # The committed job is safe; the worker still finds it at its next idle poll.
+            log.warning("worker_wake_failed")
+
+
+@event.listens_for(Session, "after_rollback")
+def forget_queued_job(session):
+    session.info.pop("job_queued", None)
 
 
 def must_get[Record](session: Session, model: type[Record], identifier: Any) -> Record:

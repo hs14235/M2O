@@ -195,6 +195,8 @@ def test_root_build_context_excludes_private_runtime_and_render_deploys_only_aft
     assert web["autoDeployTrigger"] == "checksPass"
     # Free web service; the database is external (Neon), so the Blueprint creates none.
     assert web["plan"] == "free" and "databases" not in blueprint
+    # Liveness only: a database health probe would keep Neon from ever scaling to zero.
+    assert web["healthCheckPath"] == "/healthz"
     env = {item["key"]: item for item in web["envVars"]}
     # The connection string is entered privately in Render, never written in source.
     assert env["DATABASE_URL"] == {"key": "DATABASE_URL", "sync": False}
