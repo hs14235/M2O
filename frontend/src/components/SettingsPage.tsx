@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { ThemeSwitch } from "./ThemeSwitch";
-import { settingsLabels, settingsPath, visibleSettingsSections, type SettingsSection } from "../navigation";
+import { settingsPath, settingsSections, type SettingsSection } from "../navigation";
 import type { User, Workspace } from "../types";
 import type { useShellChrome } from "./ShellChrome";
 import { ErrorNotice } from "./Feedback";
@@ -9,6 +9,13 @@ const Directory = lazy(() => import("./Directory")),
   Integrations = lazy(() => import("./Integrations")),
   Administration = lazy(() => import("./Administration")),
   PrivacyPage = lazy(() => import("./PrivacyPage"));
+const labels: Record<SettingsSection, string> = {
+  people: "People",
+  connections: "Connections",
+  privacy: "Privacy & data",
+  access: "Access",
+  motion: "Motion & layout",
+};
 export default function SettingsPage({
   workspaceId,
   workspace,
@@ -32,7 +39,9 @@ export default function SettingsPage({
   motion: { calm: boolean; reduced: boolean; toggle: () => void };
   chrome: ReturnType<typeof useShellChrome>;
 }) {
-  const available = visibleSettingsSections(user);
+  const available = settingsSections.filter(
+    (value) => !user.is_visitor || ["people", "connections", "motion"].includes(value),
+  );
   const [error, setError] = useState<unknown>(null);
   return (
     <div className="settings-page">
@@ -58,7 +67,7 @@ export default function SettingsPage({
               }
             }}
           >
-            {settingsLabels[value]}
+            {labels[value]}
           </a>
         ))}
       </nav>

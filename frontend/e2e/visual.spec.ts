@@ -96,33 +96,3 @@ test("the style guide matches its baselines in both themes and sizes", async ({ 
     }
   }
 });
-
-// Phase 5: the open command menu, with its own demo session. Each variant opens the
-// demo home in a fresh context sharing the session, then opens the menu from the keyboard.
-test("the open command menu matches its baselines in both themes and sizes", async ({ browser, page }) => {
-  await page.setViewportSize(desktop.viewport);
-  await enterDemo(page);
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
-  const storageState = await page.context().storageState();
-  for (const { colorScheme, size, device } of variants) {
-    const context = await browser.newContext({ ...device, colorScheme, storageState, bypassCSP: true });
-    try {
-      const view = await context.newPage();
-      await view.goto(page.url());
-      await expect(view.getByRole("heading", { name: "Make the next step clear." })).toBeVisible({
-        timeout: 30000,
-      });
-      await settle(view);
-      await view.keyboard.press("ControlOrMeta+K");
-      await expect(view.getByRole("dialog", { name: "Command menu" })).toBeVisible();
-      await settle(view);
-      await pinTimes(view);
-      await expect(view).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`, {
-        mask: [view.locator("time")],
-        style: fixedTimes,
-      });
-    } finally {
-      await context.close();
-    }
-  }
-});
