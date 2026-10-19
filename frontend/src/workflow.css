@@ -2,6 +2,30 @@
 .app-shell main {
   padding: 1.5rem clamp(1rem, 2.8vw, 2.5rem);
 }
+.compact-hero {
+  min-height: 76px;
+  margin-bottom: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) 118px;
+  border-radius: 22px;
+}
+.compact-hero .hero-copy {
+  padding: 0.9rem 1.2rem;
+}
+.compact-hero .eyebrow {
+  font-size: 0.65rem;
+  margin-bottom: 0.25rem;
+}
+.compact-hero .hero-copy h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+.compact-hero .department-scene {
+  min-height: 76px;
+  width: 210px;
+  transform: scale(0.42);
+  transform-origin: 0 0;
+  margin: 0;
+}
 .app-nav .local-note {
   margin-top: 1rem;
 }
@@ -27,11 +51,11 @@
   display: flex;
   gap: 0.55rem;
   align-items: center;
-  border-radius: var(--r-lg);
+  border-radius: 24px 10px 24px 24px;
   border: 2px solid var(--green);
   padding: 0.55rem 0.85rem;
   box-shadow: 0 4px 0 var(--line);
-  background: var(--surface);
+  background: white;
   font-size: 0.8rem;
 }
 .bubble-trigger:hover:not(:disabled) {
@@ -50,7 +74,7 @@
 .bubble-glyph i {
   width: 4px;
   height: 4px;
-  background: var(--surface);
+  background: white;
   border-radius: 50%;
 }
 .bubble-trigger:hover .bubble-glyph {
@@ -63,9 +87,9 @@
   width: min(300px, calc(100vw - 2rem));
   padding: 1rem;
   border: 2px solid var(--green);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-lg);
+  border-radius: 24px 8px 24px 24px;
+  background: white;
+  box-shadow: 0 12px 40px #251c4026;
   animation: bubble-reveal 0.18s ease-out;
 }
 .bubble-panel[hidden] {
@@ -91,7 +115,7 @@
   gap: 0.2rem;
   padding-right: 2.2rem;
   background: var(--soft);
-  border-radius: var(--r-lg);
+  border-radius: 14px;
   font-size: 0.86rem;
 }
 .bubble-options button > span:not(.bubble-arrow) {
@@ -124,7 +148,7 @@
 }
 .plan-completed > summary {
   padding: 0.9rem 1rem;
-  border-radius: var(--r-lg);
+  border-radius: 16px;
   background: var(--soft);
 }
 .plan-schedule {
@@ -137,7 +161,7 @@
   padding: 1.5rem;
   margin-bottom: 1.2rem;
   background: var(--soft);
-  border-radius: var(--r-lg);
+  border-radius: 24px;
 }
 .plan-finish > span {
   display: grid;
@@ -145,7 +169,7 @@
   flex-shrink: 0;
   width: 58px;
   height: 58px;
-  background: var(--surface);
+  background: white;
   border-radius: 50%;
   color: var(--green);
   font-size: 2rem;
@@ -172,13 +196,13 @@
   gap: 0.4rem;
   font-size: 0.75rem;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--r-lg);
+  border-radius: 18px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: white;
 }
 .handoff-stages li[aria-current="step"] {
   background: var(--green);
-  color: var(--accent-fg);
+  color: white;
   border-color: var(--green);
 }
 .handoff-stages li > span {
@@ -187,7 +211,7 @@
 }
 .handoff-context {
   padding: 0.8rem 1rem;
-  border-radius: var(--r-lg);
+  border-radius: 14px;
   background: var(--soft);
   font-size: 0.85rem;
 }
@@ -212,7 +236,7 @@
   font: inherit;
   line-height: 1.65;
   padding: 1rem;
-  border-radius: var(--r-lg);
+  border-radius: 16px;
   background: var(--soft);
   max-height: 460px;
   overflow-y: auto;
@@ -280,7 +304,7 @@
   right: 0.7rem;
   font-size: 0.68rem;
   padding: 0.5rem 0.7rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: #fffffff0;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 99px;
@@ -368,7 +392,7 @@
     top: auto;
     margin-top: 0.65rem;
     width: 100%;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 18px #251c4012;
   }
   .bubble-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -421,7 +445,7 @@
     top: auto;
     margin-top: 0.65rem;
     width: 100%;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 18px #251c4012;
   }
   .bubble-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -463,9 +487,9 @@
 }
 .scenario-grid article {
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 20px;
   padding: 1rem;
-  background: var(--surface);
+  background: var(--white);
 }
 .scenario-grid .payload-text {
   max-height: 240px;
@@ -474,12 +498,12 @@
   margin-top: 1rem;
 }
 button.danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--danger-fg);
+  background: #a72d43;
+  border-color: #a72d43;
+  color: white;
 }
 button.danger:hover:not(:disabled) {
-  background: var(--danger-hover);
+  background: #842338;
   transform: none;
 }
 /* Layout toggles stay reachable when the header is hidden, but read as quiet
@@ -553,14 +577,14 @@ button.danger:hover:not(:disabled) {
   padding: 0.7rem 1rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--surface);
+  background: var(--white);
   text-decoration: none;
   color: var(--ink);
 }
 .settings-sections a[aria-current="page"] {
   background: var(--green);
   border-color: var(--green);
-  color: var(--accent-fg);
+  color: white;
 }
 .audit-page code {
   overflow-wrap: anywhere;

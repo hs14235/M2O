@@ -8,7 +8,7 @@
   border-radius: 999px;
 }
 .review-deliver-tabs button[aria-pressed="true"] {
-  color: var(--accent-fg);
+  color: white;
   background: var(--green);
   border-color: var(--green);
 }
@@ -67,14 +67,14 @@
 }
 .calendar-scope button[aria-pressed="true"],
 .calendar-view button[aria-pressed="true"] {
-  color: var(--accent-fg);
+  color: white;
   background: var(--green);
   border-color: var(--green);
 }
 .calendar-range {
   border: 1px solid var(--line);
   padding: 0.85rem 1rem;
-  border-radius: var(--r-lg);
+  border-radius: 20px;
   background: var(--white);
   margin-bottom: 1rem;
 }
@@ -92,7 +92,7 @@
   position: relative;
   height: 400px;
   border: 1px solid #bfa56a;
-  border-radius: var(--r-lg);
+  border-radius: 32px 32px 20px 20px;
   isolation: isolate;
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 10%, #494461, transparent 55%),
@@ -120,7 +120,7 @@
   background: #252638e8;
   color: #ffedc1;
   border: 1px solid #aa965f;
-  border-radius: var(--r-lg);
+  border-radius: 25px 25px 12px 12px;
   font-size: 0.76rem;
   box-shadow:
     0 5px 0 #0b1021,
@@ -166,7 +166,7 @@
 .calendar-agenda {
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 22px;
   background: var(--white);
 }
 .calendar-agenda ul {
@@ -201,7 +201,7 @@
   position: relative;
   border: 1px solid var(--line);
   border-top: 4px solid var(--green);
-  border-radius: var(--r-lg);
+  border-radius: 24px 24px 12px 12px;
   padding: 1.3rem;
   background: linear-gradient(135deg, white 40%, var(--card-halo));
   box-shadow:
@@ -306,7 +306,7 @@
 }
 .meeting-groups > details {
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 20px;
   padding: 0.9rem;
   background: var(--white);
 }

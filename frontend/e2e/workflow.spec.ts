@@ -256,6 +256,7 @@ test("department themes, calm mode and persistent daily execution plan", async (
   await page.screenshot({ path: "test-results/mobile-daily-plan.png", fullPage: true });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.getByRole("button", { name: "Reduced motion active" })).toBeDisabled();
+  await expect(page.locator(".scene-sphere")).toHaveCSS("animation-name", "none");
 });
 
 test("guided department flows, local handoff, optional GitHub preview and deep links", async ({ page }) => {

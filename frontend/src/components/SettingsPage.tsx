@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState } from "react";
-import { ThemeSwitch } from "./ThemeSwitch";
 import { settingsPath, settingsSections, type SettingsSection } from "../navigation";
 import type { User, Workspace } from "../types";
 import type { useShellChrome } from "./ShellChrome";
@@ -75,11 +74,7 @@ export default function SettingsPage({
       <Suspense fallback={<p role="status">Loading settings…</p>}>
         {section === "motion" ? (
           <section className="panel">
-            <h1>Appearance and motion</h1>
-            <h3>Theme</h3>
-            <p>Follow your device, or keep M2O light or dark.</p>
-            <ThemeSwitch />
-            <h3>Motion</h3>
+            <h1>Motion that follows your pace</h1>
             <p>
               Calm mode keeps the same controls and information with a static presentation. Your system's
               reduced-motion preference takes priority.
