@@ -76,9 +76,9 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   await snapAll(browser, page, "review", review);
 
   await page.goto(`/workspaces/${workspace}/settings/motion`);
-  const system = (view: Page) => view.getByRole("radio", { name: "System" });
-  await expect(system(page)).toBeVisible();
-  await snapAll(browser, page, "settings-motion", system);
+  const motionHeading = (view: Page) => view.getByRole("heading", { name: "Motion that follows your pace" });
+  await expect(motionHeading(page)).toBeVisible();
+  await snapAll(browser, page, "settings-motion", motionHeading);
 });
 
 // Phase 5: the open command menu, with its own demo session. Each variant opens the
