@@ -97,11 +97,6 @@ summary:hover {
 .plan-card {
   animation: settle var(--dur-3) var(--ease-out) both;
 }
-/* Browsers do not run animations inside a collapsed section, so one started
-   there would never finish. Cards settle when their section actually opens. */
-details:not([open]) :is(.panel, .outcome, .notice, .preview, .plan-card) {
-  animation: none;
-}
 @keyframes settle {
   from {
     opacity: 0;
