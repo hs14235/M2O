@@ -10,6 +10,16 @@ Windows 11, Python 3.13, PostgreSQL 17 in Docker Desktop:
 - The failure is `test_production_settings_import_uses_render_url_without_app_origin` in every run; it fails on unmodified `main` on this machine too.
 - `ruff check` and `ruff format --check` pass.
 - CI baseline for comparison: the `pytest --postgres` step took 292 s (run 39148630974).
+## Worker idle backoff for Neon scale-to-zero — October 18, 2026 (local; CI pending)
+
+Branch `fix/worker-idle-backoff`, from `main` at `e66053d`. Idle, the worker's polling backs off from 1 second to `WORKER_IDLE_POLL_MAX`. The default stays 1; the hosted demo uses 1800. Long waits refresh the worker health file every 10 seconds without querying the database. Any commit that queues a job touches `WORKER_WAKE_FILE`, through SQLAlchemy `Session` events in `database.py`, and that ends the wait. Render's health check and the keep-warm workflow moved from `/readyz` to `/healthz`. Expected effect: Neon is awake about 5 of every 30 idle minutes instead of all the time. That's an estimate, not measured on Neon.
+
+Windows 11, Python 3.13 (new `backend/.venv`), PostgreSQL 17 from the Compose `db` service:
+- `ruff check`, `ruff format --check` and `scripts.check_types`: passed.
+- `pytest -q`: 504 passed, 30 skipped, 1 failed. `pytest -q --postgres`: 533 passed, 1 skipped, 1 failed.
+- The failure is the same test both times, `test_production_settings_import_uses_render_url_without_app_origin`. It also fails on unmodified `main` on this machine: its subprocess reads local configuration. CI decides it.
+- New tests: backoff sequence and reset (1, 2, 4, 8, 8, then 1 after a job or a wake); health refreshed during a 30-second wait with no database access; a wake ends a 1800-second wait; a committed job rings the wake file, but a rollback, a commit without a job, or an unset setting doesn't; hosted config defaults and bounds; and, on both databases, a job queued during a 4-second backoff finishes in under 2.5 seconds.
+- Not run: `python scripts/run_e2e.py`; hosted behavior on Render and Neon.
 
 ## Phase 4 — signature moment — October 17, 2026 (local; CI pending)
 

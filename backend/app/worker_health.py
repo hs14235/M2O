@@ -5,6 +5,7 @@ import math
 import os
 import time
 from pathlib import Path
+from uuid import uuid4
 
 from .services.errors import ServiceError
 from .settings import settings
@@ -33,6 +34,26 @@ def worker_available(path: str, timeout: int, deadline: int, *, at: float | None
         return True
     except (OSError, ValueError, KeyError, TypeError, OverflowError):
         return False
+
+
+def wake_stamp(path: str) -> tuple[int, int] | None:
+    if not path:
+        return None
+    try:
+        status = os.stat(path)
+    except OSError:
+        return None
+    return status.st_ino, status.st_mtime_ns
+
+
+def signal_wake(path: str) -> None:
+    """Ring an idle worker after a job commits; the empty file carries no job data."""
+    if not path:
+        return
+    # A fresh inode per signal, so two signals within one timestamp tick still differ.
+    temporary = f"{path}.{uuid4().hex}.tmp"
+    os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+    os.replace(temporary, path)
 
 
 def require_worker() -> None:

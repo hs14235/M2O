@@ -7,7 +7,7 @@ services:
     region: virginia  # Same region as the Neon database (AWS us-east-1)
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
-    healthCheckPath: /readyz
+    healthCheckPath: /healthz  # Liveness only: a database probe would keep Neon from scaling to zero
     # Continuous deployment: main deploys only after its GitHub checks pass.
     autoDeployTrigger: checksPass
     envVars:
