@@ -18,8 +18,9 @@ import { useDirtyTracking } from "./workbench/useDirtyTracking";
 import { useJobPolling } from "./workbench/useJobPolling";
 import { useMeetingSearch } from "./workbench/useMeetingSearch";
 import { usePeople } from "./workbench/usePeople";
-import { stagger } from "../motion";
+import { stagger, useStepReveal } from "../motion";
 import { useRouteFence } from "./workbench/useRouteFence";
+import { reviewOutcomePath } from "./workbench/links";
 
 const stepHints: Record<Step, string> = {
   transcript: "Next: confirm the people and extract outcomes.",
@@ -70,9 +71,14 @@ export default function Workbench({
   const mutation = useRef(false),
     detailRequest = useRef<AbortController | null>(null);
   // The signature moment on People (see PeopleStep): the extraction started here, and
-  // its job id once that job finished and the reloaded meeting has outcomes.
+  // once that job finished with outcomes, its id and the revision it produced. People
+  // reports when it played the moment, which consumes it.
   const [extractJob, setExtractJob] = useState<string | null>(null),
-    [moment, setMoment] = useState<string | null>(null);
+    [moment, setMoment] = useState<{ job: string; revision: number } | null>(null);
+  const momentDone = useCallback(
+    (job: string) => setMoment((current) => (current?.job === job ? null : current)),
+    [],
+  );
 
   const { meetings, nextOffset, search, setSearch, list, reset: resetList } = useMeetingSearch(workspace.id);
   const example = examples[workspace.department],
@@ -184,11 +190,7 @@ export default function Workbench({
     navigate(routePath(workspace.id, "meetings", id || "new", step));
   }
   function reviewCalendar(entry: CalendarEntry) {
-    navigate(
-      routePath(workspace.id, "meetings", entry.meeting_id, "review") +
-        "?" +
-        new URLSearchParams({ outcome: entry.item_id }),
-    );
+    navigate(reviewOutcomePath(workspace.id, entry.meeting_id, entry.item_id));
   }
   async function openDemo(result: { meeting_id: string; job_id: string | null }) {
     const saved = await loadMeeting(result.meeting_id);
@@ -358,7 +360,7 @@ export default function Workbench({
     setExtractJob(null);
     if (live && reloaded?.ok && meeting?.tasks.length && momentJob.current !== job.id) {
       momentJob.current = job.id;
-      setMoment(job.id);
+      setMoment({ job: job.id, revision: meeting.current_revision });
     }
   }, [extractJob, job, reloaded, meeting, route.step]);
   useEffect(() => {
@@ -541,18 +543,7 @@ export default function Workbench({
           {user.is_visitor &&
             step === "transcript" &&
             (meeting ? (
-              <section className="panel step-panel reveal-seq step-reveal">
-                <span className="eyebrow">Synthetic source</span>
-                <h1>Inspect the conversation.</h1>
-                <p>
-                  This is an approved, immutable demo transcript. Your outcome reviews and personal plan are
-                  editable; real uploads belong in invited private workspaces.
-                </p>
-                <pre className="payload-text">{meeting.raw_text}</pre>
-                <button className="primary" onClick={() => go("people")}>
-                  Continue to people
-                </button>
-              </section>
+              <SyntheticSource text={meeting.raw_text} onContinue={() => go("people")} />
             ) : (
               <DemoScenarios workspace={workspace} disabled={pending} onLoaded={openDemo} />
             ))}
@@ -601,13 +592,8 @@ export default function Workbench({
               onContinue={() => go("review")}
               extracting={Boolean(extractJob)}
               moment={moment}
-              onOpenOutcome={(id) =>
-                navigate(
-                  routePath(workspace.id, "meetings", meeting.id, "review") +
-                    "?" +
-                    new URLSearchParams({ outcome: id }),
-                )
-              }
+              onMomentDone={momentDone}
+              onOpenOutcome={(id) => navigate(reviewOutcomePath(workspace.id, meeting.id, id))}
             />
           )}
           {meeting && step === "review" && (
@@ -664,5 +650,24 @@ export default function Workbench({
         </>
       )}
     </div>
+  );
+}
+
+/** The visitor's read-only demo transcript, revealed like the other steps. */
+function SyntheticSource({ text, onContinue }: { text: string; onContinue: () => void }) {
+  const reveal = useStepReveal();
+  return (
+    <section className={"panel step-panel " + reveal}>
+      <span className="eyebrow">Synthetic source</span>
+      <h1>Inspect the conversation.</h1>
+      <p>
+        This is an approved, immutable demo transcript. Your outcome reviews and personal plan are editable;
+        real uploads belong in invited private workspaces.
+      </p>
+      <pre className="payload-text">{text}</pre>
+      <button className="primary" onClick={onContinue}>
+        Continue to people
+      </button>
+    </section>
   );
 }
