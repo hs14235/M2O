@@ -26,12 +26,20 @@ export interface User {
   };
   linkedin: { connected: boolean; profile: { name?: string } | null };
 }
+export interface DemoRecording {
+  audio: string;
+  model: string;
+  wer: number;
+  date: string;
+}
 export interface DemoScenario {
-  id: "engineering" | "hr" | "finance" | "no-outcomes";
+  id: "engineering" | "hr" | "finance" | "no-outcomes" | "recording";
   department: Department | null;
   title: string;
   transcript: string;
   synthetic: true;
+  // Present when the transcript was made offline from a synthetic recording.
+  recording?: DemoRecording;
 }
 export interface DemoCatalog {
   enabled: boolean;

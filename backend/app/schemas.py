@@ -16,7 +16,7 @@ class Contract(BaseModel):
 
 
 class DemoLoadInput(Contract):
-    fixture_id: Literal["engineering", "hr", "finance", "no-outcomes"]
+    fixture_id: Literal["engineering", "hr", "finance", "no-outcomes", "recording"]
 
 
 LifecycleEmail = Annotated[

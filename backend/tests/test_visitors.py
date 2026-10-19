@@ -304,3 +304,27 @@ def test_concurrent_admission_never_exceeds_capacity(engine, monkeypatch):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(attempt, range(2)))
     assert sorted(results, key=str) == [429, "admitted"]
+
+
+def test_recording_example_carries_provenance_and_extracts_in_every_department(client, session):
+    catalog = client.get("/api/demo/scenarios").json()["scenarios"]
+    (recording,) = [item for item in catalog if item["id"] == "recording"]
+    assert recording["department"] is None and recording["synthetic"] is True
+    assert recording["recording"]["audio"] == "/demo/standup.m4a"
+    assert recording["recording"]["model"].startswith("faster-whisper large-v3")
+    assert 0 <= recording["recording"]["wer"] < 0.2
+    _, headers, spaces = start(client)
+    for department in ("engineering", "hr", "finance"):
+        root, result = load(client, headers, spaces[department], "recording")
+        assert asyncio.run(run_once())
+        extract = client.post(root + "/meetings/" + result["meeting_id"] + "/extract", headers=headers)
+        assert extract.status_code == 202 and asyncio.run(run_once())
+        # Whisper's unedited words still yield reviewable outcomes in rules mode.
+        assert session.get(Job, extract.json()["job_id"]).result["created"] >= 1
+
+
+def test_recording_audio_is_committed_and_small():
+    from pathlib import Path
+
+    audio = Path(__file__).resolve().parents[2] / "frontend" / "public" / "demo" / "standup.m4a"
+    assert audio.is_file() and 0 < audio.stat().st_size < 1_000_000
