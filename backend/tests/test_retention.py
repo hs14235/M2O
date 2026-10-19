@@ -286,3 +286,69 @@ def test_frozen_crashed_delivery_keeps_uncertainty_without_provider_replay(
     )
     assert tombstone.state == "uncertain"
     assert RetentionService(session).run(apply=True)["removed_tombstones"] == 0
+
+
+def test_worker_maintenance_purges_expired_visitors_only_when_enabled_and_due(session, seeded):
+    from app.worker import Maintenance
+
+    user_id, _, _ = expired_visitor(session)
+    kept, _, _ = DemoService(session).start()
+    session.commit()
+    assert asyncio.run(Maintenance(0).run_if_due()) is None  # Off by default outside the hosted demo.
+    session.expire_all()
+    assert session.get(User, user_id) is not None
+    maintenance = Maintenance(600)
+    assert asyncio.run(maintenance.run_if_due())["removed_visitors"] == 1
+    session.expire_all()
+    assert session.get(User, user_id) is None and session.get(User, kept.id) is not None
+    assert asyncio.run(maintenance.run_if_due()) is None  # Not due again within the interval.
+
+
+def test_demo_admission_recovers_after_maintenance_purges_expired_visitors(session, monkeypatch):
+    from app.settings import settings
+    from app.worker import Maintenance
+
+    monkeypatch.setattr(settings, "visitor_retained_limit", 1)
+    first, _, _ = DemoService(session).start()
+    session.commit()
+    with pytest.raises(ServiceError) as full:
+        DemoService(session).start()
+    assert full.value.status_code == 429
+    session.rollback()
+    session.get(User, first.id).visitor_expires_at = now() - timedelta(seconds=1)
+    session.commit()
+    assert asyncio.run(Maintenance(600).run_if_due())["removed_visitors"] == 1
+    session.expire_all()
+    DemoService(session).start()  # Expired visitors no longer hold the retained budget.
+    session.commit()
+
+
+def test_maintenance_failure_is_logged_without_stopping_the_worker(engine, monkeypatch):
+    from app import worker
+
+    records = []
+
+    class Broken:
+        def __init__(self, session):
+            pass
+
+        def run(self, **kwargs):
+            raise RuntimeError("synthetic private detail")
+
+    monkeypatch.setattr(worker, "RetentionService", Broken)
+    monkeypatch.setattr(worker.log, "error", lambda event, **kwargs: records.append((event, kwargs["extra"])))
+    assert asyncio.run(worker.Maintenance(600).run_if_due()) is None
+    assert records == [("retention_maintenance_failed", {"error_code": "RuntimeError"})]
+
+
+def test_new_visitor_rings_the_wake_file_but_other_users_do_not(session, monkeypatch, tmp_path):
+    from app.settings import settings
+
+    wake = tmp_path / "wake"
+    monkeypatch.setattr(settings, "worker_wake_file", str(wake))
+    session.add(User(email="member@example.test", name="Member", password_hash="not-a-login"))
+    session.commit()
+    assert not wake.exists()
+    DemoService(session).start()
+    session.commit()
+    assert wake.exists()

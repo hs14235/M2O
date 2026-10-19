@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import logging
+import time
 from datetime import timedelta
 from uuid import uuid4
 
@@ -41,6 +42,7 @@ from .services.extraction import ExtractionService
 from .services.issues import IssueService
 from .services.linkedin_publishing import publish_linkedin
 from .services.meetings import MeetingService
+from .services.retention import RetentionService
 from .settings import settings
 from .slack_delivery import SlackDeliveryAdapter, UncertainSlackWrite, content_hash
 from .worker_health import WorkerPulse, wake_stamp
@@ -639,7 +641,13 @@ async def run_once(adapter=None, *, linkedin_adapter=None, runtime: WorkerPulse 
         pulse.cancel()
         try:
             await pulse
-        except (asyncio.CancelledError, ServiceError):
+        except asyncio.CancelledError:
+            # The pulse's own cancellation is expected; the worker's must not be swallowed,
+            # or a shutdown that lands here keeps the loop running.
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+        except ServiceError:
             pass
         if runtime is not None:
             runtime.idle()
@@ -657,16 +665,49 @@ async def idle_wait(seconds: int, runtime: WorkerPulse, stamp) -> bool:
     return False
 
 
+class Maintenance:
+    """Bounded retention cleanup, so expired visitors stop holding the demo's retained budget."""
+
+    REPORTED = ("removed_visitors", "pending_visitors", "protected_visitors", "removed_tombstones")
+
+    def __init__(self, interval: int):
+        self.interval = interval
+        self.last: float | None = None
+
+    async def run_if_due(self) -> dict | None:
+        if self.interval <= 0 or (self.last is not None and time.monotonic() - self.last < self.interval):
+            return None
+        self.last = time.monotonic()
+
+        def apply():
+            with session_scope() as session:
+                return RetentionService(session).run(limit=100, apply=True)
+
+        try:
+            report = await asyncio.to_thread(apply)
+        except Exception as exc:  # noqa: BLE001 -- Cleanup must never stop job processing.
+            log.error("retention_maintenance_failed", extra={"error_code": type(exc).__name__})
+            return None
+        log.info("retention_maintenance", extra={key: report[key] for key in self.REPORTED})
+        return report
+
+
 async def serve():
     runtime = WorkerPulse(settings.worker_heartbeat_file)
+    # Maintenance runs only when the database is already awake (startup, a job, a wake),
+    # so it never adds a Neon wake-up while the demo is idle.
+    maintenance = Maintenance(settings.worker_retention_interval)
+    await maintenance.run_if_due()
     delay = 1
     while True:
         # Read before claiming, so a job committed during the claim still wakes the wait.
         stamp = wake_stamp(settings.worker_wake_file)
         if await run_once(runtime=runtime):
             delay = 1
+            await maintenance.run_if_due()
         elif await idle_wait(delay, runtime, stamp):
             delay = 1
+            await maintenance.run_if_due()
         else:
             delay = min(delay * 2, settings.worker_idle_poll_max)
 

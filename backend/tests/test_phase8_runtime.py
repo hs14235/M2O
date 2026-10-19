@@ -181,6 +181,41 @@ def test_idle_backoff_doubles_to_cap_and_resets_after_work_or_wake(monkeypatch):
     assert waits == [1, 2, 4, 8, 8, 1, 1]
 
 
+def test_maintenance_runs_only_when_the_database_is_already_awake(monkeypatch):
+    claims = iter([True, False, False])
+    wakes = iter([True, False])
+    calls = []
+
+    async def run_once(**kwargs):
+        try:
+            return next(claims)
+        except StopIteration:
+            raise StopServing from None
+
+    async def idle_wait(seconds, runtime, stamp):
+        return next(wakes)
+
+    async def run_if_due(self):
+        calls.append("maintenance")
+
+    monkeypatch.setattr(worker, "run_once", run_once)
+    monkeypatch.setattr(worker, "idle_wait", idle_wait)
+    monkeypatch.setattr(worker.Maintenance, "run_if_due", run_if_due)
+    with pytest.raises(StopServing):
+        asyncio.run(worker.serve())
+    # Startup, after the claimed job, after the wake; never after a quiet idle wait.
+    assert calls == ["maintenance"] * 3
+
+
+def test_hosted_retention_interval_defaults_on_and_is_bounded():
+    # Private installs keep cleanup an explicit operator command.
+    assert Settings(_env_file=None).worker_retention_interval == 0
+    assert demo_environment(demo_config())["WORKER_RETENTION_INTERVAL"] == "600"
+    for value in ("-1", "86401", "often"):
+        with pytest.raises(ValueError):
+            demo_environment({**demo_config(), "WORKER_RETENTION_INTERVAL": value})
+
+
 def test_idle_wait_refreshes_health_without_database_and_ends_on_wake(monkeypatch, tmp_path):
     wake = str(tmp_path / "wake")
     monkeypatch.setattr(settings, "worker_wake_file", wake)
