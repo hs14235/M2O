@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # scale to zero, and the API's wake file starts new jobs without waiting.
     worker_idle_poll_max: int = Field(default=1, ge=1, le=3600)
     worker_wake_file: str = ""
+    # Seconds between automatic retention runs (expired visitors, temporary records), done
+    # only while the database is already awake; 0 keeps cleanup an explicit operator command.
+    worker_retention_interval: int = Field(default=0, ge=0, le=86400)
     # Local speech-to-text (faster-whisper on CPU). Off by default: it needs requirements-ai.txt,
     # a model download and real CPU time, so the public demo never enables it.
     transcription_enabled: bool = False

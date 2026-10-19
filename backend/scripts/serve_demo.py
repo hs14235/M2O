@@ -47,6 +47,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         "WORKER_JOB_DEADLINE",
         "WORKER_IDLE_POLL_MAX",
         "WORKER_WAKE_FILE",
+        "WORKER_RETENTION_INTERVAL",
         "APP_ENVIRONMENT",
         "COOKIE_SECURE",
         "LINKEDIN_PUBLISHING_ENABLED",
@@ -73,6 +74,8 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("Hosted worker health file must be supervisor-managed")
     # Idle, the worker reads the database at most every 30 minutes, so Neon can scale to zero.
     idle_poll_max = values.get("WORKER_IDLE_POLL_MAX", "1800")
+    # Expired visitors count against the retained budget until purged; nobody else runs it here.
+    retention_interval = values.get("WORKER_RETENTION_INTERVAL", "600")
     mode = values.get("CLIENT_IDENTITY_MODE", "")
     if mode not in {"trusted_proxy", "shared"}:
         raise ValueError("Hosted demo requires an explicit trusted_proxy or shared client budget policy")
@@ -88,6 +91,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
             worker_heartbeat_timeout=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
             worker_job_deadline=values.get("WORKER_JOB_DEADLINE", "600"),
             worker_idle_poll_max=idle_poll_max,
+            worker_retention_interval=retention_interval,
         )
     except ValueError:
         raise ValueError("Invalid hosted client identity or worker health policy") from None
@@ -138,6 +142,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         WORKER_HEARTBEAT_TIMEOUT=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
         WORKER_JOB_DEADLINE=values.get("WORKER_JOB_DEADLINE", "600"),
         WORKER_IDLE_POLL_MAX=idle_poll_max,
+        WORKER_RETENTION_INTERVAL=retention_interval,
     )
     return env
 

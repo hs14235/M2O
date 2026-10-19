@@ -1,5 +1,29 @@
 # Verification evidence
 
+## Hosted worker purges expired visitors; Phase 9 public-demo status — October 19, 2026 (local; CI pending)
+
+Branch `fix/demo-visitor-retention`, from `main` at `355c065`. Demo admission counts every visitor user, expired ones included, against `VISITOR_RETAINED_LIMIT` (500). The hosted demo had no automatic cleanup, so after 500 lifetime visitors every start would have returned "The demo is at capacity". `WORKER_RETENTION_INTERVAL` (default 0; hosted demo 600 s) makes the worker run `RetentionService.run(limit=100, apply=True)` at startup, after a claimed job and after a wake. A new visitor now also rings the wake file. The worker logs only counts.
+
+Windows 11, Python 3.13, PostgreSQL 17 in Docker Desktop:
+- `ruff check`, `ruff format --check` and `scripts.check_types` pass.
+- `pytest -q` (SQLite): 510 passed, 30 skipped. `pytest -q --postgres`: 539 passed, 1 skipped.
+- Both runs have 1 failure, `test_production_settings_import_uses_render_url_without_app_origin`, the known local-only one.
+- New tests: maintenance runs only when enabled and due; it purges expired visitors and keeps unexpired ones; admission recovers after a purge (retained limit 1 → 429 → expire → purge → start succeeds); a failure is logged as a class name only; `serve()` calls maintenance only at startup and after a job or a wake; a new visitor rings the wake file; the hosted default and bounds.
+- One earlier local run stalled for about 1.5 hours and was stopped. The verbose rerun with a 60 s watchdog finished in 330 s with no stalled test, so the cause was not found.
+
+**Phase 9 status (public demo).** Every gap the plan lists (`docs/PHASE_9_DATA_OPERATIONS_COST_PLAN.md` §2, §14) is closed for the hosted synthetic demo:
+- supported-schema readiness;
+- route-template logs;
+- a credential denylist that includes Google Meet;
+- retention of OAuth states, invitations and tokens;
+- proxy identity;
+- direct-connection migrations;
+- idle Neon cost (#89);
+- worker visibility;
+- automatic visitor cleanup (this change).
+
+Deferred with invite-only real accounts: durable private storage, encrypted off-host backups and a restore drill, key and operator ownership, a real-data and retention policy, an awake private endpoint, live provider consent, and optional external telemetry or uptime vendors.
+
 ## Worker idle backoff for Neon scale-to-zero — October 18, 2026 (local; CI pending)
 
 Branch `fix/worker-idle-backoff`, from `main` at `e66053d`. Idle, the worker's polling backs off from 1 second to `WORKER_IDLE_POLL_MAX`. The default stays 1; the hosted demo uses 1800. Long waits refresh the worker health file every 10 seconds without querying the database. Any commit that queues a job touches `WORKER_WAKE_FILE`, through SQLAlchemy `Session` events in `database.py`, and that ends the wait. Render's health check and the keep-warm workflow moved from `/readyz` to `/healthz`. Expected effect: Neon is awake about 5 of every 30 idle minutes instead of all the time. That's an estimate, not measured on Neon.

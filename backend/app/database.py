@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from .models import Job
+from .models import Job, User
 from .services.errors import ServiceError
 from .settings import settings
 from .worker_health import signal_wake
@@ -18,7 +18,8 @@ log = logging.getLogger("meeting.database")
 
 @event.listens_for(Session, "after_flush")
 def note_queued_job(session, flush_context):
-    if any(isinstance(row, Job) for row in session.new):
+    # A new visitor also rings it, so the hosted worker's retention runs while visitors arrive.
+    if any(isinstance(row, Job) or (isinstance(row, User) and row.is_visitor) for row in session.new):
         session.info["job_queued"] = True
 
 
