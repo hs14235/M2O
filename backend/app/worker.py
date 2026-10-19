@@ -641,7 +641,13 @@ async def run_once(adapter=None, *, linkedin_adapter=None, runtime: WorkerPulse 
         pulse.cancel()
         try:
             await pulse
-        except (asyncio.CancelledError, ServiceError):
+        except asyncio.CancelledError:
+            # The pulse's own cancellation is expected; the worker's must not be swallowed,
+            # or a shutdown that lands here keeps the loop running.
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+        except ServiceError:
             pass
         if runtime is not None:
             runtime.idle()
