@@ -1,0 +1,4 @@
+interface:
+  display_name: "M2O Frontend Release"
+  short_description: "Verify M2O journeys and frontend releases"
+  default_prompt: "Use $m2o-frontend-release to inspect the current M2O source and complete the requested work with scoped verification."
