@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { catalog } from "./catalog";
-import { pairs } from "../design-tokens";
 import StyleGuide from "./StyleGuide";
 
 beforeEach(() => {
@@ -23,7 +22,7 @@ it("shows every catalogued token on the page", () => {
 it("reports a passing contrast result for every checked pair", () => {
   render(<StyleGuide />);
   const table = screen.getByRole("table", { name: /Contrast of the checked pairs/ });
-  expect(table.querySelectorAll("tbody tr")).toHaveLength(pairs.length);
+  expect(table.querySelectorAll("tbody tr")).toHaveLength(22);
   expect(table).not.toHaveTextContent("Fail");
 });
 

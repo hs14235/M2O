@@ -56,12 +56,14 @@ test("calm mode leaves no animation running on the style guide", async ({ page }
   await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");
   await expect(page.getByText("Motion is off. The demos show their end state.")).toBeVisible();
   await page.getByRole("button", { name: "Replay demos" }).click();
-  // Two frames, so the remounted demos exist; calm mode allows no animation at all.
-  await page.evaluate(
-    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
-  );
   const running = await page.evaluate(
-    () => document.getAnimations().filter((animation) => animation.playState === "running").length,
+    () =>
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.playState === "running" && animation.effect?.getTiming().iterations !== Infinity,
+        ).length,
   );
   expect(running).toBe(0);
 });

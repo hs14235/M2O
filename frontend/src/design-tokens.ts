@@ -37,29 +37,9 @@ export function allTokens(css: string): string[] {
   return [...new Set([...text.matchAll(/--([\w-]+)\s*:/g)].map((match) => match[1]))];
 }
 
-/**
- * Every token a stylesheet declares with its value as written, for one theme. The
- * first declaration wins (so :root, not a department or media override), except
- * that for dark the explicit dark rule replaces the light value.
- */
-export function tokenValues(css: string, theme: "light" | "dark" = "light"): Record<string, string> {
-  const text = withoutComments(css).replace(/@theme inline\s*\{[^}]*\}/g, "");
-  const values: Record<string, string> = {};
-  for (const rule of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const selector = rule[1].trim();
-    // The system-setting dark block repeats the explicit one (theme.test.ts checks this).
-    if (selector.includes(':not([data-theme="light"])')) continue;
-    const darkRule = selector.includes('[data-theme="dark"]');
-    if (darkRule && theme === "light") continue;
-    for (const match of rule[2].matchAll(/(?<![\w-])--([\w-]+)\s*:\s*([^;]+);/g))
-      if (!(match[1] in values) || darkRule) values[match[1]] = match[2].trim();
-  }
-  return values;
-}
-
-/** A token's declared value, as written (the light value for colours). */
+/** The first value declared for a token, as written (the light value for colours). */
 export function tokenValue(css: string, name: string): string | undefined {
-  return tokenValues(css)[name];
+  return new RegExp("--" + name + ":\\s*([^;]+);").exec(withoutComments(css))?.[1].trim();
 }
 
 /** The Tailwind theme names and the token each one reads, from `@theme inline`. */
