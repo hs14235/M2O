@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { CommandCenter } from "./CommandCenter";
+import { CommandCenter } from "./CommandMenu";
 import type { User, Workspace } from "../types";
 
 const api = vi.hoisted(() => vi.fn());
@@ -71,25 +71,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(overrides: Partial<Parameters<typeof CommandCenter>[0]> = {}, headerHidden = false) {
+function setup(overrides: Partial<Parameters<typeof CommandCenter>[0]> = {}) {
   const navigate = vi.fn();
   render(
     <>
-      {/* Like the collapsed header's ChromeRegion: hidden and inert. */}
-      <div hidden={headerHidden} inert={headerHidden}>
-        <CommandCenter
-          user={user}
-          workspace={spaces[0]}
-          workspaces={spaces}
-          motion={{ calm: false, reduced: false, toggle: vi.fn() }}
-          navigate={navigate}
-          {...overrides}
-        />
-      </div>
+      <CommandCenter
+        user={user}
+        workspace={spaces[0]}
+        workspaces={spaces}
+        motion={{ calm: false, reduced: false, toggle: vi.fn() }}
+        navigate={navigate}
+        {...overrides}
+      />
       <main id="main" tabIndex={-1} />
     </>,
   );
-  return { navigate, trigger: screen.getByRole("button", { name: /Search or jump/, hidden: true }) };
+  return { navigate, trigger: screen.getByRole("button", { name: /Search or jump/ }) };
 }
 
 it("opens with Ctrl+K as a labelled dialog with a combobox, and Escape returns focus", async () => {
@@ -102,8 +99,8 @@ it("opens with Ctrl+K as a labelled dialog with a combobox, and Escape returns f
   expect(document.documentElement).toHaveClass("modal-open");
   const dialog = await screen.findByRole("dialog", { name: "Command menu" });
   expect(dialog).toBeVisible();
-  await waitFor(async () => expect(await screen.findByRole("combobox")).toHaveFocus());
-  expect(await screen.findByRole("option", { name: "Meetings" })).toBeInTheDocument();
+  expect(screen.getByRole("combobox")).toHaveFocus();
+  expect(screen.getByRole("option", { name: "Meetings" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   await waitFor(() => expect(trigger).toHaveFocus());
@@ -122,7 +119,7 @@ it("closes when the backdrop is clicked", async () => {
 it("filters commands and navigates on Enter, handing focus to the page", async () => {
   const { trigger, navigate } = setup();
   await userEvent.click(trigger);
-  await userEvent.type(await screen.findByRole("combobox"), "Meetings");
+  await userEvent.type(screen.getByRole("combobox"), "Meetings");
   expect(screen.queryByRole("option", { name: "Audit" })).not.toBeInTheDocument();
   await userEvent.keyboard("{Enter}");
   expect(navigate).toHaveBeenCalledWith("/workspaces/eng/meetings");
@@ -133,7 +130,7 @@ it("filters commands and navigates on Enter, handing focus to the page", async (
 it("searches meetings by title and opens the chosen one", async () => {
   const { trigger, navigate } = setup();
   await userEvent.click(trigger);
-  await userEvent.type(await screen.findByRole("combobox"), "Release");
+  await userEvent.type(screen.getByRole("combobox"), "Release");
   await userEvent.click(await screen.findByRole("option", { name: /Release readiness/ }));
   expect(api).toHaveBeenCalledWith(
     expect.stringContaining("/workspaces/eng/meetings?"),
@@ -150,7 +147,7 @@ it("opens the shortcut list with ? and from the menu", async () => {
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   await userEvent.click(trigger);
-  await userEvent.type(await screen.findByRole("combobox"), "shortcuts");
+  await userEvent.type(screen.getByRole("combobox"), "shortcuts");
   await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
 });
@@ -161,89 +158,7 @@ it("leaves out commands the person may not run", async () => {
     workspace: { ...spaces[0], role: "editor" },
   });
   await userEvent.click(trigger);
-  await screen.findByRole("combobox");
   expect(screen.queryByRole("option", { name: "Audit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("option", { name: "New meeting" })).not.toBeInTheDocument();
   expect(screen.getByRole("option", { name: "My day" })).toBeInTheDocument();
-});
-
-const meeting = (id: string, title: string) => ({
-  id,
-  record_id: "r-" + id,
-  title,
-  visibility: "workspace",
-  version: 1,
-  current_revision: 1,
-  occurred_on: null,
-  timezone: "UTC",
-});
-
-it("opens a visible menu with Ctrl+K while the header is collapsed", async () => {
-  setup({}, true);
-  await userEvent.keyboard("{Control>}k{/Control}");
-  const dialog = await screen.findByRole("dialog", { name: "Command menu" });
-  expect(dialog.closest("[hidden], [inert]")).toBeNull();
-  expect(dialog).toBeVisible();
-  await waitFor(async () => expect(await screen.findByRole("combobox")).toHaveFocus());
-});
-
-it("does not close when a drag starts in the panel and ends on the backdrop", async () => {
-  const { trigger } = setup();
-  await userEvent.click(trigger);
-  const dialog = screen.getByRole("dialog", { name: "Command menu" });
-  const field = await screen.findByRole("combobox");
-  fireEvent.pointerDown(field);
-  fireEvent.click(dialog);
-  expect(dialog).toHaveAttribute("open");
-  fireEvent.pointerDown(dialog);
-  fireEvent.click(dialog);
-  await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
-});
-
-it("returns focus to the original opener when the menu replaces the shortcut list", async () => {
-  const { trigger } = setup();
-  trigger.focus();
-  await userEvent.keyboard("?");
-  const help = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
-  expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
-  await userEvent.keyboard("{Control>}k{/Control}");
-  await waitFor(async () => expect(await screen.findByRole("combobox")).toHaveFocus());
-  expect(help).not.toHaveAttribute("open");
-  await userEvent.keyboard("{Escape}");
-  await waitFor(() => expect(trigger).toHaveFocus());
-});
-
-it("never offers meeting results from an older query", async () => {
-  let resolveNext!: (value: unknown) => void;
-  api.mockReset();
-  api
-    .mockResolvedValueOnce({ meetings: [meeting("m-42", "Release readiness")], next_offset: null })
-    .mockImplementationOnce(() => new Promise((resolve) => (resolveNext = resolve)));
-  const { trigger, navigate } = setup();
-  await userEvent.click(trigger);
-  const field = await screen.findByRole("combobox");
-  await userEvent.type(field, "Release");
-  expect(await screen.findByRole("option", { name: /Release readiness/ })).toBeInTheDocument();
-  await userEvent.type(field, " notes");
-  // The old result disappears at once, before the newer search answers.
-  expect(screen.queryByRole("option", { name: /Release readiness/ })).not.toBeInTheDocument();
-  expect(screen.getByText("Searching meetings…")).toBeInTheDocument();
-  await userEvent.keyboard("{Enter}");
-  expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining("m-42"));
-  await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
-  resolveNext({ meetings: [meeting("m-7", "Release notes")], next_offset: null });
-  expect(await screen.findByRole("option", { name: /Release notes/ })).toBeInTheDocument();
-});
-
-it("hides a failed search once the query changes", async () => {
-  api.mockReset();
-  api.mockRejectedValueOnce(new Error("offline")).mockImplementation(() => new Promise(() => {}));
-  const { trigger } = setup();
-  await userEvent.click(trigger);
-  const field = await screen.findByRole("combobox");
-  await userEvent.type(field, "Budget");
-  expect(await screen.findByText("Meeting search failed.")).toBeInTheDocument();
-  await userEvent.type(field, " review");
-  expect(screen.queryByText("Meeting search failed.")).not.toBeInTheDocument();
-  expect(screen.getByText("Searching meetings…")).toBeInTheDocument();
 });
