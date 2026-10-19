@@ -1,0 +1,29 @@
+/*
+ * Tailwind utilities for the parts kept from the October redesign (the command
+ * menu, shortcut help and the signature moment's transcript and draft views).
+ * No preflight reset and no redesign palette: the original stylesheets keep the
+ * look, and the color names these components use map onto the original colors.
+ * Imported unlayered, after the original CSS, so a utility class wins over the
+ * original element styles it is meant to replace (input borders, for example).
+ */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+@theme {
+  --color-text: var(--ink);
+  --color-text-2: var(--muted);
+  --color-text-3: var(--muted);
+  --color-surface: var(--white);
+  --color-surface-2: var(--soft);
+  --color-hover: var(--soft);
+  --color-border: var(--line);
+  --color-border-strong: var(--muted);
+  --color-accent: var(--green);
+  --color-accent-soft: var(--soft);
+  /* The original outcome colors (styles.css .outcome border tops). */
+  --color-k-action: #397358;
+  --color-k-decision: #357394;
+  --color-k-blocker: #a25a35;
+  --color-k-follow: #686291;
+  --color-k-risk: #9b6536;
+}

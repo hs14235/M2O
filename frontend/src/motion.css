@@ -9,6 +9,8 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
   --dur-3: 280ms;
   /* Content arriving: a screen's heading, lead text and body, in reading order. */
   --dur-reveal: 320ms;
