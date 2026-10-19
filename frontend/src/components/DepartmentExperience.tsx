@@ -60,6 +60,15 @@ export function useMotionPreference() {
   };
 }
 
+/** Where a department switch goes: the active workspace if it is in that department, else the first one. */
+export function departmentTarget(
+  workspaces: Workspace[],
+  active: Workspace | undefined,
+  department: Department,
+) {
+  return active?.department === department ? active : workspaces.find((w) => w.department === department);
+}
+
 export function DepartmentSwitch({
   workspaces,
   active,
@@ -72,8 +81,7 @@ export function DepartmentSwitch({
   return (
     <div className="department-switch" role="group" aria-label="Department experiences">
       {(Object.keys(departmentExperience) as Department[]).map((department) => {
-        const targets = workspaces.filter((w) => w.department === department),
-          target = active?.department === department ? active : targets[0];
+        const target = departmentTarget(workspaces, active, department);
         return (
           <button
             key={department}

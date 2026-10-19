@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildCommands, departmentTarget, filterCommands, type CommandContext } from "./commands";
+import { buildCommands, filterCommands, type CommandContext } from "./commands";
+import { departmentTarget } from "./components/DepartmentExperience";
 import type { Role, User, Workspace } from "./types";
 
 const member: User = {
@@ -102,9 +103,24 @@ describe("navigation and actions", () => {
     commands.find((c) => c.label === "Keyboard shortcuts")!.run();
     expect(ctx.openHelp).toHaveBeenCalled();
   });
-  it("switches to other workspaces by name, not the current one", () => {
-    const names = labels().filter((l) => l.startsWith("Switch workspace:"));
-    expect(names).toEqual(["Switch workspace: Mobile", "Switch workspace: People team"]);
+  it("lists each other workspace once: by department where it is the department's target, else by name", () => {
+    const switches = labels().filter((l) => l.startsWith("Switch"));
+    expect(switches).toEqual(["Switch department: People Operations", "Switch workspace: Mobile"]);
+    // The department entry is still found by the workspace's name.
+    expect(filterCommands(buildCommands(context()), "people team").map((c) => c.label)).toEqual([
+      "Switch department: People Operations",
+    ]);
+  });
+  it("never offers two commands with the same destination", () => {
+    for (const ctx of [context(), context({ workspace: spaces[2] }), context({ workspace: undefined })]) {
+      const paths: string[] = [];
+      for (const command of buildCommands(ctx).filter((c) => c.navigates)) {
+        (ctx.navigate as ReturnType<typeof vi.fn>).mockClear();
+        command.run();
+        paths.push(String((ctx.navigate as ReturnType<typeof vi.fn>).mock.calls[0][0]));
+      }
+      expect(new Set(paths).size).toBe(paths.length);
+    }
   });
   it("uses the sidebar's department rule: active workspace if it matches, else the first", () => {
     expect(departmentTarget(spaces, spaces[1], "engineering")?.id).toBe("eng-2");
