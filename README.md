@@ -11,7 +11,7 @@
 
 [![Source-linked engineering review](docs/media/visitor-engineering-review.png)](docs/media/visitor-engineering-review.png)
 
-**Stack:** React + TypeScript · Tailwind CSS v4 · FastAPI · PostgreSQL + Alembic · a durable job worker · Docker · GitHub Actions · Render + Neon · optional local Ollama
+**Stack:** React + TypeScript · FastAPI · PostgreSQL + Alembic · a durable job worker · Docker · GitHub Actions · Render + Neon · optional local Ollama
 
 ## Engineering highlights
 
@@ -104,7 +104,7 @@ Composite foreign keys keep workspace and source relationships consistent. Versi
 | **3 · Review & Deliver** | Approve source-linked outcomes, then choose a destination and approve its exact preview. Review approval and delivery approval are separate actions. |
 | **4 · Calendar** | See approved outcomes in a calendar or an accessible agenda; undated work stays visible. |
 
-**My day** holds personal priorities and progress without changing review approval or external issue status. Three departments (Engineering, People Operations and Finance Control) share the same permission and review rules, each with its own examples. The interface has designed light and dark themes that follow your device, and fast, quiet motion on every interaction; calm mode and the system reduced-motion setting turn motion off.
+**My day** holds personal priorities and progress without changing review approval or external issue status. Three department experiences (Engineering, People Operations and Finance Control) share the same permission and review rules, each with its own examples and visual identity. Content reveals in reading order, extracted outcomes grow out of the transcript lines they came from, and Ctrl+K (⌘K on a Mac) opens a command menu. Calm mode and the system reduced-motion setting turn off decorative motion.
 
 <details>
 <summary><b>More screenshots</b></summary>
@@ -155,7 +155,6 @@ docker compose exec api python -m scripts.bootstrap --email owner@example.test -
 - [Architecture and data integrity](docs/ARCHITECTURE.md) · [API contracts](docs/API.md) · [Security boundaries](docs/SECURITY.md)
 - [Operations, migrations and rollback](docs/OPERATIONS.md) · [Hosted runtime](docs/HOSTED_DEMO_RUNTIME.md) · [User lifecycle and privacy](docs/USER_LIFECYCLE.md)
 - [Verification record and known limits](docs/VALIDATION.md)
-- Style guide: `/styleguide.html` on any running build (for example [localhost:8080/styleguide.html](http://localhost:8080/styleguide.html)) shows every design token in both themes, with contrast ratios, motion demos and the main components in each state.
 
 ## Hosting
 

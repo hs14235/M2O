@@ -114,14 +114,10 @@ test("a visitor completes the journey from the keyboard with the command menu", 
     await dark.close();
   }
 
-  // Theme and calm mode from the menu, back on the first page.
+  // Calm mode from the menu, back on the first page.
   await page.bringToFront();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Command menu" })).toBeHidden();
-  await openMenu(page);
-  await page.keyboard.type("Theme: Dark");
-  await page.keyboard.press("Enter");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await openMenu(page);
   await page.keyboard.type("calm mode on");
   await page.keyboard.press("Enter");

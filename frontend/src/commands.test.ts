@@ -29,7 +29,6 @@ function context(overrides: Partial<CommandContext> = {}): CommandContext {
     workspaces: spaces,
     motion: { calm: false, reduced: false, toggle: vi.fn() },
     navigate: vi.fn(),
-    chooseTheme: vi.fn(),
     openHelp: vi.fn(),
     ...overrides,
   };
@@ -49,7 +48,7 @@ describe("filterCommands", () => {
   });
   it("matches keywords and requires every word", () => {
     expect(filterCommands(commands, "history").map((c) => c.label)).toEqual(["Audit"]);
-    expect(filterCommands(commands, "theme dark").map((c) => c.label)).toEqual(["Theme: Dark"]);
+    expect(filterCommands(commands, "calm motion").map((c) => c.label)).toEqual(["Turn calm mode on"]);
     expect(filterCommands(commands, "no such command")).toEqual([]);
   });
 });
@@ -84,7 +83,7 @@ describe("buildCommands permissions", () => {
   it("leaves out page commands when no workspace is open", () => {
     const none = labels({ workspace: undefined });
     expect(none).not.toContain("Meetings");
-    expect(none).toContain("Theme: Light");
+    expect(none).toContain("Turn calm mode on");
   });
 });
 
@@ -98,8 +97,8 @@ describe("navigation and actions", () => {
     expect(ctx.navigate).toHaveBeenCalledWith("/workspaces/eng/meetings/new/transcript");
     commands.find((c) => c.label === "Settings: Privacy & data")!.run();
     expect(ctx.navigate).toHaveBeenCalledWith("/workspaces/eng/settings/privacy");
-    commands.find((c) => c.label === "Theme: Dark")!.run();
-    expect(ctx.chooseTheme).toHaveBeenCalledWith("dark");
+    commands.find((c) => c.label === "Turn calm mode on")!.run();
+    expect(ctx.motion.toggle).toHaveBeenCalled();
     commands.find((c) => c.label === "Keyboard shortcuts")!.run();
     expect(ctx.openHelp).toHaveBeenCalled();
   });
