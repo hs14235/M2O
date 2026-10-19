@@ -493,12 +493,6 @@ pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-code,
-kbd,
-samp {
-  /* The mono token; the browser default monospace also loaded late and moved lines. */
-  font-family: var(--mono);
-}
 code {
   overflow-wrap: anywhere;
 }

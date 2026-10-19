@@ -155,7 +155,6 @@ docker compose exec api python -m scripts.bootstrap --email owner@example.test -
 - [Architecture and data integrity](docs/ARCHITECTURE.md) · [API contracts](docs/API.md) · [Security boundaries](docs/SECURITY.md)
 - [Operations, migrations and rollback](docs/OPERATIONS.md) · [Hosted runtime](docs/HOSTED_DEMO_RUNTIME.md) · [User lifecycle and privacy](docs/USER_LIFECYCLE.md)
 - [Verification record and known limits](docs/VALIDATION.md)
-- Style guide: `/styleguide.html` on any running build (for example [localhost:8080/styleguide.html](http://localhost:8080/styleguide.html)) shows every design token in both themes, with contrast ratios, motion demos and the main components in each state.
 
 ## Hosting
 

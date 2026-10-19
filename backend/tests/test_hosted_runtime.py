@@ -55,16 +55,6 @@ def test_site_root_serves_the_shell_regardless_of_accept_header(hosted, accept):
     assert "script-src 'self'" in page.headers["Content-Security-Policy"]
 
 
-def test_root_level_pages_are_served_as_files_with_security_headers(hosted, tmp_path):
-    # The style guide is a second Vite entry (styleguide.html), not a route of the SPA shell.
-    (tmp_path / "styleguide.html").write_text("<html>M2O style guide</html>", encoding="utf-8")
-    page = hosted.get("/styleguide.html", headers={"Accept": "text/html"})
-    assert page.status_code == 200 and "M2O style guide" in page.text
-    assert "script-src 'self'; style-src 'self'" in page.headers["Content-Security-Policy"]
-    assert page.headers["X-Content-Type-Options"] == "nosniff"
-    assert page.headers["Cache-Control"] == "no-cache"
-
-
 def test_assets_are_immutable_and_build_is_required(hosted, tmp_path):
     response = hosted.get("/assets/app-abc123.js")
     assert response.status_code == 200 and "immutable" in response.headers["Cache-Control"]
