@@ -54,8 +54,14 @@ test("compact stages, approved calendar, settings and reversible workspace frame
   await page.getByLabel("Participant name", { exact: true }).fill("Alex");
   await page.getByLabel("Responsibilities", { exact: true }).fill(responsibility);
   await page.getByRole("button", { name: "Add participant", exact: true }).click();
+  // The add clears the form once the directory reloads; picking before that can land in
+  // the re-render and be reset, so wait for it and re-pick until the choice holds.
+  await expect(page.getByLabel("Participant name", { exact: true })).toHaveValue("");
   const mention = page.locator(".mentions li").filter({ has: page.getByText("Alex", { exact: true }) });
-  await mention.getByRole("combobox").selectOption({ label: "Alex · " + responsibility });
+  await expect(async () => {
+    await mention.getByRole("combobox").selectOption({ label: "Alex · " + responsibility });
+    await expect(mention.getByRole("button", { name: "Confirm person" })).toBeEnabled({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await mention.getByRole("button", { name: "Confirm person" }).click();
   await expect(mention.getByText("Confirmed directory match")).toBeVisible();
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
