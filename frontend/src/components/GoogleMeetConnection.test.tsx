@@ -32,7 +32,7 @@ it.each(["visitor", "viewer", "demo"])("does not request private Google access f
     />,
   );
   expect(request).not.toHaveBeenCalled();
-  expect(screen.getByText(/requires an invited private contributor/)).toBeInTheDocument();
+  expect(screen.getByText(/Needs an invited private contributor/)).toBeInTheDocument();
 });
 it("requires actual configuration before presenting authorization", async () => {
   vi.spyOn(client, "api").mockResolvedValue({
@@ -42,6 +42,7 @@ it("requires actual configuration before presenting authorization", async () => 
     state: "setup_required",
   });
   render(<GoogleMeetConnection workspace={workspace} user={user} />);
-  expect(await screen.findByText("Google Meet setup is required.")).toBeInTheDocument();
+  expect(await screen.findByText("Not set up")).toBeInTheDocument();
+  expect(screen.getByText("What setup needs")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Connect my Google Meet account" })).not.toBeInTheDocument();
 });

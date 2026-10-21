@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import type { GitHubStatus, User, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
+import ProviderRow, { type ProviderTone } from "./ProviderRow";
 
 export default function GitHubConnection({
   workspace,
@@ -10,7 +11,7 @@ export default function GitHubConnection({
 }: {
   workspace: Workspace;
   user: User;
-  onChanged: () => void;
+  onChanged?: () => void;
 }) {
   const [status, setStatus] = useState<GitHubStatus | null>(null),
     [repo, setRepo] = useState(""),
@@ -56,7 +57,7 @@ export default function GitHubConnection({
         setNotice(
           "Repository binding saved for this workspace. No issue was created. Existing previews require regeneration.",
         );
-        onChanged();
+        onChanged?.();
       }
     } catch (e) {
       if (!controller.signal.aborted) setError(e);
@@ -64,59 +65,61 @@ export default function GitHubConnection({
       if (!controller.signal.aborted) setBusy(false);
     }
   }
+  const [state, tone]: [string, ProviderTone] = !status
+    ? ["Checking…", "off"]
+    : !status.configured
+      ? ["Not set up", "off"]
+      : status.destination
+        ? ["Connected", "on"]
+        : ["Choose a repository", "ready"];
   return (
-    <section className="panel" aria-labelledby="github-account-heading">
-      <span className="eyebrow">GitHub destination</span>
-      <h2 id="github-account-heading">Bind a repository to this workspace.</h2>
-      <p>
-        The operator's allowed repositories set the outer limit. This workspace also needs its own explicit
-        binding.
-      </p>
+    <ProviderRow
+      id="github"
+      name="GitHub"
+      summary="Open issues from a preview you approve. Uses the private access token, no sign-in."
+      state={state}
+      tone={tone}
+    >
       <ErrorNotice error={error} />
-      {!status ? (
-        <p role="status">Checking GitHub configuration…</p>
-      ) : (
-        <>
-          {status.destination ? (
-            <p className="notice">
-              Workspace destination: <strong>{status.destination.repo}</strong> · binding v
-              {status.destination.version}
-            </p>
-          ) : (
-            <p>No repository is bound to this workspace.</p>
-          )}
-          {!status.configured && (
-            <p className="muted">
-              The operator must configure GitHub credentials and an allowed repository before publication.
-            </p>
-          )}
-          {status.can_manage && (
-            <form onSubmit={bind}>
-              <fieldset disabled={busy || !status.configured}>
-                <legend className="sr-only">Workspace GitHub binding</legend>
-                <label>
-                  Allowed GitHub repository
-                  <select required value={repo} onChange={(event) => setRepo(event.target.value)}>
-                    <option value="">Choose an allowed repository</option>
-                    {user.capabilities.allowed_repos.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button disabled={!repo || repo === status.destination?.repo}>
-                  Save workspace repository
-                </button>
-              </fieldset>
-            </form>
-          )}
-          {!status.can_manage && (
-            <p className="muted">Repository bindings are managed by workspace owners outside demo mode.</p>
-          )}
-        </>
+      {status && !status.configured && (
+        <p className="muted">Add a GitHub token and an allowed repository to the private configuration.</p>
+      )}
+      {status?.destination && (
+        <p>
+          Sending to <strong>{status.destination.repo}</strong>
+        </p>
+      )}
+      {status?.configured && status.can_manage && (
+        <details open={!status.destination}>
+          <summary>{status.destination ? "Change repository" : "Choose a repository"}</summary>
+          <form className="provider-form" onSubmit={bind}>
+            <fieldset disabled={busy}>
+              <legend className="sr-only">Workspace GitHub binding</legend>
+              <label>
+                Repository
+                <select required value={repo} onChange={(event) => setRepo(event.target.value)}>
+                  <option value="">Choose an allowed repository</option>
+                  {user.capabilities.allowed_repos.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className={status.destination ? undefined : "primary"}
+                disabled={!repo || repo === status.destination?.repo}
+              >
+                Save workspace repository
+              </button>
+            </fieldset>
+          </form>
+        </details>
+      )}
+      {status?.configured && !status.can_manage && (
+        <p className="muted">Workspace owners choose the repository outside demo mode.</p>
       )}
       {notice && <p role="status">{notice}</p>}
-    </section>
+    </ProviderRow>
   );
 }
