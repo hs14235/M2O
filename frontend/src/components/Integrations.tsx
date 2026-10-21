@@ -64,12 +64,8 @@ export default function Integrations({
   }
   return (
     <div className="connections">
-      <span className="eyebrow">Workspace connections</span>
-      <h1>Choose tools for the work.</h1>
-      <p>
-        Prepare and review outcomes first. A connected tool is only needed when you choose to deliver them
-        there.
-      </p>
+      <h1>Connections</h1>
+      <p className="page-hint">Only needed when you deliver reviewed outcomes to a tool.</p>
       <ErrorNotice error={error} />
       {user.capabilities.demo_mode && !user.is_visitor && (
         <p className="notice">

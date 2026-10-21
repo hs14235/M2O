@@ -81,11 +81,52 @@ p {
   margin-top: 0;
 }
 h1 {
-  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  font-size: clamp(1.7rem, 2.6vw, 2.3rem);
   line-height: 1.12;
   letter-spacing: -0.035em;
   font-weight: 650;
-  margin-bottom: 1rem;
+  margin-bottom: 0.4rem;
+}
+.job-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 0.82rem;
+}
+.job-chip::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--green);
+}
+.job-chip:is([data-state="queued"], [data-state="running"])::before {
+  background: #d27917;
+  animation: job-pulse 1.2s ease-in-out infinite;
+}
+.job-chip details {
+  flex-basis: 100%;
+}
+@keyframes job-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+[data-motion="calm"] .job-chip::before {
+  animation: none;
+}
+/* The one line under a page title: what the page is for, nothing more. */
+.page-hint {
+  max-width: 64ch;
+  margin-bottom: 1.25rem;
+  color: var(--muted);
 }
 h2 {
   font-size: 1.4rem;

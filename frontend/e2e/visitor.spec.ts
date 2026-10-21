@@ -227,6 +227,6 @@ test("authored media plays and loops, pause survives department changes, and too
     await accessible(page);
   }
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Put people in context." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "People", exact: true, level: 1 })).toBeVisible();
   await page.screenshot({ path: docMedia + "visitor-mobile-people.png", fullPage: true });
 });

@@ -34,12 +34,8 @@ export default function AuditPage({ workspace }: { workspace: Workspace }) {
   }, [workspace.id, permitted, reload]);
   return (
     <section className="panel audit-page">
-      <span className="eyebrow">Workspace history</span>
-      <h1>Follow the trail.</h1>
-      <p>
-        Recent recorded changes for this workspace. Review, delivery and personal execution have their own
-        events.
-      </p>
+      <h1>Audit</h1>
+      <p className="page-hint">Recent changes in this workspace, newest first.</p>
       {!permitted ? (
         <p role="alert">Audit history requires owner or reviewer authority.</p>
       ) : (

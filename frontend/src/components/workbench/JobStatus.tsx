@@ -37,7 +37,12 @@ export function JobStatus({ job, role, onReconcile }: { job: Job; role: Role; on
   const delivery = job.kind?.includes("publish");
   const transcription = job.kind === "transcribe";
   return (
-    <div className={"notice " + (job.state === "failed" ? "error" : "")} role="status">
+    // Failures and delivery receipts keep the full notice; other job states are a small chip.
+    <div
+      className={job.state === "failed" ? "notice error" : delivery ? "notice" : "job-chip"}
+      data-state={job.state}
+      role="status"
+    >
       <strong>
         {delivery ? "Delivery processing" : transcription ? "Transcription" : "Job"} {job.state}
       </strong>

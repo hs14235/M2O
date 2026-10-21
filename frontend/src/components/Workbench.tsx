@@ -471,12 +471,8 @@ export default function Workbench({
         <>
           <section className="intro">
             <div className="reveal-seq">
-              <span className="eyebrow">{workspace.name}</span>
-              <h1>Make the next step clear.</h1>
-              <p>
-                {example.purpose} Start with a transcript, review what matters, and choose how to hand it
-                over.
-              </p>
+              <h1>Meetings</h1>
+              <p className="page-hint">{example.purpose}</p>
             </div>
             {editable && !user.is_visitor && (
               <button className="primary reveal" style={stagger(3)} onClick={() => go("transcript", "new")}>
@@ -658,8 +654,7 @@ function SyntheticSource({ text, onContinue }: { text: string; onContinue: () =>
   const reveal = useStepReveal();
   return (
     <section className={"panel step-panel " + reveal}>
-      <span className="eyebrow">Synthetic source</span>
-      <h1>Inspect the conversation.</h1>
+      <h1>Transcript</h1>
       <p>
         This is an approved, immutable demo transcript. Your outcome reviews and personal plan are editable;
         real uploads belong in invited private workspaces.

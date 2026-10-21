@@ -30,7 +30,7 @@ async function login(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill(process.env.MTT_E2E_EMAIL!);
   await page.getByLabel("Password", { exact: true }).fill(process.env.MTT_E2E_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
 }
 async function newExample(page: Page, workspace: string, department: string) {
   await page.getByRole("combobox", { name: "Workspace", exact: true }).selectOption({ label: workspace });
@@ -269,7 +269,7 @@ test("guided department flows, local handoff, optional GitHub preview and deep l
     ["Finance controls", "finance"],
   ]) {
     await newExample(page, workspace, department);
-    await expect(page.getByRole("heading", { name: "Bring the conversation." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transcript", exact: true, level: 1 })).toBeVisible();
     await expect(page.getByLabel("GitHub repository")).toHaveCount(0);
     await accessible(page);
     await extract(page);
@@ -329,7 +329,7 @@ test("guided department flows, local handoff, optional GitHub preview and deep l
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "Connections", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/connections$/);
-  await expect(page.getByRole("heading", { name: "Choose tools for the work." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connections", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Jira", exact: true })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Profile for participant context" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect my LinkedIn account" })).toBeDisabled();

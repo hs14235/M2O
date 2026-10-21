@@ -58,7 +58,7 @@ test("a visitor completes the journey from the keyboard with the command menu", 
   const problems: string[] = [];
   watchConsole(page, problems);
   await enterDemo(page);
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
 
   // Jump to Meetings from the menu; the page, not the menu's opener, gets focus.
   const menu = await openMenu(page);
@@ -78,7 +78,7 @@ test("a visitor completes the journey from the keyboard with the command menu", 
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });
   await tabTo(page, page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Review what matters." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Review", exact: true, level: 1 })).toBeVisible();
 
   // Search meetings by title and land on the meeting.
   await openMenu(page);
