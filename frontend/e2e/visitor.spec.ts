@@ -171,7 +171,8 @@ test("a no-action conversation has an honest empty review and reduced-motion sta
     if (request.url().endsWith(".mp4")) mediaRequests.push(request.url());
   });
   await enter(page);
-  await expect(page.getByRole("button", { name: "Reduced motion active" })).toBeDisabled();
+  // The system setting switches the whole app to its static presentation.
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");
   await expect(page.locator(".studio-media img")).toBeVisible();
   await extractFixture(page, "A quiet check-in");
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();

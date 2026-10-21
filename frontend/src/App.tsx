@@ -8,6 +8,7 @@ import DemoEntry from "./components/DemoEntry";
 import AccessPortal from "./components/AccessPortal";
 import { captureAccessLink, clearCapturedAccessLink } from "./access-link";
 import { ChromeControls, ChromeRegion, useShellChrome } from "./components/ShellChrome";
+import SidebarTools from "./components/SidebarTools";
 import { CommandCenter } from "./components/CommandCenter";
 
 const Workbench = lazy(() => import("./components/Workbench"));
@@ -190,9 +191,7 @@ export default function App() {
         <header className="app-header">
           <a className="brand" href="#main">
             <img className="brand-mark" src="/brand-mark.png" alt="" width="62" height="32" />
-            <span>
-              <strong>M2O</strong> <span className="brand-sub">Meeting 2 Outcomes</span>
-            </span>
+            <strong>M2O</strong>
           </a>
           <div className="account">
             <CommandCenter
@@ -202,15 +201,46 @@ export default function App() {
               motion={motion}
               navigate={navigate}
             />
-            <button
-              className="motion-control"
-              aria-pressed={motion.calm}
-              disabled={motion.reduced}
-              onClick={motion.toggle}
-            >
-              {motion.reduced ? "Reduced motion active" : motion.calm ? "Calm mode on" : "Enable calm mode"}
-            </button>
-            <span>{user.name}</span>
+            <nav className="page-nav" aria-label="Workspace pages">
+              {workspace &&
+                [
+                  { id: "plan", name: "My day", path: routePath(workspace.id, "plan") },
+                  { id: "meetings", name: "Meetings", path: routePath(workspace.id) },
+                  { id: "audit", name: "Audit", path: routePath(workspace.id, "audit") },
+                  { id: "settings", name: "Settings", path: settingsPath(workspace.id) },
+                ].map((item) =>
+                  item.id === "audit" && !auditAllowed ? (
+                    <button
+                      key={item.id}
+                      disabled
+                      aria-describedby="audit-permission"
+                      title="Audit requires owner or reviewer authority."
+                    >
+                      Audit
+                    </button>
+                  ) : (
+                    <a
+                      key={item.id}
+                      href={item.path}
+                      aria-current={active === item.id ? "page" : undefined}
+                      className={active === item.id ? "active" : ""}
+                      onClick={(event) => {
+                        if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
+                          event.preventDefault();
+                          navigate(item.path);
+                        }
+                      }}
+                    >
+                      {item.name}
+                    </a>
+                  ),
+                )}
+              {workspace && !auditAllowed && (
+                <span className="sr-only" id="audit-permission">
+                  Audit requires owner or reviewer authority.
+                </span>
+              )}
+            </nav>
             <button className="quiet" onClick={logout}>
               Sign out
             </button>
@@ -242,45 +272,18 @@ export default function App() {
                 </select>
               </label>
             )}
-            <nav aria-label="Workspace pages">
-              {workspace &&
-                [
-                  { id: "plan", name: "My day", path: routePath(workspace.id, "plan") },
-                  { id: "meetings", name: "Meetings", path: routePath(workspace.id) },
-                  { id: "audit", name: "Audit", path: routePath(workspace.id, "audit") },
-                  { id: "settings", name: "Settings", path: settingsPath(workspace.id) },
-                ].map((item) =>
-                  item.id === "audit" && !auditAllowed ? (
-                    <button key={item.id} disabled aria-describedby="audit-permission">
-                      Audit
-                    </button>
-                  ) : (
-                    <a
-                      key={item.id}
-                      href={item.path}
-                      aria-current={active === item.id ? "page" : undefined}
-                      className={active === item.id ? "active" : ""}
-                      onClick={(event) => {
-                        if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
-                          event.preventDefault();
-                          navigate(item.path);
-                        }
-                      }}
-                    >
-                      {item.name}
-                    </a>
-                  ),
-                )}
-            </nav>
-            {workspace && !auditAllowed && (
-              <p className="muted" id="audit-permission">
-                Audit requires owner or reviewer authority.
-              </p>
-            )}
             {workspace && !user.is_visitor && (
               <p className="muted">
                 Your role: <strong>{workspace.role}</strong>
               </p>
+            )}
+            {workspace && (
+              <SidebarTools
+                key={workspace.id}
+                workspace={workspace}
+                user={user}
+                onManage={() => navigate(settingsPath(workspace.id, "connections"))}
+              />
             )}
           </aside>
         </ChromeRegion>

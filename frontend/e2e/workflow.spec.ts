@@ -226,10 +226,14 @@ test("department themes, calm mode and persistent daily execution plan", async (
     await accessible(page);
     await page.screenshot({ path: "test-results/theme-" + department + ".png", fullPage: true });
   }
+  // Calm mode lives in Settings → Motion & layout (and the command menu), not the header.
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("link", { name: "Motion & layout", exact: true }).click();
   await page.getByRole("button", { name: "Enable calm mode", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");
   await page.reload();
   await expect(page.getByRole("button", { name: "Calm mode on" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("link", { name: "Meetings", exact: true }).click();
   await newExample(page, "Engineering delivery", "engineering");
   await extract(page);
   await review(page);
@@ -255,7 +259,7 @@ test("department themes, calm mode and persistent daily execution plan", async (
   await accessible(page);
   await page.screenshot({ path: "test-results/mobile-daily-plan.png", fullPage: true });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.getByRole("button", { name: "Reduced motion active" })).toBeDisabled();
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");
   await expect(page.locator(".scene-sphere")).toHaveCSS("animation-name", "none");
 });
 
