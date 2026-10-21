@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { api, scoped } from "../api";
+import { flyTo } from "../motion";
 import type { Kind, Outcome, Participant, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
 
@@ -40,7 +41,8 @@ export function OutcomeCard({
   onSelect: (id: string, checked: boolean) => void;
   selectable?: boolean;
 }) {
-  const prefix = useId();
+  const prefix = useId(),
+    approveRef = useRef<HTMLButtonElement>(null);
   const [title, setTitle] = useState(item.title),
     [body, setBody] = useState(item.body),
     [kind, setKind] = useState(item.kind);
@@ -88,6 +90,8 @@ export function OutcomeCard({
         }),
       });
       onDirty(item.id, false);
+      // Only after the server accepted it, so the token never shows an approval that failed.
+      if (status === "approved") flyTo(approveRef.current, "[data-fly-target='review']");
       onSaved();
     } catch (e) {
       setError(e);
@@ -199,7 +203,12 @@ export function OutcomeCard({
       </details>
       <div className="actions">
         {reviewer && item.status === "draft" && (
-          <button className="primary" disabled={busy || !title.trim()} onClick={() => save("approved")}>
+          <button
+            ref={approveRef}
+            className="primary"
+            disabled={busy || !title.trim()}
+            onClick={() => save("approved")}
+          >
             Approve outcome
           </button>
         )}
