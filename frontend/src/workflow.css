@@ -657,3 +657,177 @@ button.danger:hover:not(:disabled) {
     height: auto;
   }
 }
+
+/* Revamp phase 2: the meeting flow as small, live pockets. */
+.step-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-bottom: 0.5rem;
+}
+.step-toolbar .step-progress {
+  margin-left: auto;
+}
+.step-progress {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 180px;
+  margin: 0 0 1rem;
+}
+.step-toolbar .step-progress {
+  margin-bottom: 0;
+}
+.step-progress-track {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+.step-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.step-progress-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.step-progress[data-complete] .step-progress-count::after {
+  content: " ✓";
+}
+.step-progress-burst {
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+  pointer-events: none;
+}
+.step-progress-burst i {
+  position: absolute;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--green);
+  animation: progress-burst 0.7s ease-out forwards;
+}
+.step-progress-burst i:nth-child(even) {
+  background: #d27917;
+}
+@keyframes progress-burst {
+  from {
+    transform: rotate(var(--a)) translateX(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--a)) translateX(1.6rem) scale(0.3);
+    opacity: 0;
+  }
+}
+.fly-token {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-weight: 800;
+  pointer-events: none;
+  box-shadow: 0 6px 16px #251c4033;
+}
+[data-motion="calm"] .step-progress-track > span {
+  transition: none;
+}
+[data-motion="calm"] .step-progress-burst {
+  display: none;
+}
+
+/* People: one row per name, its state as a colored initial. */
+.mentions li {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr) minmax(170px, 230px) auto;
+  gap: 0.4rem 0.9rem;
+  padding: 0.7rem 0;
+}
+.mentions li > div {
+  min-width: 0;
+}
+.mentions small {
+  margin-top: 0.15rem;
+}
+.mentions label {
+  min-width: 0;
+}
+.mention-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  font-weight: 750;
+  color: #8a5300;
+  background: #fff1dc;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.mentions li[data-tone="on"] .mention-avatar {
+  color: var(--green);
+  background: var(--soft);
+}
+.mentions li[data-tone="attention"] .mention-avatar {
+  color: #ac3633;
+  background: #fff0ed;
+}
+
+/* The next step stays in reach while a long step scrolls. */
+.step-panel .step-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-inline: -0.5rem;
+  padding: 0.9rem 0.5rem;
+  background: color-mix(in srgb, white 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* Empty states: a small shape and one clear sentence. */
+.empty {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-style: solid;
+  border-color: var(--line);
+  background: white;
+}
+.empty::before {
+  content: "";
+  flex: none;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 14px 50% 50% 50%;
+  background: radial-gradient(circle at 70% 30%, white 0 18%, transparent 19%),
+    linear-gradient(135deg, var(--soft), color-mix(in srgb, var(--green) 45%, var(--soft)));
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--green) 18%, transparent);
+}
+
+@media (max-width: 580px) {
+  .mentions li {
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+  }
+  .mentions li > label,
+  .mentions li > button {
+    grid-column: 1 / -1;
+  }
+  .step-toolbar .step-progress {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

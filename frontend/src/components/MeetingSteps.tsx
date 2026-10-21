@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import { useStepReveal } from "../motion";
+import StepProgress from "./StepProgress";
 import type { Department, Kind, Meeting, Participant, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
 import { kindNames, OutcomeCard, sortOutcomes } from "./OutcomeCard";
@@ -302,10 +303,21 @@ export function PeopleStep({
     <section className={"panel step-panel " + reveal}>
       <h1>People</h1>
       <p className="page-hint">Extract outcomes, then confirm who each name refers to.</p>
-      <p className="muted">Transcript indexing {meeting.index_status}</p>
-      <button disabled={!editable || !ready || pending || adding} onClick={onExtract}>
-        {meeting.tasks.length ? "Extract outcomes again" : "Extract outcomes"}
-      </button>
+      <div className="step-toolbar">
+        <button
+          className={meeting.tasks.length ? undefined : "primary"}
+          disabled={!editable || !ready || pending || adding}
+          onClick={onExtract}
+        >
+          {meeting.tasks.length ? "Extract outcomes again" : "Extract outcomes"}
+        </button>
+        <span className="muted">Transcript indexing {meeting.index_status}</span>
+        <StepProgress
+          done={meeting.mentions.length - unconfirmed}
+          total={meeting.mentions.length}
+          label="people confirmed"
+        />
+      </div>
       {/* One stable wrapper: its entrance plays once, never while lines become cards. */}
       <div className="my-4 grid gap-3">
         {showLines ? (
@@ -372,9 +384,6 @@ export function PeopleStep({
           <ErrorNotice error={error} />
         </details>
       )}
-      <p className="muted">
-        Use People and Connections in the workspace menu for profile links and your own LinkedIn connection.
-      </p>
       <div className="step-actions">
         <button onClick={onBack}>Back to transcript</button>
         <button className="primary" disabled={!ready || pending || adding} onClick={onContinue}>
@@ -397,8 +406,12 @@ function MentionRow({
   onConfirm: (id: string) => void;
 }) {
   const [person, setPerson] = useState(mention.participant_id || "");
+  const tone = mention.confirmed ? "on" : mention.candidates.length > 1 ? "attention" : "ready";
   return (
-    <li>
+    <li data-tone={tone}>
+      <span className="mention-avatar" aria-hidden="true">
+        {mention.name.slice(0, 1)}
+      </span>
       <div>
         <strong>{mention.name}</strong>
         <small>
@@ -412,7 +425,7 @@ function MentionRow({
         </small>
       </div>
       <label>
-        Directory match for {mention.name}
+        <span className="sr-only">Directory match for {mention.name}</span>
         <select value={person} disabled={!editable} onChange={(e) => setPerson(e.target.value)}>
           <option value="">Leave unassigned</option>
           {people.map((p) => (
@@ -491,6 +504,7 @@ export function ReviewStep({
       <p className="page-hint">
         {approved} of {meeting.tasks.length} approved. Check each outcome's evidence, owner and date.
       </p>
+      <StepProgress done={approved} total={meeting.tasks.length} label="outcomes approved" target="review" />
       <details className="review-filter">
         <summary>Filter outcomes</summary>
         <label>
