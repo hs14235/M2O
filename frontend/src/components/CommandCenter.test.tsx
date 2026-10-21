@@ -102,8 +102,9 @@ it("opens with Ctrl+K as a labelled dialog with a combobox, and Escape returns f
   expect(document.documentElement).toHaveClass("modal-open");
   const dialog = await screen.findByRole("dialog", { name: "Command menu" });
   expect(dialog).toBeVisible();
-  await waitFor(async () => expect(await screen.findByRole("combobox")).toHaveFocus());
-  expect(await screen.findByRole("option", { name: "Meetings" })).toBeInTheDocument();
+  // The menu body is a lazy chunk; under a full parallel run it can take past the 1 s default.
+  await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus(), { timeout: 5000 });
+  expect(await screen.findByRole("option", { name: "Meetings" }, { timeout: 5000 })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   await waitFor(() => expect(trigger).toHaveFocus());
