@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import type { Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
+import ProviderRow, { type ProviderTone } from "./ProviderRow";
+import SlackActions from "./SlackActions";
 
 export interface SlackStatus {
   configured: boolean;
@@ -34,7 +36,7 @@ export default function SlackConnection({
   onChanged,
 }: {
   workspace: Workspace;
-  onChanged: () => void;
+  onChanged?: () => void;
 }) {
   const [status, setStatus] = useState<SlackStatus | null>(null),
     [channel, setChannel] = useState(""),
@@ -75,44 +77,67 @@ export default function SlackConnection({
       if (!controller.signal.aborted) setBusy(false);
     }
   }
+  const connected = status?.state === "connected";
+  const [state, tone]: [string, ProviderTone] = !status
+    ? ["Checking…", "off"]
+    : !status.configured
+      ? ["Not set up", "off"]
+      : status.state === "disconnected"
+        ? ["Not connected", "ready"]
+        : !connected
+          ? ["Reconnect needed", "attention"]
+          : status.destination
+            ? ["Connected", "on"]
+            : ["Choose a channel", "ready"];
   return (
-    <section className="panel" aria-labelledby="slack-account-heading">
-      <span className="eyebrow">Slack destination</span>
-      <h2 id="slack-account-heading">Give the conversation a team channel.</h2>
-      <p>
-        Connect Slack and verify the channel containing M2O. Reviewed delivery can create a message or update
-        a previous M2O message.
-      </p>
+    <ProviderRow
+      id="slack"
+      name="Slack"
+      summary="Post or update a reviewed message in one channel you verify."
+      state={state}
+      tone={tone}
+      action={
+        status && (
+          <button
+            className={connected ? undefined : "primary"}
+            disabled={busy || !status.configured || !status.can_manage}
+            onClick={() =>
+              run(async (signal) => {
+                const value = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
+                if (!signal.aborted) window.location.assign(value.url);
+              })
+            }
+          >
+            {status.state === "disconnected" ? "Connect Slack" : "Reconnect Slack"}
+          </button>
+        )
+      }
+    >
       <ErrorNotice error={error} />
-      {!status ? (
-        <p role="status">Checking Slack access…</p>
-      ) : (
+      {status && (
         <>
-          {status.delivery_reasons.map((reason) => (
-            <p className="muted" key={reason}>
-              {reasons[reason] || "This Slack connection needs attention before delivery."}
-            </p>
-          ))}
+          {status.delivery_reasons
+            .filter((reason) => reason !== "not_connected")
+            .map((reason) => (
+              <p className="muted" key={reason}>
+                {reasons[reason] || "This Slack connection needs attention before delivery."}
+              </p>
+            ))}
           {status.account && (
             <p>
-              Workspace: <strong>{status.account.team_name}</strong>
-              {status.destination && <> · #{status.destination.channel_name}</>}
+              Workspace <strong>{status.account.team_name}</strong>
+              {status.destination && (
+                <>
+                  {" "}
+                  · sending to <strong>#{status.destination.channel_name}</strong>
+                </>
+              )}
             </p>
           )}
-          <div className="actions">
-            <button
-              disabled={busy || !status.configured || !status.can_manage}
-              onClick={() =>
-                run(async (signal) => {
-                  const value = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
-                  if (!signal.aborted) window.location.assign(value.url);
-                })
-              }
-            >
-              {status.state === "disconnected" ? "Connect Slack" : "Reconnect Slack"}
-            </button>
-            {status.state !== "disconnected" && status.can_manage && (
+          {status.state !== "disconnected" && status.can_manage && (
+            <div className="actions">
               <button
+                className="quiet"
                 disabled={busy}
                 onClick={() =>
                   run(async (signal) => {
@@ -122,62 +147,61 @@ export default function SlackConnection({
                       setStatus(value);
                       setChannel("");
                       setNotice("Disconnected from this workspace. No message was removed.");
-                      onChanged();
+                      onChanged?.();
                     }
                   })
                 }
               >
                 Disconnect Slack from this workspace
               </button>
-            )}
-          </div>
+            </div>
+          )}
           {status.state === "connected" && status.can_manage && (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void run(async (signal) => {
-                  const value = await api<SlackStatus>(path + "/destination", {
-                    signal,
-                    method: "POST",
-                    body: JSON.stringify({
-                      channel_id: channel.trim().toUpperCase(),
-                      expected_version: status.version,
-                    }),
-                  });
-                  if (!signal.aborted) {
-                    setStatus(value);
-                    setNotice("Channel verified and saved. No Slack message was sent.");
-                    onChanged();
-                  }
-                });
-              }}
-            >
-              <label>
-                Slack channel ID
-                <input
-                  required
-                  pattern="C[A-Z0-9]{7,63}"
-                  maxLength={64}
-                  value={channel}
-                  disabled={busy}
-                  onChange={(event) => setChannel(event.target.value.toUpperCase())}
-                  placeholder="C…"
-                />
-              </label>
+            <details open={!status.destination}>
+              <summary>{status.destination ? "Change channel" : "Choose a channel"}</summary>
               <p className="muted">
-                Open the channel name in Slack, then copy its Channel ID from the channel details.
+                Invite M2O to the channel, then copy its Channel ID from the channel details in Slack.
               </p>
-              <button disabled={busy || !channel || !status.version}>Verify Slack channel</button>
-            </form>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(async (signal) => {
+                    const value = await api<SlackStatus>(path + "/destination", {
+                      signal,
+                      method: "POST",
+                      body: JSON.stringify({
+                        channel_id: channel.trim().toUpperCase(),
+                        expected_version: status.version,
+                      }),
+                    });
+                    if (!signal.aborted) {
+                      setStatus(value);
+                      setNotice("Channel verified and saved. No Slack message was sent.");
+                      onChanged?.();
+                    }
+                  });
+                }}
+              >
+                <label>
+                  Slack channel ID
+                  <input
+                    required
+                    pattern="C[A-Z0-9]{7,63}"
+                    maxLength={64}
+                    value={channel}
+                    disabled={busy}
+                    onChange={(event) => setChannel(event.target.value.toUpperCase())}
+                    placeholder="C…"
+                  />
+                </label>
+                <button disabled={busy || !channel || !status.version}>Verify Slack channel</button>
+              </form>
+            </details>
           )}
-          {!status.can_capture_meeting && !status.can_change_my_plan && (
-            <p className="muted">
-              Interactive meeting capture and personal progress actions are not available on this connection.
-            </p>
-          )}
+          {connected && <SlackActions key={status.version} workspace={workspace} />}
         </>
       )}
       {notice && <p role="status">{notice}</p>}
-    </section>
+    </ProviderRow>
   );
 }

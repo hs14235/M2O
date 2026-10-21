@@ -43,6 +43,16 @@ it("disables connection and discovery in demo mode", async () => {
   expect(screen.queryByRole("button", { name: "Find authorized Jira sites" })).toBeNull();
 });
 
+it("shows the status and the connect action together in the Jira row", async () => {
+  vi.spyOn(client, "api").mockResolvedValue({ ...status, state: "disconnected", version: null });
+  render(<JiraConnection workspace={workspace} />);
+  const button = await screen.findByRole("button", { name: "Connect Jira" });
+  const head = button.closest(".provider-head") as HTMLElement;
+  expect(head).toHaveTextContent("Not connected");
+  expect(head).toHaveTextContent("Jira");
+  expect(button).toBeEnabled();
+});
+
 it("disconnects the workspace and displays request errors without success", async () => {
   const request = vi.spyOn(client, "api").mockResolvedValue(status);
   render(<JiraConnection workspace={workspace} />);

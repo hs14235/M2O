@@ -82,12 +82,11 @@ export default function SlackActions({ workspace }: { workspace: Workspace }) {
     }
   }
   return (
-    <section className="panel" aria-labelledby="slack-actions-heading">
-      <span className="eyebrow">Your Slack identity</span>
-      <h2 id="slack-actions-heading">Keep personal actions personal.</h2>
-      <p>
-        Link your Slack member to your signed-in M2O account before using meeting capture or personal plan
-        actions.
+    <section className="provider-sub" aria-labelledby="slack-actions-heading">
+      <h4 id="slack-actions-heading">Your Slack member</h4>
+      <p className="muted">
+        Link your own Slack member to this account to use <code>/m2o meeting</code> and <code>/m2o plan</code>
+        .
       </p>
       <ErrorNotice error={error} />
       {!status ? (
@@ -101,7 +100,7 @@ export default function SlackActions({ workspace }: { workspace: Workspace }) {
         <>
           {status.installations.map((installation) => (
             <article className="slack-installation" key={installation.connection_id}>
-              <h3>{installation.team_name}</h3>
+              <h5>{installation.team_name}</h5>
               <p>
                 {installation.linked
                   ? "Linked member: " + installation.slack_user_id
@@ -157,7 +156,7 @@ export default function SlackActions({ workspace }: { workspace: Workspace }) {
       )}
       {challenge && (
         <div className="preview">
-          <h3>Confirm your member in {challenge.team_name}</h3>
+          <h5>Confirm your member in {challenge.team_name}</h5>
           <ol>
             <li>Keep this M2O browser session open.</li>
             <li>

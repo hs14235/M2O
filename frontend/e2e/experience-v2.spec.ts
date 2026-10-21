@@ -125,7 +125,7 @@ test("compact stages, approved calendar, settings and reversible workspace frame
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Confirmed directory" })).toBeVisible();
   await page.getByRole("link", { name: "Connections", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your Google Meet connection" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Google Meet", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Motion & layout", exact: true }).click();
   await page.getByRole("button", { name: "Enable calm mode", exact: true }).last().click();
   await expect(page.locator("html")).toHaveAttribute("data-motion", "calm");

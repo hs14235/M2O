@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, scoped } from "../api";
 import type { GoogleMeetStatus, User, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
+import ProviderRow, { type ProviderTone } from "./ProviderRow";
 
 export default function GoogleMeetConnection({ workspace, user }: { workspace: Workspace; user: User }) {
   const [status, setStatus] = useState<GoogleMeetStatus | null>(null),
@@ -51,68 +52,71 @@ export default function GoogleMeetConnection({ workspace, user }: { workspace: W
       setBusy(false);
     }
   }
+  const [state, tone]: [string, ProviderTone] = !eligible
+    ? ["Private accounts", "off"]
+    : !status
+      ? [error ? "Unavailable" : "Checking…", "off"]
+      : status.setup_required
+        ? ["Not set up", "off"]
+        : status.can_import
+          ? ["Connected", "on"]
+          : status.state === "reauthorization_required"
+            ? ["Reconnect needed", "attention"]
+            : ["Not connected", "ready"];
   return (
-    <section className="panel">
-      <span className="eyebrow">Meeting source</span>
-      <h2>Your Google Meet connection</h2>
-      <p>
-        Import the latest accessible meeting's existing transcript entries, then review the text before
-        saving. Google labels still need participant confirmation in M2O.
-      </p>
+    <ProviderRow
+      id="google-meet"
+      name="Google Meet"
+      summary="Import the latest meeting's transcript, then review it before saving."
+      state={state}
+      tone={tone}
+      action={
+        eligible &&
+        status &&
+        !status.setup_required &&
+        (status.can_import ? (
+          <button className="quiet" disabled={busy} onClick={disconnect}>
+            Disconnect my Google Meet account
+          </button>
+        ) : (
+          <button className="primary" disabled={busy || !status.configured} onClick={connect}>
+            {status.state === "reauthorization_required"
+              ? "Reconnect my Google Meet account"
+              : "Connect my Google Meet account"}
+          </button>
+        ))
+      }
+    >
       <ErrorNotice error={error} />
       {notice && <p role="status">{notice}</p>}
-      {!eligible ? (
-        <p>
-          Google Meet import requires an invited private contributor account. Synthetic demos use their
-          prepared examples.
+      {!eligible && (
+        <p className="muted">
+          Needs an invited private contributor account. Synthetic demos use their prepared examples.
         </p>
-      ) : !status ? (
-        !error && <p role="status">Checking Google Meet readiness…</p>
-      ) : status.setup_required ? (
-        <div className="notice">
-          <strong>Google Meet setup is required.</strong>
-          <p>
-            The operator needs a Google Cloud OAuth app with read-only Meet access. Meetings must already
-            generate transcripts; a connection cannot create a missing transcript.
-          </p>
-          <details>
-            <summary>What is needed?</summary>
-            <p>
-              Enable Google Meet REST API, configure the actual M2O consent screen, grant
-              meetings.space.readonly, and register the callback for this installation. Client credentials
-              belong in private backend configuration.
-            </p>
-          </details>
-        </div>
-      ) : (
-        <>
-          <p>Connection: {status.state.replaceAll("_", " ")}</p>
-          {status.can_import ? (
-            <>
-              <p className="notice">
-                Ready to preview an existing transcript from a meeting's Transcript step.
-              </p>
-              <button disabled={busy} onClick={disconnect}>
-                Disconnect my Google Meet account
-              </button>
-            </>
-          ) : (
-            <button disabled={busy || !status.configured} onClick={connect}>
-              {status.state === "reauthorization_required"
-                ? "Reconnect my Google Meet account"
-                : "Connect my Google Meet account"}
-            </button>
-          )}
-        </>
       )}
-      <details>
-        <summary>Import boundaries</summary>
-        <p>
-          Only the latest accessible conference is checked. An active meeting, absent transcript, or
-          processing artifact has its own empty state; M2O does not silently import an older meeting. API
-          entries can differ from an edited Google Docs transcript.
-        </p>
-      </details>
-    </section>
+      {status?.setup_required && (
+        <details>
+          <summary>What setup needs</summary>
+          <p>
+            A Google Cloud OAuth app with the Google Meet REST API enabled, the meetings.space.readonly scope
+            and this installation's callback. Meetings must already produce transcripts; connecting cannot
+            create a missing one. Client credentials belong in private backend configuration.
+          </p>
+        </details>
+      )}
+      {status?.can_import && (
+        <p className="muted">Import an existing transcript from a meeting's Transcript step.</p>
+      )}
+      {eligible && status && !status.setup_required && (
+        <details>
+          <summary>Import boundaries</summary>
+          <p>
+            Only the latest accessible conference is checked. An active meeting, absent transcript, or
+            processing artifact has its own empty state; M2O does not silently import an older meeting. API
+            entries can differ from an edited Google Docs transcript.
+          </p>
+        </details>
+      )}
+    </ProviderRow>
   );
 }

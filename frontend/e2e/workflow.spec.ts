@@ -331,7 +331,7 @@ test("guided department flows, local handoff, optional GitHub preview and deep l
   await expect(page).toHaveURL(/\/settings\/connections$/);
   await expect(page.getByRole("heading", { name: "Choose tools for the work." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Jira", exact: true })).toBeDisabled();
-  await expect(page.getByRole("heading", { name: "Your LinkedIn connection" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profile for participant context" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect my LinkedIn account" })).toBeDisabled();
   await accessible(page);
   await page.setViewportSize({ width: 390, height: 844 });

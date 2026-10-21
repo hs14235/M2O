@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import type { Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
+import ProviderRow, { type ProviderTone } from "./ProviderRow";
 
 interface Status {
   configured: boolean;
@@ -80,151 +81,166 @@ export default function JiraConnection({
       if (!controller.signal.aborted) setBusy(false);
     }
   }
+  const connected = status?.state === "connected";
+  const [state, tone]: [string, ProviderTone] = !status
+    ? ["Checking…", "off"]
+    : !status.configured
+      ? ["Not set up", "off"]
+      : status.state === "reauthorization_required"
+        ? ["Reconnect needed", "attention"]
+        : !connected
+          ? ["Not connected", "ready"]
+          : status.destination
+            ? ["Connected", "on"]
+            : ["Choose a project", "ready"];
+  const connect = (
+    <button
+      className={connected ? undefined : "primary"}
+      disabled={busy || !status?.configured || !status.can_manage}
+      onClick={() =>
+        run(async (signal) => {
+          const result = await api<{ url: string }>(path + "/connect", { method: "POST", signal });
+          if (!signal.aborted) window.location.assign(result.url);
+        })
+      }
+    >
+      {status?.state === "disconnected" ? "Connect Jira" : "Reconnect Jira"}
+    </button>
+  );
   return (
-    <section className="panel" aria-labelledby="jira-account-heading">
-      <span className="eyebrow">Jira destination</span>
-      <h2 id="jira-account-heading">Give your outcomes a place to land.</h2>
-      <p>
-        Connect your account, choose an authorized site, then verify the space key. This checks access without
-        creating an issue.
-      </p>
+    <ProviderRow
+      id="jira"
+      name="Jira"
+      summary="Create or update issues from a preview you approve."
+      state={state}
+      tone={tone}
+      action={status && connect}
+    >
       <ErrorNotice error={error} />
-      {!status ? (
-        <p role="status">Checking your Jira connection…</p>
-      ) : (
-        <>
-          {!status.configured && (
-            <p className="notice">
-              The application operator must configure Jira credentials and protected credential storage.
-            </p>
+      {status && !status.configured && (
+        <p className="muted">Add the Jira app's client ID and secret to the private configuration.</p>
+      )}
+      {status && status.configured && !status.can_manage && (
+        <p className="muted">Workspace owners connect Jira outside demo mode.</p>
+      )}
+      {status?.state === "connected" && (
+        <p>
+          {status.destination ? (
+            <>
+              Sending to{" "}
+              <strong>
+                {status.destination.name} / {status.destination.project_key}
+              </strong>{" "}
+              ({status.destination.project_name})
+            </>
+          ) : (
+            "Account connected. Pick the site and project issues should go to."
           )}
-          {status.state === "reauthorization_required" && (
-            <p className="notice">Reconnect Jira to renew your authorization.</p>
-          )}
-          {status.state === "connected" && (
-            <p className="notice">
-              Account connected.
-              {status.destination
-                ? ` Verified destination: ${status.destination.name} / ${status.destination.project_key} (${status.destination.project_name}).`
-                : " Choose a destination below."}
-            </p>
-          )}
-          {!status.can_manage && (
-            <p className="muted">Connections are managed by workspace owners outside demo mode.</p>
-          )}
-          <div className="button-row">
+        </p>
+      )}
+      {status && status.state !== "disconnected" && (
+        <div className="actions">
+          {status?.state === "connected" && status.can_manage && (
             <button
-              disabled={busy || !status.configured || !status.can_manage}
+              disabled={busy}
               onClick={() =>
                 run(async (signal) => {
-                  const result = await api<{ url: string }>(path + "/connect", { method: "POST", signal });
-                  if (!signal.aborted) window.location.assign(result.url);
+                  const result = await api<Site[]>(path + "/sites", { signal });
+                  if (!signal.aborted) {
+                    setSites(result);
+                    setSite(result[0]?.id || "");
+                    setNotice(
+                      result.length
+                        ? "Select a site and enter its space key."
+                        : "No Jira sites granted the required permissions. Check access and reconnect.",
+                    );
+                  }
                 })
               }
             >
-              {status.state === "disconnected" ? "Connect Jira" : "Reconnect Jira"}
+              Find authorized Jira sites
             </button>
-            {status.state !== "disconnected" && (
-              <button
-                disabled={busy || workspace.role !== "owner"}
-                onClick={() =>
-                  run(async (signal) => {
-                    await api(path, { method: "DELETE", signal });
-                    const result = await api<Status>(path, { signal });
-                    if (!signal.aborted) {
-                      setStatus(result);
-                      setSites([]);
-                      setSite("");
-                      setProject("");
-                      onChanged?.();
-                      setNotice(
-                        "Disconnected from this workspace. Other workspaces keep their own access. Revoke the Atlassian grant in your Atlassian connected-app settings if needed.",
-                      );
-                    }
-                  })
+          )}
+          <button
+            className="quiet"
+            disabled={busy || workspace.role !== "owner"}
+            onClick={() =>
+              run(async (signal) => {
+                await api(path, { method: "DELETE", signal });
+                const result = await api<Status>(path, { signal });
+                if (!signal.aborted) {
+                  setStatus(result);
+                  setSites([]);
+                  setSite("");
+                  setProject("");
+                  onChanged?.();
+                  setNotice(
+                    "Disconnected from this workspace. Other workspaces keep their own access. Revoke the Atlassian grant in your Atlassian connected-app settings if needed.",
+                  );
                 }
-              >
-                Disconnect from this workspace
-              </button>
-            )}
-          </div>
-          {status.state === "connected" && status.can_manage && (
-            <>
-              <button
+              })
+            }
+          >
+            Disconnect from this workspace
+          </button>
+        </div>
+      )}
+      {status?.state === "connected" && status.can_manage && (
+        <>
+          {sites.length > 0 && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run(async (signal) => {
+                  const result = await api<Status>(path + "/destination", {
+                    method: "POST",
+                    signal,
+                    body: JSON.stringify({
+                      resource_id: site,
+                      project_key: project.trim().toUpperCase(),
+                      expected_version: status.version,
+                    }),
+                  });
+                  if (!signal.aborted) {
+                    setStatus(result);
+                    onChanged?.();
+                    setNotice("Destination verified and saved. No issue was created.");
+                  }
+                });
+              }}
+            >
+              <label htmlFor="jira-site">Authorized Jira site</label>
+              <select
+                id="jira-site"
+                value={site}
                 disabled={busy}
-                onClick={() =>
-                  run(async (signal) => {
-                    const result = await api<Site[]>(path + "/sites", { signal });
-                    if (!signal.aborted) {
-                      setSites(result);
-                      setSite(result[0]?.id || "");
-                      setNotice(
-                        result.length
-                          ? "Select a site and enter its space key."
-                          : "No Jira sites granted the required permissions. Check access and reconnect.",
-                      );
-                    }
-                  })
-                }
+                onChange={(event) => setSite(event.target.value)}
               >
-                Find authorized Jira sites
+                {sites.map((value) => (
+                  <option key={value.id} value={value.id}>
+                    {value.name} — {value.url}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="jira-project">Space key</label>
+              <input
+                id="jira-project"
+                value={project}
+                disabled={busy}
+                required
+                maxLength={40}
+                pattern="[A-Za-z][A-Za-z0-9_]{1,39}"
+                onChange={(event) => setProject(event.target.value)}
+                autoComplete="off"
+              />
+              <button disabled={busy || !site || !project.trim()} type="submit">
+                Verify and save destination
               </button>
-              {sites.length > 0 && (
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void run(async (signal) => {
-                      const result = await api<Status>(path + "/destination", {
-                        method: "POST",
-                        signal,
-                        body: JSON.stringify({
-                          resource_id: site,
-                          project_key: project.trim().toUpperCase(),
-                          expected_version: status.version,
-                        }),
-                      });
-                      if (!signal.aborted) {
-                        setStatus(result);
-                        onChanged?.();
-                        setNotice("Destination verified and saved. No issue was created.");
-                      }
-                    });
-                  }}
-                >
-                  <label htmlFor="jira-site">Authorized Jira site</label>
-                  <select
-                    id="jira-site"
-                    value={site}
-                    disabled={busy}
-                    onChange={(event) => setSite(event.target.value)}
-                  >
-                    {sites.map((value) => (
-                      <option key={value.id} value={value.id}>
-                        {value.name} — {value.url}
-                      </option>
-                    ))}
-                  </select>
-                  <label htmlFor="jira-project">Space key</label>
-                  <input
-                    id="jira-project"
-                    value={project}
-                    disabled={busy}
-                    required
-                    maxLength={40}
-                    pattern="[A-Za-z][A-Za-z0-9_]{1,39}"
-                    onChange={(event) => setProject(event.target.value)}
-                    autoComplete="off"
-                  />
-                  <button disabled={busy || !site || !project.trim()} type="submit">
-                    Verify and save destination
-                  </button>
-                </form>
-              )}
-            </>
+            </form>
           )}
         </>
       )}
       {(busy || notice) && <p role="status">{busy ? "Checking Jira…" : notice}</p>}
-    </section>
+    </ProviderRow>
   );
 }
