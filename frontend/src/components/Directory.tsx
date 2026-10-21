@@ -80,6 +80,9 @@ export default function Directory({
           <ul className="people">
             {people.map((person) => (
               <li key={person.id}>
+                <span className="mention-avatar" aria-hidden="true">
+                  {person.name.slice(0, 1)}
+                </span>
                 <strong>{person.name}</strong>
                 <span>{person.role || "Participant"}</span>
                 <small>
@@ -100,11 +103,11 @@ export default function Directory({
       </section>
       <div>
         {user.is_visitor ? (
-          <section className="panel">
+          <section className="panel directory-note">
             <h2>Synthetic participant context</h2>
-            <p>
-              This demo uses its own prepared directory. Confirm the correct person from a meeting’s People
-              step. Adding real participant details requires an invited private workspace.
+            <p className="muted">
+              A prepared demo directory. Confirm people from a meeting’s People step; real participants need
+              an invited private workspace.
             </p>
           </section>
         ) : (

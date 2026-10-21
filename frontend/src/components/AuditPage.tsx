@@ -41,7 +41,10 @@ export default function AuditPage({ workspace }: { workspace: Workspace }) {
       ) : (
         <>
           <ErrorNotice error={error} />
-          <button onClick={() => setReload((value) => value + 1)}>Refresh audit history</button>
+          <div className="step-toolbar">
+            <button onClick={() => setReload((value) => value + 1)}>Refresh audit history</button>
+            {loaded && <span className="muted">{events.length} recorded changes</span>}
+          </div>
           {!loaded ? (
             !error && <p role="status">Loading recorded changes…</p>
           ) : !events.length ? (
@@ -49,7 +52,7 @@ export default function AuditPage({ workspace }: { workspace: Workspace }) {
           ) : (
             <ol className="timeline">
               {events.map((event, index) => (
-                <li key={event.created_at + ":" + index}>
+                <li key={event.created_at + ":" + index} data-area={event.action.split(".")[0]}>
                   <strong>{event.action.replaceAll(".", " · ").replaceAll("_", " ")}</strong>
                   <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString()}</time>
                   <details>
