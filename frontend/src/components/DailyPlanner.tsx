@@ -4,6 +4,8 @@ import { routePath } from "../navigation";
 import type { DailyPlan, ExecutionState, PlanEntry, PlanSource, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
 import { ContextBubble } from "./ContextBubble";
+import { flyTo } from "../motion";
+import StepProgress from "./StepProgress";
 
 export function localDay() {
   const now = new Date();
@@ -75,6 +77,8 @@ export default function DailyPlanner({
     entry?: PlanEntry,
     values?: Partial<Pick<PlanEntry, "state" | "planned_on" | "priority">>,
     remove = false,
+    /** Where an added item's token starts, so it lands visibly in the plan. */
+    flyFrom?: Element | null,
   ) {
     if (mutation.current || refreshNeeded) return;
     const request = Symbol("plan change"),
@@ -105,6 +109,7 @@ export default function DailyPlanner({
         },
       );
       accepted = true;
+      if (flyFrom) flyTo(flyFrom, "[data-fly-target='plan']", "+");
       if (mutation.current !== request || currentScope.current !== scope) return;
       await load();
       if (mutation.current !== request || currentScope.current !== scope) return;
@@ -193,7 +198,9 @@ export default function DailyPlanner({
           </details>
         </fieldset>
         <div className="actions">
-          <button onClick={() => open(entry)}>Review source</button>
+          <button className="quiet" onClick={() => open(entry)}>
+            Review source
+          </button>
           {editable && entry.stale && entry.can_reconfirm && (
             <button
               disabled={busy || refreshNeeded}
@@ -312,8 +319,16 @@ export default function DailyPlanner({
             <span>{done} complete</span>
             <span>{plan.entries.filter((entry) => entry.stale).length} need review</span>
           </div>
-          <section aria-labelledby="plan-heading">
-            <h2 id="plan-heading">Make space for what matters</h2>
+          <section aria-labelledby="plan-heading" className="plan-section">
+            <div className="plan-heading-row">
+              <h2 id="plan-heading">Your plan</h2>
+              <StepProgress
+                done={done}
+                total={plan.entries.length}
+                label="planned items done"
+                target="plan"
+              />
+            </div>
             {!plan.entries.length && (
               <Empty>
                 No work planned for this date. Add a reviewed outcome below, or review a meeting first.
@@ -365,9 +380,8 @@ export default function DailyPlanner({
           </section>
           <section className="panel">
             <h2>Ready to plan</h2>
-            <p>
-              These are approved actions and follow-ups from meetings you can access. Adding one does not
-              reassign its owner.
+            <p className="page-hint">
+              Approved actions and follow-ups. Adding one does not change its owner.
             </p>
             <label>
               Find reviewed work
@@ -400,7 +414,7 @@ export default function DailyPlanner({
                         <button
                           className="primary"
                           disabled={busy || refreshNeeded}
-                          onClick={() => change(item)}
+                          onClick={(event) => change(item, undefined, undefined, false, event.currentTarget)}
                         >
                           Add to this day
                         </button>
