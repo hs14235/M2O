@@ -6,7 +6,7 @@ async function login(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill(process.env.MTT_E2E_EMAIL!);
   await page.getByLabel("Password", { exact: true }).fill(process.env.MTT_E2E_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
 }
 async function accessible(page: Page) {
   // Let finite animations settle; mid-fade colours are not what users read. Poll

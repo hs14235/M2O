@@ -121,9 +121,8 @@ export default function PrivacyPage({
   }
   return (
     <div className="privacy-page">
-      <span className="eyebrow">Privacy & control</span>
-      <h1>Your data, with clear boundaries.</h1>
-      <p>
+      <h1>Privacy &amp; data</h1>
+      <p className="page-hint">
         Exports contain private information. Erasure changes local M2O data; content already delivered to team
         tools remains with those providers.
       </p>

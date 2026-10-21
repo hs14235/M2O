@@ -47,9 +47,8 @@ export function TranscriptStep(props: {
   const reveal = useStepReveal();
   return (
     <section className={"panel step-panel " + reveal}>
-      <span className="eyebrow">Step 1 of 4</span>
-      <h1>Bring the conversation.</h1>
-      <p>
+      <h1>Transcript</h1>
+      <p className="page-hint">
         Paste a written transcript, upload a text file
         {p.onAudio ? ", transcribe a recording on this machine" : ""}, or try the department example.
       </p>
@@ -297,10 +296,9 @@ export function PeopleStep({
   }
   return (
     <section className={"panel step-panel " + reveal}>
-      <span className="eyebrow">Step 2 of 4</span>
-      <h1>Put people in context.</h1>
-      <p>
-        Find the draft outcomes, then confirm who the transcript names refer to. Unconfirmed people can stay
+      <h1>People</h1>
+      <p className="page-hint">
+        Extract the draft outcomes, then confirm who each name refers to. Anyone unconfirmed can stay
         unassigned.
       </p>
       <p className="muted">Transcript indexing {meeting.index_status}</p>
@@ -483,15 +481,14 @@ export function ReviewStep({
     approved = meeting.tasks.filter((value) => value.status === "approved").length;
   return (
     <section className={"step-panel " + reveal}>
-      <span className="eyebrow">Step 3 of 4 · Review</span>
       {savedAt !== null && (
         <div className="save-spark" role="status" key={savedAt}>
           <span aria-hidden="true">✦</span>Review saved.
         </div>
       )}
-      <h1>Review what matters.</h1>
-      <p>
-        Check the evidence, owner and date for each outcome. {approved} of {meeting.tasks.length} approved.
+      <h1>Review</h1>
+      <p className="page-hint">
+        {approved} of {meeting.tasks.length} approved. Check each outcome's evidence, owner and date.
       </p>
       <details className="review-filter">
         <summary>Filter outcomes</summary>

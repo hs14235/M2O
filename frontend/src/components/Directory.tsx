@@ -70,11 +70,9 @@ export default function Directory({
   return (
     <div className="directory layout">
       <section className="panel">
-        <span className="eyebrow">Participant context</span>
         <h1>Confirmed directory</h1>
-        <p>
-          Directory records are supplied and confirmed by workspace members. Similar names remain separate
-          until a person explicitly resolves a transcript mention.
+        <p className="page-hint">
+          Similar names stay separate until someone confirms who a transcript mention is.
         </p>
         {people.length === 0 ? (
           <Empty>Add a participant to resolve names and assign outcomes.</Empty>

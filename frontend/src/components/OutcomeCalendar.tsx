@@ -185,11 +185,9 @@ export default function OutcomeCalendar({
   }
   return (
     <section className={"outcome-calendar step-panel " + reveal}>
-      <span className="eyebrow">Step 4 of 4 · Outcome constellation</span>
-      <h1>A little clarity, written in stars.</h1>
-      <p>
-        All approved outcome kinds in the current transcript revision. Only reviewed dates land on the sky;
-        undated work keeps its own place.
+      <h1>Calendar</h1>
+      <p className="page-hint">
+        Approved outcomes from this revision by date. Undated work keeps its own place.
       </p>
       <div className="calendar-toolbar">
         <div className="calendar-scope" role="group" aria-label="Calendar scope">

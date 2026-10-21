@@ -153,7 +153,7 @@ export function DepartmentHero({
       aria-label={experience.name + " experience"}
     >
       <div className="hero-copy">
-        <span className="eyebrow">M2O / {experience.motif}</span>
+        {!compact && <span className="eyebrow">M2O / {experience.motif}</span>}
         <h2>{compact ? experience.name : experience.headline}</h2>
         {!compact && (
           <>

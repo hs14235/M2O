@@ -225,20 +225,23 @@ export default function App() {
               active={workspace}
               onChange={(id) => navigate(routePath(id))}
             />
-            <label>
-              Workspace
-              <select
-                value={workspace?.id || ""}
-                onChange={(event) => navigate(routePath(event.target.value))}
-              >
-                {!workspace && <option value="">Choose workspace</option>}
-                {workspaces.map((value) => (
-                  <option key={value.id} value={value.id}>
-                    {value.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {/* The department buttons already reach every workspace when each department has one. */}
+            {new Set(workspaces.map((value) => value.department)).size < workspaces.length && (
+              <label>
+                Workspace
+                <select
+                  value={workspace?.id || ""}
+                  onChange={(event) => navigate(routePath(event.target.value))}
+                >
+                  {!workspace && <option value="">Choose workspace</option>}
+                  {workspaces.map((value) => (
+                    <option key={value.id} value={value.id}>
+                      {value.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <nav aria-label="Workspace pages">
               {workspace &&
                 [
@@ -279,11 +282,6 @@ export default function App() {
                 Your role: <strong>{workspace.role}</strong>
               </p>
             )}
-            <p className="local-note">
-              Source-linked outcomes
-              <br />
-              Review before sharing
-            </p>
           </aside>
         </ChromeRegion>
         <main id="main" tabIndex={-1}>
@@ -296,23 +294,25 @@ export default function App() {
           )}
           <ErrorNotice error={error} />
           {user.is_visitor && (
-            <section className="notice visitor-banner" aria-label="Synthetic demo session">
-              <strong>Your isolated synthetic demo</strong>
-              <p>
-                Use synthetic data. Your reviews and plan are isolated; real uploads and external sends are
-                disabled.
-              </p>
-              {user.expires_at && (
-                <details>
-                  <summary>
-                    Demo available until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
-                  </summary>
-                  <p>
-                    When access expires, start a fresh demo. Access expiry does not immediately erase stored
-                    data.
-                  </p>
-                </details>
-              )}
+            <section className="visitor-banner" aria-label="Synthetic demo session">
+              <details>
+                <summary>
+                  <span className="visitor-dot" aria-hidden="true" />
+                  <strong>Synthetic demo</strong>
+                  {user.expires_at && (
+                    <span>
+                      {" "}
+                      · until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
+                    </span>
+                  )}
+                  <span className="visitor-more">What this means</span>
+                </summary>
+                <p>
+                  Your isolated synthetic demo uses synthetic data. Your reviews and plan are isolated; real
+                  uploads and external sends are disabled. When access expires, start a fresh demo. Access
+                  expiry does not immediately erase stored data.
+                </p>
+              </details>
             </section>
           )}
           {/* While a page loads, hold about a step's height so the content does not push

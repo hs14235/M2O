@@ -35,15 +35,6 @@ export default function SettingsPage({
   const [error, setError] = useState<unknown>(null);
   return (
     <div className="settings-page">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">Your workspace controls</span>
-          <details>
-            <summary>About workspace settings</summary>
-            <p>People, tools and preferences live here. Your meeting stays focused on its next step.</p>
-          </details>
-        </div>
-      </div>
       <nav className="settings-sections" aria-label="Settings sections">
         {available.map((value) => (
           <a
@@ -65,7 +56,7 @@ export default function SettingsPage({
       <Suspense fallback={<p role="status">Loading settings…</p>}>
         {section === "motion" ? (
           <section className="panel">
-            <h1>Motion that follows your pace</h1>
+            <h1>Motion &amp; layout</h1>
             <p>
               Calm mode keeps the same controls and information with a static presentation. Your system's
               reduced-motion preference takes priority.
@@ -116,7 +107,7 @@ export default function SettingsPage({
           <Administration workspace={workspace} />
         ) : (
           <section className="panel">
-            <h1>Your access</h1>
+            <h1>Access</h1>
             <p>
               Your current role is {workspace.role}. Only workspace owners manage invitations and membership
               roles. Reviewers approve outcomes and delivery; editors prepare source and draft changes;

@@ -231,10 +231,9 @@ export default function DailyPlanner({
     <div className="daily-planner">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Your daily plan</span>
-          <h1>A clear day starts here.</h1>
-          <p>
-            Plan approved actions and follow-ups. Your personal progress is separate from review and delivery.
+          <h1>My day</h1>
+          <p className="page-hint">
+            Approved work you plan for the day. Progress here stays separate from review and delivery.
           </p>
         </div>
         <label>

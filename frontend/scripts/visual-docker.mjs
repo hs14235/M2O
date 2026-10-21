@@ -1,5 +1,6 @@
 // Run the visual spec inside the official Playwright Linux image so screenshots match CI.
-// Usage: node scripts/visual-docker.mjs [--update]  (expects the Compose stack on port 8080)
+// Usage: node scripts/visual-docker.mjs [--update]  (expects the Compose stack on port 8080;
+// set MTT_VISUAL_HOST_PORT to reach a second stack, e.g. a demo-mode one beside a private one)
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -16,10 +17,11 @@ const linux = process.platform === "linux";
 // network, so localhost:8080 is the Compose stack. Docker Desktop has no host network, so a
 // TCP relay inside the container carries localhost:8080 to host.docker.internal, and the
 // tests start only once the relay is listening.
+const hostPort = Number(process.env.MTT_VISUAL_HOST_PORT || 8080);
 const relay =
-  "const net = require('net'); net.createServer((c) => { const u = net.connect(8080, 'host.docker.internal');" +
+  `const net = require('net'); net.createServer((c) => { const u = net.connect(${hostPort}, 'host.docker.internal');` +
   " c.pipe(u).pipe(c); c.on('error', () => u.destroy()); u.on('error', () => c.destroy()); })" +
-  `.listen(8080, '127.0.0.1', () => { require('child_process').spawn('bash', ['-c', '${test}'], { stdio: 'inherit' })` +
+  `.listen(${hostPort}, '127.0.0.1', () => { require('child_process').spawn('bash', ['-c', '${test}'], { stdio: 'inherit' })` +
   ".on('exit', (code) => process.exit(code ?? 1)); });";
 const args = [
   "run", "--rm", "--ipc=host",
@@ -27,7 +29,7 @@ const args = [
     ? ["--network=host", "--user", `${process.getuid()}:${process.getgid()}`, "-e", "HOME=/tmp"]
     : ["--add-host=host.docker.internal:host-gateway"]),
   "-v", `${frontend}:/work`, "-w", "/work",
-  "-e", "MTT_E2E_URL=http://localhost:8080", "-e", "MTT_VISUAL=1",
+  "-e", `MTT_E2E_URL=http://localhost:${hostPort}`, "-e", "MTT_VISUAL=1",
   `mcr.microsoft.com/playwright:v${version}-noble`,
   ...(linux ? ["bash", "-c", test] : ["node", "-e", relay]),
 ];

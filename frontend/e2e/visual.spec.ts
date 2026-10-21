@@ -62,7 +62,7 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   await enterDemo(page);
   await expect(page.locator("html")).toHaveAttribute("data-department", "engineering");
   await snapAll(browser, page, "demo-home", (view) =>
-    view.getByRole("heading", { name: "Make the next step clear." }),
+    view.getByRole("heading", { name: "Meetings", exact: true, level: 1 }),
   );
 
   const workspace = new URL(page.url()).pathname.split("/")[2];
@@ -71,12 +71,13 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   await snapAll(browser, page, "people", (view) => view.getByLabel("Directory match for Alex"));
 
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
-  const review = (view: Page) => view.getByRole("heading", { name: "Review what matters." });
+  const review = (view: Page) => view.getByRole("heading", { name: "Review", exact: true, level: 1 });
   await expect(review(page)).toBeVisible();
   await snapAll(browser, page, "review", review);
 
   await page.goto(`/workspaces/${workspace}/settings/motion`);
-  const motionHeading = (view: Page) => view.getByRole("heading", { name: "Motion that follows your pace" });
+  const motionHeading = (view: Page) =>
+    view.getByRole("heading", { name: "Motion & layout", exact: true, level: 1 });
   await expect(motionHeading(page)).toBeVisible();
   await snapAll(browser, page, "settings-motion", motionHeading);
 });
@@ -86,14 +87,14 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
 test("the open command menu matches its baselines in both themes and sizes", async ({ browser, page }) => {
   await page.setViewportSize(desktop.viewport);
   await enterDemo(page);
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
   const storageState = await page.context().storageState();
   for (const { colorScheme, size, device } of variants) {
     const context = await browser.newContext({ ...device, colorScheme, storageState });
     try {
       const view = await context.newPage();
       await view.goto(page.url());
-      await expect(view.getByRole("heading", { name: "Make the next step clear." })).toBeVisible({
+      await expect(view.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible({
         timeout: 30000,
       });
       await settle(view);

@@ -33,7 +33,7 @@ async function signIn(page: Page, account: { email: string; password: string }) 
   await privateFill(page.getByLabel("Email", { exact: true }), account.email);
   await privateFill(page.getByLabel("Password", { exact: true }), account.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Make the next step clear." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
 }
 async function privateFill(input: Locator, value: string) {
   try {
