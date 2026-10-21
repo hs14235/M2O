@@ -831,3 +831,58 @@ button.danger:hover:not(:disabled) {
     flex-basis: 100%;
   }
 }
+
+/* Revamp phase 3: My day as a short list with a meter, details on demand. */
+.plan-summary {
+  gap: 0.5rem;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin-bottom: 1rem;
+}
+.plan-summary > * {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+}
+.plan-summary > strong {
+  color: var(--green);
+}
+.plan-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.2rem;
+  margin-bottom: 0.8rem;
+}
+.plan-heading-row h2 {
+  margin: 0;
+}
+.plan-heading-row .step-progress {
+  flex: 1;
+  max-width: 320px;
+  margin: 0;
+}
+.plan-card {
+  padding: 1rem 1.15rem;
+}
+.plan-card h3 {
+  margin-bottom: 0.25rem;
+}
+.plan-card .eyebrow {
+  margin-bottom: 0.3rem;
+}
+.plan-card fieldset {
+  display: grid;
+  gap: 0.6rem;
+}
+.plan-card .actions {
+  margin: 0.6rem 0 0;
+  gap: 0.3rem;
+}
+.plan-card.done h3 {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--green) 55%, transparent);
+}
