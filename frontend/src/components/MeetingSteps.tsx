@@ -246,7 +246,7 @@ export function PeopleStep({
   const region = useRef<HTMLDivElement>(null);
   // The lines are what turns into cards, so an extraction started here brings them on screen.
   useEffect(() => {
-    if (extracting) region.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+    if (extracting) region.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
   }, [extracting]);
   // Only a moment for the revision on screen plays; either way it is consumed once.
   const fresh = Boolean(
