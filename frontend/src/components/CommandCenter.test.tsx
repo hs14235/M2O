@@ -1,8 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { configure, fireEvent, getConfig, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { CommandCenter } from "./CommandCenter";
 import type { User, Workspace } from "../types";
+
+// The menu body is a lazy chunk. A full parallel run (or a dev server alongside) can
+// delay its import past Testing Library's 1 s default, so this file waits up to 5 s.
+let previousTimeout = 1000;
+beforeAll(() => {
+  previousTimeout = getConfig().asyncUtilTimeout;
+  configure({ asyncUtilTimeout: 5000 });
+});
+afterAll(() => configure({ asyncUtilTimeout: previousTimeout }));
 
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../api", async (original) => ({ ...(await original<typeof import("../api")>()), api }));
@@ -114,7 +123,7 @@ it("opens with Ctrl+K as a labelled dialog with a combobox, and Escape returns f
 it("closes when the backdrop is clicked", async () => {
   const { trigger } = setup();
   await userEvent.click(trigger);
-  const dialog = screen.getByRole("dialog", { name: "Command menu" });
+  const dialog = await screen.findByRole("dialog", { name: "Command menu" });
   await userEvent.click(dialog);
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(trigger).toHaveFocus();
@@ -191,7 +200,7 @@ it("opens a visible menu with Ctrl+K while the header is collapsed", async () =>
 it("does not close when a drag starts in the panel and ends on the backdrop", async () => {
   const { trigger } = setup();
   await userEvent.click(trigger);
-  const dialog = screen.getByRole("dialog", { name: "Command menu" });
+  const dialog = await screen.findByRole("dialog", { name: "Command menu" });
   const field = await screen.findByRole("combobox");
   fireEvent.pointerDown(field);
   fireEvent.click(dialog);

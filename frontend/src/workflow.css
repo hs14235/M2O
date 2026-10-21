@@ -953,3 +953,201 @@ button.danger:hover:not(:disabled) {
 .timeline details {
   margin-top: 0.3rem;
 }
+
+/* Live tweaks: page links live in the header; the sidebar holds a Tools panel. */
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+}
+.page-nav a,
+.page-nav button {
+  min-height: 38px;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 0.86rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.page-nav a:hover {
+  background: var(--soft);
+}
+.page-nav a.active {
+  background: var(--green);
+  color: white;
+}
+.page-nav button:disabled {
+  opacity: 0.45;
+}
+.brand strong {
+  font-size: 1.15rem;
+}
+
+.sidebar-tools {
+  margin-top: 1.4rem;
+  padding: 0.85rem 0.5rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, white 82%, var(--soft));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--green) 10%, transparent);
+}
+.sidebar-tools-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0.2rem 0.5rem;
+}
+.sidebar-tools-head h2 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.sidebar-tools-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.sidebar-tools ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sidebar-tools li {
+  display: grid;
+  grid-template-columns: 1.9rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.3rem;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+.sidebar-tools li:hover {
+  background: white;
+}
+.tool-mark {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 9px;
+  background: var(--mark, var(--green));
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  box-shadow: 0 3px 8px #251c4022;
+}
+.tool-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+.tool-text strong {
+  font-size: 0.84rem;
+}
+.tool-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tool-state::before {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.tool-state[data-tone="on"] {
+  color: var(--green);
+}
+.tool-state[data-tone="ready"] {
+  color: #8a5300;
+}
+.tool-state[data-tone="attention"] {
+  color: #ac3633;
+}
+.tool-state[data-tone="on"]::before {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
+}
+.tool-action {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  min-height: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--green);
+  color: var(--green);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+.tool-action:hover:not(:disabled) {
+  background: var(--green);
+  color: white;
+  transform: scale(1.08);
+}
+[data-motion="calm"] .tool-action:hover:not(:disabled) {
+  transform: none;
+}
+.sidebar-tools-manage {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 0.4rem;
+  padding: 0.3rem;
+  border: 0;
+  color: var(--green);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 850px) {
+  /* Phone header: logo and sign-out on one row, the page links swipeable below. */
+  .app-header {
+    flex-wrap: wrap;
+  }
+  .app-header .account {
+    display: contents;
+  }
+  .app-header .brand {
+    margin-right: auto;
+  }
+  .page-nav {
+    order: 3;
+    flex-basis: 100%;
+    overflow-x: auto;
+  }
+  .page-nav a,
+  .page-nav button {
+    flex-shrink: 0;
+  }
+  .sidebar-tools {
+    margin-top: 0.8rem;
+  }
+  .sidebar-tools ul {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+}
