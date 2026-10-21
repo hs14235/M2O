@@ -170,17 +170,8 @@ export function ShareStep({
   }
   return (
     <section className={"step-panel share-workflow " + reveal}>
-      <span className="eyebrow">Step 3 of 4 · Deliver · {stageNames[stage]}</span>
-      <h1>
-        {stage === "choose"
-          ? "Choose the next home."
-          : stage === "configure"
-            ? "Make the handoff yours."
-            : stage === "preview"
-              ? "See exactly what leaves."
-              : "Know where it landed."}
-      </h1>
-      <p>{stageHints[stage]}</p>
+      <h1>Share</h1>
+      <p className="page-hint">{stageHints[stage]}</p>
       <ol className="handoff-stages" aria-label="Handoff stages">
         {handoffStages.map((value, i) => (
           <li key={value} aria-current={stage === value ? "step" : undefined}>
@@ -254,15 +245,6 @@ export function ShareStep({
               Manage connections
             </button>
           </section>
-          <div className="step-actions">
-            <button
-              className="primary"
-              disabled={!eligible || !available || busy}
-              onClick={() => go("configure")}
-            >
-              Continue to preparation
-            </button>
-          </div>
         </>
       )}
       {stage !== "choose" && (
@@ -414,6 +396,16 @@ export function ShareStep({
           <button onClick={() => go("receipt")}>View delivery history</button>
         )}
         <button onClick={onBack}>Back to review</button>
+        {/* One bar per screen: it is sticky, so a second one would stack on top. */}
+        {stage === "choose" && (
+          <button
+            className="primary"
+            disabled={!eligible || !available || busy}
+            onClick={() => go("configure")}
+          >
+            Continue to preparation
+          </button>
+        )}
       </div>
     </section>
   );

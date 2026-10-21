@@ -93,7 +93,7 @@ test("a real local handoff response cannot navigate after Back and Forward", asy
   await started;
   await page.goBack();
   await expect(page).toHaveURL(chooseUrl);
-  await expect(page.getByRole("heading", { name: "Choose the next home." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Share", exact: true, level: 1 })).toBeVisible();
   await page.goForward();
   await expect(page).toHaveURL(/handoff=configure/);
   release();
