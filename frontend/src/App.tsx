@@ -225,8 +225,8 @@ export default function App() {
               active={workspace}
               onChange={(id) => navigate(routePath(id))}
             />
-            {/* The department buttons already reach every workspace when each department has one. */}
-            {new Set(workspaces.map((value) => value.department)).size < workspaces.length && (
+            {/* A visitor has one workspace per department, which the department buttons already reach. */}
+            {!user.is_visitor && (
               <label>
                 Workspace
                 <select

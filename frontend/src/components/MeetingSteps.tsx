@@ -244,6 +244,10 @@ export function PeopleStep({
   // Storage is read once per revision and again after this step marks it (stage changes).
   const seen = useMemo(() => momentSeen(seenKey), [seenKey, stage]);
   const region = useRef<HTMLDivElement>(null);
+  // The lines are what turns into cards, so an extraction started here brings them on screen.
+  useEffect(() => {
+    if (extracting) region.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [extracting]);
   // Only a moment for the revision on screen plays; either way it is consumed once.
   const fresh = Boolean(
     moment && moment.revision === meeting.current_revision && stage?.moment !== moment.job,
@@ -297,10 +301,7 @@ export function PeopleStep({
   return (
     <section className={"panel step-panel " + reveal}>
       <h1>People</h1>
-      <p className="page-hint">
-        Extract the draft outcomes, then confirm who each name refers to. Anyone unconfirmed can stay
-        unassigned.
-      </p>
+      <p className="page-hint">Extract outcomes, then confirm who each name refers to.</p>
       <p className="muted">Transcript indexing {meeting.index_status}</p>
       <button disabled={!editable || !ready || pending || adding} onClick={onExtract}>
         {meeting.tasks.length ? "Extract outcomes again" : "Extract outcomes"}
