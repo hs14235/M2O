@@ -82,23 +82,20 @@ For the existing authenticated browser suite, prepare the generated synthetic ac
 
 ### Visual regression
 
-`frontend/e2e/visual.spec.ts` compares the main visitor screens (landing, demo home, People, Review, Settings → Motion & layout) against baseline images in light and dark at 1280×720 and 390×844. Font rendering differs between operating systems, so baselines are made and checked only inside the official Playwright Linux image, at the same version as `@playwright/test`. Docker is required; the Compose stack must be running on port 8080. From `frontend`:
+`frontend/e2e/visual.spec.ts` compares the main visitor screens (landing, demo home, People, Review, Settings → Motion & layout) and the open command menu against baseline images, in light and dark, at 1280×720 and 390×844. Fonts render differently on each operating system, so the screenshots are taken inside the official Playwright Linux image, the same one CI uses.
+
+**Run it with one command.** Start Docker Desktop, then from `frontend`, in any terminal (PowerShell or Git Bash):
 
 ```powershell
-npm.cmd run test:visual          # compare against the baselines
-npm.cmd run test:visual:update   # rewrite the baselines after an intended change
+npm run test:visual:demo          # compare the screens against the baselines
+npm run test:visual:demo:update   # after an intended visual change: rewrite the baselines, then review the images
 ```
 
-The stack must be in demo mode and built from the code under test; otherwise every screen differs. If your 8080 stack is a private one (`PUBLIC_DEMO_MODE=false`) or an older build, run a throwaway demo stack beside it and point the spec at it. From the repository root in Git Bash:
+It starts a throwaway demo stack on port 8090 built from your current code, runs the check, and removes the stack and its data afterwards. Success ends with `2 passed` and `Visual check passed.` The first run takes a few minutes while Docker builds the images and downloads the Playwright image.
 
-```bash
-APP_PORT=8090 POSTGRES_PORT=55433 PUBLIC_DEMO_MODE=true VISITOR_START_LIMIT=50 \
-  docker compose -p m2o-visual up -d --build web worker
-(cd frontend && MTT_VISUAL_HOST_PORT=8090 npm run test:visual)
-docker compose -p m2o-visual down -v   # removes the throwaway stack and its data
-```
+Your private stack is not affected. The demo stack has its own containers, ports and database, every provider credential is blanked so none of your `.env` secrets load, and your stack on 8080 can be running or stopped. `npm run test:visual:demo:keep` leaves the demo stack up for a look at http://localhost:8090; remove it afterwards with `docker compose -p m2o-visual down -v`.
 
-Blank the provider variables (for example `JIRA_CLIENT_SECRET=`) on the `up` line if your root `.env` holds private credentials, so the demo stack never loads them.
+`npm run test:visual` (without `:demo`) checks whatever already runs on port 8080. It passes only if that stack is in demo mode and built from the code under test, so it suits CI, not a private local stack.
 
 Ordinary `npm run test:e2e` runs skip this spec. Mobile variants use a phone-class context (touch, mobile viewport). Animations are fast-forwarded and `<time>` elements get a fixed-width box and a mask; up to 0.1% of pixels may differ. The spec uses one demo session because demo starts are limited per address per hour (10 by default; CI raises it with `VISITOR_START_LIMIT`). A PR that changes baselines must be reviewed as images; when CI fails, the expected, actual and diff images are in the `playwright-results` artifact.
 
