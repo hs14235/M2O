@@ -12,6 +12,9 @@
     "test:e2e": "playwright test",
     "test:visual": "node scripts/visual-docker.mjs",
     "test:visual:update": "node scripts/visual-docker.mjs --update",
+    "test:visual:demo": "node scripts/visual-demo.mjs",
+    "test:visual:demo:update": "node scripts/visual-demo.mjs --update",
+    "test:visual:demo:keep": "node scripts/visual-demo.mjs --keep",
     "format": "prettier --write src e2e",
     "format:check": "prettier --check src e2e"
   },
