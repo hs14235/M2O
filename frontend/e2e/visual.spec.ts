@@ -99,12 +99,12 @@ test("the open command menu matches its baselines in both themes and sizes", asy
       });
       await settle(view);
       await view.keyboard.press("ControlOrMeta+K");
-      await expect(view.getByRole("dialog", { name: "Command menu" })).toBeVisible();
+      const menu = view.getByRole("dialog", { name: "Command menu" });
+      await expect(menu).toBeVisible();
       await settle(view);
-      await expect(view).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`, {
-        mask: [view.locator("time")],
-        style: fixedTimes,
-      });
+      // Only the menu: the page behind it (playing studio media, content still revealing
+      // at the fold) varied between runs and machines, and the page captures cover it.
+      await expect(menu).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`);
     } finally {
       await context.close();
     }

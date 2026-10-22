@@ -89,6 +89,17 @@ npm.cmd run test:visual          # compare against the baselines
 npm.cmd run test:visual:update   # rewrite the baselines after an intended change
 ```
 
+The stack must be in demo mode and built from the code under test; otherwise every screen differs. If your 8080 stack is a private one (`PUBLIC_DEMO_MODE=false`) or an older build, run a throwaway demo stack beside it and point the spec at it. From the repository root in Git Bash:
+
+```bash
+APP_PORT=8090 POSTGRES_PORT=55433 PUBLIC_DEMO_MODE=true VISITOR_START_LIMIT=50 \
+  docker compose -p m2o-visual up -d --build web worker
+(cd frontend && MTT_VISUAL_HOST_PORT=8090 npm run test:visual)
+docker compose -p m2o-visual down -v   # removes the throwaway stack and its data
+```
+
+Blank the provider variables (for example `JIRA_CLIENT_SECRET=`) on the `up` line if your root `.env` holds private credentials, so the demo stack never loads them.
+
 Ordinary `npm run test:e2e` runs skip this spec. Mobile variants use a phone-class context (touch, mobile viewport). Animations are fast-forwarded and `<time>` elements get a fixed-width box and a mask; up to 0.1% of pixels may differ. The spec uses one demo session because demo starts are limited per address per hour (10 by default; CI raises it with `VISITOR_START_LIMIT`). A PR that changes baselines must be reviewed as images; when CI fails, the expected, actual and diff images are in the `playwright-results` artifact.
 
 The Phase 7 recovery browser suite is `frontend/e2e/phase7-recovery.spec.ts`. Run it against the disposable lifecycle runtime below with `MTT_E2E_URL` set to the fixture's loopback URL, `MTT_LIFECYCLE_FIXTURE` set to the private fixture path, and the fixture's synthetic email/password passed in the child process environment. From `frontend`, the command is `npm.cmd run test:e2e -- e2e/phase7-recovery.spec.ts`. Do not print fixture credentials or use a private/production actor. The suite uses the real API/worker/database and deliberately interrupts selected GET responses or delays a local export response; it does not publish to providers. Screenshots stay under ignored `frontend/test-results`, preserving documentation captures.
