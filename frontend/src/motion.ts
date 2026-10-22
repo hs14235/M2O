@@ -59,6 +59,23 @@ export function flyTo(from: Element | null, target: string, text = "✓") {
     .finally(() => token.remove());
 }
 
+/**
+ * A ripple of the new department color from the active department button (or the top
+ * left when the sidebar is hidden). Decorative: aria-hidden, no pointer events, removed
+ * when it ends. Callers skip it when motion is off.
+ */
+export function washDepartment() {
+  const origin = document.querySelector(".department-switch [aria-pressed='true']")?.getBoundingClientRect();
+  const wash = document.createElement("div");
+  wash.className = "dept-wash";
+  wash.setAttribute("aria-hidden", "true");
+  wash.style.setProperty("--x", origin && origin.width ? origin.left + origin.width / 2 + "px" : "12%");
+  wash.style.setProperty("--y", origin && origin.width ? origin.top + origin.height / 2 + "px" : "18%");
+  wash.addEventListener("animationend", () => wash.remove());
+  document.body.append(wash);
+  setTimeout(() => wash.remove(), 1800);
+}
+
 /** True unless calm mode or the system reduced-motion setting turned motion off. */
 export function prefersMotion(): boolean {
   if (document.documentElement.dataset.motion === "calm") return false;

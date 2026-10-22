@@ -11,7 +11,18 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": stack
-        ? { target: stack, changeOrigin: true, headers: { origin: stack } }
+        ? {
+            target: stack,
+            changeOrigin: true,
+            headers: { origin: stack },
+            // Keep redirects on this dev server: an absolute Location would send the
+            // browser to the stack's origin, which it cannot read from here.
+            configure: (proxy) =>
+              proxy.on("proxyRes", (response) => {
+                const location = response.headers.location;
+                if (location) response.headers.location = location.replace(/^https?:\/\/[^/]+/, "");
+              }),
+          }
         : "http://127.0.0.1:8000",
     },
   },

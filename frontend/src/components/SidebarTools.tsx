@@ -174,6 +174,11 @@ export default function SidebarTools({
       <button type="button" className="sidebar-tools-manage quiet" onClick={onManage}>
         All connections
       </button>
+      {!user.is_visitor && (
+        <p className="sidebar-tools-role">
+          Your role: <strong>{workspace.role}</strong>
+        </p>
+      )}
     </section>
   );
 }
