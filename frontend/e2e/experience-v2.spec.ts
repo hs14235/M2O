@@ -36,8 +36,9 @@ test("compact stages, approved calendar, settings and reversible workspace frame
     await page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link").allTextContents(),
   ).toEqual(["My day", "Meetings", "Audit", "Settings"]);
   await page
-    .getByRole("combobox", { name: "Workspace", exact: true })
-    .selectOption({ label: "Engineering delivery" });
+    .getByRole("group", { name: "Department experiences" })
+    .getByRole("button", { name: "Engineering", exact: true })
+    .click();
   await page.getByRole("button", { name: "New meeting", exact: true }).click();
   await page.getByRole("button", { name: "Import latest Google Meet transcript" }).click();
   await expect(page.getByText("Google Meet setup is required.")).toBeVisible();
@@ -175,8 +176,9 @@ test("Google import UI contract with synthetic missing, processing and reused re
   // indexing and reopened meeting detail use the isolated local API and worker.
   await login(page);
   await page
-    .getByRole("combobox", { name: "Workspace", exact: true })
-    .selectOption({ label: "People operations" });
+    .getByRole("group", { name: "Department experiences" })
+    .getByRole("button", { name: "People Operations", exact: true })
+    .click();
   await page.getByRole("button", { name: "New meeting", exact: true }).click();
   await page.getByLabel("Meeting title").fill("Synthetic Meet source");
   const transcript = "Alex: Action: Prepare the synthetic onboarding checklist.";

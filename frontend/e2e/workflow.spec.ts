@@ -32,8 +32,17 @@ async function login(page: Page) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
 }
-async function newExample(page: Page, workspace: string, department: string) {
-  await page.getByRole("combobox", { name: "Workspace", exact: true }).selectOption({ label: workspace });
+// The e2e account has one workspace per department, so a department button opens it.
+const departmentNames: Record<string, string> = {
+  engineering: "Engineering",
+  finance: "Finance Control",
+  hr: "People Operations",
+};
+async function newExample(page: Page, department: string) {
+  await page
+    .getByRole("group", { name: "Department experiences" })
+    .getByRole("button", { name: departmentNames[department], exact: true })
+    .click();
   await page.getByRole("button", { name: "New meeting", exact: true }).click();
   await expect(page).toHaveURL(/\/new\/transcript$/);
   await page.getByRole("button", { name: "Load synthetic " + department + " example" }).click();
@@ -165,7 +174,7 @@ test("Jira handoff UI with synthetic provider responses, exact approval and rece
     }),
   );
   await login(page);
-  await newExample(page, "Engineering delivery", "engineering");
+  await newExample(page, "engineering");
   await extract(page);
   await review(page);
   const action = page.locator("article.action");
@@ -234,7 +243,7 @@ test("department themes, calm mode and persistent daily execution plan", async (
   await page.reload();
   await expect(page.getByRole("button", { name: "Calm mode on" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("link", { name: "Meetings", exact: true }).click();
-  await newExample(page, "Engineering delivery", "engineering");
+  await newExample(page, "engineering");
   await extract(page);
   await review(page);
   const title = "Plan regression " + Date.now();
@@ -267,12 +276,8 @@ test("guided department flows, local handoff, optional GitHub preview and deep l
   await page.goto("/");
   await accessible(page);
   await login(page);
-  for (const [workspace, department] of [
-    ["Engineering delivery", "engineering"],
-    ["People operations", "hr"],
-    ["Finance controls", "finance"],
-  ]) {
-    await newExample(page, workspace, department);
+  for (const department of ["engineering", "hr", "finance"]) {
+    await newExample(page, department);
     await expect(page.getByRole("heading", { name: "Transcript", exact: true, level: 1 })).toBeVisible();
     await expect(page.getByLabel("GitHub repository")).toHaveCount(0);
     await accessible(page);
@@ -357,7 +362,7 @@ test("ambiguous people, navigation guards and retained review across revisions",
   }
   await accessible(page);
   await page.getByRole("link", { name: "Meetings", exact: true }).click();
-  await newExample(page, "Engineering delivery", "engineering");
+  await newExample(page, "engineering");
   const unsaved = await page.getByLabel("Transcript text").inputValue(),
     newUrl = page.url();
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -366,11 +371,15 @@ test("ambiguous people, navigation guards and retained review across revisions",
   await expect(page.getByLabel("Transcript text")).toHaveValue(unsaved);
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
-    .getByRole("combobox", { name: "Workspace", exact: true })
-    .selectOption({ label: "Finance controls" });
-  await expect(page.getByRole("combobox", { name: "Workspace", exact: true })).toHaveValue(
-    await page.getByRole("option", { name: "Engineering delivery" }).getAttribute("value"),
-  );
+    .getByRole("group", { name: "Department experiences" })
+    .getByRole("button", { name: "Finance Control", exact: true })
+    .click();
+  // Dismissing the unsaved-changes prompt keeps the current workspace.
+  await expect(
+    page
+      .getByRole("group", { name: "Department experiences" })
+      .getByRole("button", { name: "Engineering", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await extract(page);
   await expect(page.getByText("Ambiguous name: multiple directory matches")).toBeVisible();
   const mention = page.locator(".mentions li").filter({ has: page.getByText("Alex", { exact: true }) });

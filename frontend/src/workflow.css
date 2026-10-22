@@ -1151,3 +1151,99 @@ button.danger:hover:not(:disabled) {
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   }
 }
+
+.sidebar-label {
+  margin: 0 0 0.6rem 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.sidebar-tools-role {
+  margin: 0.3rem 0 0.1rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--line);
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+/* Department switch: the chosen department fills with its color, and the change washes in. */
+@property --green {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5032bb;
+}
+@property --soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ede7ff;
+}
+@property --line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d9d0ea;
+}
+@property --canvas {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f5f0ff;
+}
+:root {
+  transition:
+    --green 0.7s cubic-bezier(0.45, 0, 0.25, 1),
+    --soft 0.7s cubic-bezier(0.45, 0, 0.25, 1),
+    --line 0.7s cubic-bezier(0.45, 0, 0.25, 1),
+    --canvas 0.7s cubic-bezier(0.45, 0, 0.25, 1);
+}
+:root[data-motion="calm"] {
+  transition: none;
+}
+.department-switch button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--green) 32%, transparent);
+}
+.department-switch button[aria-pressed="true"] .department-dot {
+  background: white;
+  box-shadow: 0 0 0 3px color-mix(in srgb, white 35%, transparent);
+}
+/* A soft glow of the new color: no edge, blended in OKLab so it does not band, grown
+   with a transform (smooth on the GPU) and faded out. Calm mode never creates it. */
+.dept-wash {
+  position: fixed;
+  left: var(--x);
+  top: var(--y);
+  z-index: 40;
+  width: 260vmax;
+  height: 260vmax;
+  margin: -130vmax 0 0 -130vmax;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side in oklab,
+    color-mix(in oklab, var(--green) 13%, transparent) 0%,
+    color-mix(in oklab, var(--green) 8%, transparent) 35%,
+    color-mix(in oklab, var(--green) 3%, transparent) 65%,
+    transparent 100%
+  );
+  transform: scale(0.08);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: dept-wash 0.95s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+@keyframes dept-wash {
+  0% {
+    transform: scale(0.08);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

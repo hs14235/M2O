@@ -9,6 +9,8 @@ import AccessPortal from "./components/AccessPortal";
 import { captureAccessLink, clearCapturedAccessLink } from "./access-link";
 import { ChromeControls, ChromeRegion, useShellChrome } from "./components/ShellChrome";
 import SidebarTools from "./components/SidebarTools";
+import { prefersMotion, washDepartment } from "./motion";
+import { rememberPath, resumePath } from "./workspaceResume";
 import { CommandCenter } from "./components/CommandCenter";
 
 const Workbench = lazy(() => import("./components/Workbench"));
@@ -116,7 +118,19 @@ export default function App() {
   }
   const workspace = workspaces.find((w) => w.id === route.workspace);
   useEffect(() => {
-    document.documentElement.dataset.department = workspace?.department || "engineering";
+    if (user && route.valid && route.workspace) rememberPath(user.id, route.workspace, path);
+  }, [user, route.valid, route.workspace, path]);
+  // Switching to another workspace resumes where it was left; the current one goes home.
+  const openWorkspace = (id: string) =>
+    navigate((id !== workspace?.id && user && resumePath(user.id, id)) || routePath(id));
+  const shownDepartment = useRef<string | null>(null);
+  useEffect(() => {
+    const department = workspace?.department || "engineering";
+    document.documentElement.dataset.department = department;
+    // A department change washes the page in its color from the button that chose it.
+    const previous = shownDepartment.current;
+    shownDepartment.current = department;
+    if (previous && previous !== department && prefersMotion()) washDepartment();
   }, [workspace?.department]);
   if (checking)
     return (
@@ -250,19 +264,13 @@ export default function App() {
       <div className="app-shell" data-sidebar={chrome.sidebar ? "open" : "closed"}>
         <ChromeRegion id="workspace-sidebar" expanded={chrome.sidebar} calm={motion.calm} side>
           <aside className="app-nav" aria-label="Workspace sidebar">
-            <DepartmentSwitch
-              workspaces={workspaces}
-              active={workspace}
-              onChange={(id) => navigate(routePath(id))}
-            />
-            {/* A visitor has one workspace per department, which the department buttons already reach. */}
-            {!user.is_visitor && (
+            <h2 className="sidebar-label">Workspace</h2>
+            <DepartmentSwitch workspaces={workspaces} active={workspace} onChange={openWorkspace} />
+            {/* The department buttons reach every workspace unless a department holds several. */}
+            {new Set(workspaces.map((value) => value.department)).size < workspaces.length && (
               <label>
                 Workspace
-                <select
-                  value={workspace?.id || ""}
-                  onChange={(event) => navigate(routePath(event.target.value))}
-                >
+                <select value={workspace?.id || ""} onChange={(event) => openWorkspace(event.target.value)}>
                   {!workspace && <option value="">Choose workspace</option>}
                   {workspaces.map((value) => (
                     <option key={value.id} value={value.id}>
@@ -271,11 +279,6 @@ export default function App() {
                   ))}
                 </select>
               </label>
-            )}
-            {workspace && !user.is_visitor && (
-              <p className="muted">
-                Your role: <strong>{workspace.role}</strong>
-              </p>
             )}
             {workspace && (
               <SidebarTools
