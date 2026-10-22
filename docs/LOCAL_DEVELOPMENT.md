@@ -1,6 +1,17 @@
 # Local development and verification
 
-The [README](../README.md) contains the shortest Docker path. This guide covers optional AI, native processes and verification. Commands below are PowerShell; `npm.cmd` avoids Windows execution-policy issues with `npm.ps1`.
+The [README](../README.md) contains the shortest Docker path. This guide covers optional AI, native processes and verification. Each command block starts by changing into the folder it needs, so a block can be pasted as is; paths assume the repository is at `~/Desktop/meeting-to-tasks/meeting-to-tasks`. Blocks work in PowerShell and Git Bash; `npm.cmd` avoids Windows execution-policy issues with `npm.ps1`.
+
+## Start here
+
+| I want to…                          | Use                                                                                  | Needs                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------- |
+| Use the app                         | `docker compose up -d` from the repository root, then http://localhost:8080          | Docker Desktop                  |
+| Run the visual (screenshot) check   | `npm run test:visual:demo` from `frontend` ([Visual regression](#visual-regression)) | Docker Desktop                  |
+| Run the unit tests and type checks  | [Checks](#checks)                                                                    | Node and the backend `.venv`    |
+| Debug the Python API outside Docker | [Native development](#native-development)                                            | Docker Desktop for the database |
+
+Most work needs only the first two rows. Native development is optional.
 
 ## Optional local AI
 
@@ -22,30 +33,34 @@ Optional semantic embeddings require `backend/requirements-ai.txt` and an availa
 
 ## Native development
 
-Run the root configuration helper once and start the Compose database:
+Optional: only for running the API and worker outside Docker while debugging Python. Run the root configuration helper once and start the Compose database:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks
 docker compose up -d db
 ```
 
-From `backend`, create the Python 3.13 environment and start the API:
+In a backend terminal, create the Python 3.13 environment and start the API:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/backend
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 .venv/Scripts/python.exe -m scripts.migrate
 .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000
 ```
 
-In a second backend terminal:
+In a second terminal, start the worker:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/backend
 .venv/Scripts/python.exe -m app.worker
 ```
 
-From `frontend`:
+In a third terminal, start the frontend:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/frontend
 npm.cmd ci --ignore-scripts
 npm.cmd run dev
 ```
@@ -54,9 +69,10 @@ Vite proxies `/api` to port 8000; its configured browser origin is `http://local
 
 ## Checks
 
-From `backend`:
+Backend:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/backend
 .venv/Scripts/python.exe -m ruff check app scripts tests migrations
 .venv/Scripts/python.exe -m ruff format --check app scripts tests migrations
 .venv/Scripts/python.exe -m pyright app --pythonpath .venv/Scripts/python.exe
@@ -68,9 +84,10 @@ From `backend`:
 
 PostgreSQL tests create UUID-named isolated schemas and remove only the schemas they created. Without `--postgres`, most tests use disposable SQLite files; that does not prove PostgreSQL locking behavior. `alembic check` inspects the configured database, so run current migrations before checking it. See [validation](VALIDATION.md) for observed results rather than assuming these commands have passed on your machine.
 
-From `frontend`:
+Frontend:
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/frontend
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
@@ -84,9 +101,10 @@ For the existing authenticated browser suite, prepare the generated synthetic ac
 
 `frontend/e2e/visual.spec.ts` compares the main visitor screens (landing, demo home, People, Review, Settings → Motion & layout) and the open command menu against baseline images, in light and dark, at 1280×720 and 390×844. Fonts render differently on each operating system, so the screenshots are taken inside the official Playwright Linux image, the same one CI uses.
 
-**Run it with one command.** Start Docker Desktop, then from `frontend`, in any terminal (PowerShell or Git Bash):
+**Run it with one command.** Start Docker Desktop and wait until it says it is running, then in any terminal (PowerShell or Git Bash):
 
 ```powershell
+cd ~/Desktop/meeting-to-tasks/meeting-to-tasks/frontend
 npm run test:visual:demo          # compare the screens against the baselines
 npm run test:visual:demo:update   # after an intended visual change: rewrite the baselines, then review the images
 ```
