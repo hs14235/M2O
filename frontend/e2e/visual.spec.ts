@@ -90,26 +90,21 @@ test("the open command menu matches its baselines in both themes and sizes", asy
   await expect(page.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible();
   const storageState = await page.context().storageState();
   for (const { colorScheme, size, device } of variants) {
-    // bypassCSP so the fixed time style applies, as in the page captures.
-    const context = await browser.newContext({ ...device, colorScheme, storageState, bypassCSP: true });
+    const context = await browser.newContext({ ...device, colorScheme, storageState });
     try {
       const view = await context.newPage();
       await view.goto(page.url());
       await expect(view.getByRole("heading", { name: "Meetings", exact: true, level: 1 })).toBeVisible({
         timeout: 30000,
       });
-      // Like the page captures: the demo pill's expiry time changes its width and can wrap it.
-      await pinTimes(view);
       await settle(view);
       await view.keyboard.press("ControlOrMeta+K");
-      await expect(view.getByRole("dialog", { name: "Command menu" })).toBeVisible();
+      const menu = view.getByRole("dialog", { name: "Command menu" });
+      await expect(menu).toBeVisible();
       await settle(view);
-      await expect(view).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`, {
-        // The studio media keeps playing behind the menu, so its frame differs per run;
-        // this check is about the menu, so the media is masked like the times.
-        mask: [view.locator("time"), view.locator(".studio-media")],
-        style: fixedTimes,
-      });
+      // Only the menu: the page behind it (playing studio media, content still revealing
+      // at the fold) varied between runs and machines, and the page captures cover it.
+      await expect(menu).toHaveScreenshot(`command-menu-${colorScheme}-${size}.png`);
     } finally {
       await context.close();
     }
