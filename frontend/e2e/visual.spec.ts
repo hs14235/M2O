@@ -42,7 +42,9 @@ async function snapAll(browser: Browser, page: Page, screen: string, ready: (vie
       await pinTimes(view);
       await expect(view).toHaveScreenshot(`${screen}-${colorScheme}-${size}.png`, {
         fullPage: true,
-        mask: [view.locator("time")],
+        // The studio artwork is decorative motion (a parallax image or video) whose
+        // position and frame vary between runs; the banner's layout and text still count.
+        mask: [view.locator("time"), view.locator(".studio-visual")],
         style: fixedTimes,
       });
     } finally {

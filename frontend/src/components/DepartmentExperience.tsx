@@ -7,22 +7,22 @@ export const departmentExperience = {
     name: "People Operations",
     headline: "Make room for people.",
     detail: "Turn onboarding conversations into confirmed responsibilities and a thoughtful next step.",
-    motif: "Connection studio",
-    tags: ["Onboarding", "Clear ownership", "Private context"],
+    motif: "Onboarding is a breeze",
+    tags: [],
   },
   finance: {
     name: "Finance Control",
     headline: "Bring the details into balance.",
     detail: "Review decisions, resolve dates and turn financial follow-ups into accountable work.",
-    motif: "Control room",
-    tags: ["Verified decisions", "Date clarity", "Review first"],
+    motif: "Financial clarity is a superpower",
+    tags: [],
   },
   engineering: {
     name: "Engineering",
     headline: "Turn discussion into momentum.",
     detail: "Make blockers visible, confirm the plan and move reviewed work into your team's tools.",
-    motif: "Launch studio",
-    tags: ["Actionable work", "Visible blockers", "Source evidence"],
+    motif: "Engineering is a team sport",
+    tags: [],
   },
 } as const;
 

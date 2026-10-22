@@ -1247,3 +1247,16 @@ button.danger:hover:not(:disabled) {
     opacity: 0;
   }
 }
+
+/* The studio's motion control stays out of sight until the pointer is over the studio or
+   the control has keyboard focus. Touch screens have no hover, so it stays shown there. */
+@media (hover: hover) {
+  .studio-control {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .studio-media:hover .studio-control,
+  .studio-control:focus-visible {
+    opacity: 1;
+  }
+}
