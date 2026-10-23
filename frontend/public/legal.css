@@ -1,0 +1,49 @@
+/* Static legal pages: the site's colors without the app's stylesheet. */
+:root {
+  --ink: #172b35;
+  --muted: #50636d;
+  --accent: #573dc0;
+  --page: #f6f3ff;
+  --line: #d7dfda;
+}
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font:
+    1rem/1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 4rem;
+}
+.brand a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+h1 {
+  margin: 1.5rem 0 0;
+  font-size: 2.2rem;
+}
+h2 {
+  margin-top: 2rem;
+  font-size: 1.2rem;
+}
+.updated {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+a {
+  color: var(--accent);
+}
+li + li {
+  margin-top: 0.4rem;
+}

@@ -1,4 +1,10 @@
-"""Fail-fast API/worker supervision for a sleeping, synthetic-only web service."""
+"""Fail-fast API/worker supervision for a sleeping web service.
+
+By default the site is the synthetic, credential-free demo. HOSTED_PRIVATE_ACCOUNTS=true
+also serves invited private accounts with live provider connections, as a private local
+installation does; visitors keep the synthetic demo either way (their access is checked
+per account, not by this switch).
+"""
 
 import os
 import signal
@@ -26,34 +32,48 @@ PRIVATE_CREDENTIAL_KEYS = (
     "GOOGLE_MEET_CLIENT_ID",
     "GOOGLE_MEET_CLIENT_SECRET",
 )
+# Provider sign-in secrets; their tokens are stored encrypted, so they need the key.
+OAUTH_SECRET_KEYS = (
+    "JIRA_CLIENT_SECRET",
+    "SLACK_CLIENT_SECRET",
+    "LINKEDIN_CLIENT_SECRET",
+    "GOOGLE_MEET_CLIENT_SECRET",
+)
+# The hosted owner, created at start from a hash made on the operator's machine.
+OWNER_KEYS = ("OWNER_EMAIL", "OWNER_NAME", "OWNER_PASSWORD_HASH")
 
 
 def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
     from app.settings import Settings
 
     env = dict(source)
-    managed = set(PRIVATE_CREDENTIAL_KEYS) | {
-        "PUBLIC_DEMO_MODE",
-        "OLLAMA_MODEL",
-        "EMBED_PROVIDER",
-        "APP_ORIGIN",
-        "DATABASE_URL",
-        "PORT",
-        "CLIENT_IDENTITY_MODE",
-        "CLIENT_IP_HEADER",
-        "TRUSTED_PROXY_CIDRS",
-        "WORKER_HEARTBEAT_FILE",
-        "WORKER_HEARTBEAT_TIMEOUT",
-        "WORKER_JOB_DEADLINE",
-        "WORKER_IDLE_POLL_MAX",
-        "WORKER_WAKE_FILE",
-        "WORKER_RETENTION_INTERVAL",
-        "APP_ENVIRONMENT",
-        "COOKIE_SECURE",
-        "LINKEDIN_PUBLISHING_ENABLED",
-        "SLACK_INTERACTIONS_ENABLED",
-        "TRANSCRIPTION_ENABLED",
-    }
+    managed = (
+        set(PRIVATE_CREDENTIAL_KEYS)
+        | set(OWNER_KEYS)
+        | {
+            "HOSTED_PRIVATE_ACCOUNTS",
+            "PUBLIC_DEMO_MODE",
+            "OLLAMA_MODEL",
+            "EMBED_PROVIDER",
+            "APP_ORIGIN",
+            "DATABASE_URL",
+            "PORT",
+            "CLIENT_IDENTITY_MODE",
+            "CLIENT_IP_HEADER",
+            "TRUSTED_PROXY_CIDRS",
+            "WORKER_HEARTBEAT_FILE",
+            "WORKER_HEARTBEAT_TIMEOUT",
+            "WORKER_JOB_DEADLINE",
+            "WORKER_IDLE_POLL_MAX",
+            "WORKER_WAKE_FILE",
+            "WORKER_RETENTION_INTERVAL",
+            "APP_ENVIRONMENT",
+            "COOKIE_SECURE",
+            "LINKEDIN_PUBLISHING_ENABLED",
+            "SLACK_INTERACTIONS_ENABLED",
+            "TRANSCRIPTION_ENABLED",
+        }
+    )
     values: dict[str, str] = {}
     for key, value in source.items():
         name = key.upper()
@@ -64,12 +84,27 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
             if key != name:
                 del env[key]
             env[name] = value
-    if values.get("PUBLIC_DEMO_MODE", "").casefold() != "true":
+    private = values.get("HOSTED_PRIVATE_ACCOUNTS", "").casefold() == "true"
+    if not private and values.get("PUBLIC_DEMO_MODE", "").casefold() != "true":
         raise ValueError("Hosted demo runtime requires PUBLIC_DEMO_MODE=true")
     if values.get("OLLAMA_MODEL", "").strip() or values.get("EMBED_PROVIDER", "hash") != "hash":
         raise ValueError("Hosted free demo uses deterministic rules and hash retrieval")
-    if any(values.get(key, "").strip() for key in PRIVATE_CREDENTIAL_KEYS):
+    if not private and any(values.get(key, "").strip() for key in PRIVATE_CREDENTIAL_KEYS):
         raise ValueError("Provider credentials must not be configured in the hosted synthetic demo")
+    if not private and any(values.get(key, "").strip() for key in OWNER_KEYS):
+        raise ValueError("A hosted owner requires HOSTED_PRIVATE_ACCOUNTS=true")
+    if values.get("MCP_API_TOKEN", "").strip():
+        raise ValueError("The hosted site serves browsers only; keep MCP tokens local")
+    if private and any(values.get(key, "").strip() for key in OAUTH_SECRET_KEYS):
+        if not values.get("PROVIDER_ENCRYPTION_KEY", "").strip():
+            raise ValueError("Provider connections require PROVIDER_ENCRYPTION_KEY")
+    owner = {key: values.get(key, "").strip() for key in OWNER_KEYS}
+    if any(owner.values()) and not (
+        "@" in owner["OWNER_EMAIL"]
+        and owner["OWNER_PASSWORD_HASH"].startswith("$argon2id$")
+        and len(owner["OWNER_PASSWORD_HASH"]) < 512
+    ):
+        raise ValueError("Set OWNER_EMAIL and OWNER_PASSWORD_HASH from scripts.hosted_secrets")
     if values.get("WORKER_HEARTBEAT_FILE", "").strip() or values.get("WORKER_WAKE_FILE", "").strip():
         raise ValueError("Hosted worker health file must be supervisor-managed")
     # Idle, the worker reads the database at most every 30 minutes, so Neon can scale to zero.
@@ -92,6 +127,7 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
             worker_job_deadline=values.get("WORKER_JOB_DEADLINE", "600"),
             worker_idle_poll_max=idle_poll_max,
             worker_retention_interval=retention_interval,
+            provider_encryption_key=values.get("PROVIDER_ENCRYPTION_KEY", "") if private else "",
         )
     except ValueError:
         raise ValueError("Invalid hosted client identity or worker health policy") from None
@@ -128,15 +164,21 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
     if not port.isdigit() or not 1024 <= int(port) <= 65535:
         raise ValueError("PORT must be an unprivileged TCP port")
     # Explicit empty environment values also override an accidental local .env.
-    env.update({key: "" for key in PRIVATE_CREDENTIAL_KEYS})
+    if private:
+        env["MCP_API_TOKEN"] = ""
+    else:
+        env.update({key: "" for key in (*PRIVATE_CREDENTIAL_KEYS, *OWNER_KEYS)})
     env.update(
         APP_ENVIRONMENT="production",
         COOKIE_SECURE="true",
         PORT=port,
-        PUBLIC_DEMO_MODE="true",
+        HOSTED_PRIVATE_ACCOUNTS="true" if private else "false",
+        PUBLIC_DEMO_MODE="false" if private else "true",
         EMBED_PROVIDER="hash",
         OLLAMA_MODEL="",
-        LINKEDIN_PUBLISHING_ENABLED="false",
+        LINKEDIN_PUBLISHING_ENABLED=values.get("LINKEDIN_PUBLISHING_ENABLED", "false")
+        if private
+        else "false",
         SLACK_INTERACTIONS_ENABLED="false",
         TRANSCRIPTION_ENABLED="false",
         WORKER_HEARTBEAT_TIMEOUT=values.get("WORKER_HEARTBEAT_TIMEOUT", "45"),
@@ -207,6 +249,10 @@ def main() -> int:
     migration = subprocess.run([sys.executable, "-m", "scripts.migrate"], env=env, check=False)
     if migration.returncode:
         return migration.returncode
+    if env.get("OWNER_EMAIL", "").strip():
+        owner = subprocess.run([sys.executable, "-m", "scripts.hosted_owner"], env=env, check=False)
+        if owner.returncode:
+            return owner.returncode
     with TemporaryDirectory(prefix="m2o-worker-") as directory:
         env["WORKER_HEARTBEAT_FILE"] = str(Path(directory) / "health.json")
         # API and worker share this container, so a file is enough to wake the worker.

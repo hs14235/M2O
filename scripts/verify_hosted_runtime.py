@@ -1,12 +1,16 @@
 """Linux acceptance for a synthetic hosted image in owned disposable Docker resources.
 
-No provider access, real transcripts, shared database or live service is used.
+No provider access, real transcripts, shared database or live service is used. With
+--private the same image also serves a synthetic owner with synthetic provider settings
+(HOSTED_PRIVATE_ACCOUNTS); no provider is contacted.
 The exact resources created here carry a random ownership label before cleanup.
 """
 
 import argparse
+import base64
 import http.cookies
 import json
+import secrets
 import subprocess
 import time
 import urllib.error
@@ -73,7 +77,32 @@ class Browser:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--image", required=True)
+    parser.add_argument("--private", action="store_true", help="Also check invited private accounts")
     args = parser.parse_args()
+    operator_email, operator_password = "owner@example.test", secrets.token_urlsafe(18)
+    private_env: list[str] = []
+    if args.private:
+        # Hashed by the image itself, as scripts.hosted_secrets does on the operator's machine.
+        password_hash = docker(
+            "run",
+            "--rm",
+            "--entrypoint",
+            "python",
+            "--env",
+            "SYNTHETIC_PASSWORD=" + operator_password,
+            args.image,
+            "-c",
+            "import os; from app.auth import hasher; print(hasher.hash(os.environ['SYNTHETIC_PASSWORD']))",
+        )
+        for name, value in {
+            "HOSTED_PRIVATE_ACCOUNTS": "true",
+            "PROVIDER_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+            "JIRA_CLIENT_ID": "synthetic-jira-client",
+            "JIRA_CLIENT_SECRET": "synthetic-jira-secret",
+            "OWNER_EMAIL": operator_email,
+            "OWNER_PASSWORD_HASH": password_hash,
+        }.items():
+            private_env += ["--env", name + "=" + value]
     owner = uuid4().hex
     network, db, web = ["m2o-phase8-" + owner[:12] + suffix for suffix in ("-net", "-db", "-web")]
     containers = []
@@ -139,6 +168,7 @@ def main() -> int:
             "WORKER_HEARTBEAT_TIMEOUT=25",
             "--env",
             "WORKER_JOB_DEADLINE=60",
+            *private_env,
             args.image,
         )
         containers.append(web)
@@ -216,6 +246,30 @@ def main() -> int:
             "Hosted acceptance: non-root, headers/static, secure cookie attributes, real queue and visitor isolation passed",
             flush=True,
         )
+        privacy = browser.request("GET", "/privacy.html")
+        assert privacy[0] == 200 and privacy[2]["Content-Type"].startswith("text/html")
+        if args.private:
+            operator = Browser(published())
+            status, signed_in, _ = operator.request(
+                "POST",
+                "/api/auth/login",
+                {"email": operator_email, "password": operator_password},
+            )
+            assert status == 200
+            operator.csrf = signed_in["csrf_token"]
+            me = operator.request("GET", "/api/me")[1]
+            assert not me["is_visitor"] and not me["capabilities"]["demo_mode"]
+            owned = operator.request("GET", "/api/workspaces")[1]
+            assert len(owned) == 3
+            jira = operator.request("GET", "/api/workspaces/" + owned[0]["id"] + "/integrations/jira")[1]
+            assert jira["configured"] and jira["can_manage"]
+            # The visitor on the same site still has no provider access.
+            visitor = browser.request("GET", root + "/integrations/jira")[1]
+            assert not visitor["configured"] and not visitor["can_manage"]
+            print(
+                "Hosted acceptance: private owner signs in with providers; visitors stay without",
+                flush=True,
+            )
 
         for _ in range(10):
             assert (

@@ -118,3 +118,4 @@ jobs:
           python-version: "3.13"
       - run: docker build -f Dockerfile.render -t m2o-hosted-check:local .
       - run: python scripts/verify_hosted_runtime.py --image m2o-hosted-check:local
+      - run: python scripts/verify_hosted_runtime.py --image m2o-hosted-check:local --private

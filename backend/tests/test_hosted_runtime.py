@@ -1,3 +1,4 @@
+import base64
 import os
 import subprocess
 import sys
@@ -201,3 +202,49 @@ def test_root_build_context_excludes_private_runtime_and_render_deploys_only_aft
     assert env["DATABASE_URL"] == {"key": "DATABASE_URL", "sync": False}
     assert env["CLIENT_IDENTITY_MODE"]["value"] == "shared"
     assert not set(env) & set(PRIVATE_CREDENTIAL_KEYS)
+
+
+def private_config(**extra):
+    key = base64.urlsafe_b64encode(b"k" * 32).decode()
+    return {
+        **demo_config(),
+        "HOSTED_PRIVATE_ACCOUNTS": "true",
+        "PROVIDER_ENCRYPTION_KEY": key,
+        "JIRA_CLIENT_ID": "synthetic-client",
+        "JIRA_CLIENT_SECRET": "synthetic-secret",
+        **extra,
+    }
+
+
+def test_private_accounts_keep_provider_settings_and_turn_off_the_site_wide_demo_switch():
+    env = demo_environment(private_config(GITHUB_TOKEN="synthetic-token", LINKEDIN_PUBLISHING_ENABLED="true"))
+    assert env["PUBLIC_DEMO_MODE"] == "false" and env["HOSTED_PRIVATE_ACCOUNTS"] == "true"
+    assert env["JIRA_CLIENT_SECRET"] == "synthetic-secret" and env["GITHUB_TOKEN"] == "synthetic-token"
+    assert env["LINKEDIN_PUBLISHING_ENABLED"] == "true"
+    # The free host still runs rules and hash retrieval, with no transcription.
+    assert env["EMBED_PROVIDER"] == "hash" and env["TRANSCRIPTION_ENABLED"] == "false"
+    # Without the opt-in, the same settings are refused: the demo stays credential-free.
+    with pytest.raises(ValueError, match="credential"):
+        demo_environment({**private_config(), "HOSTED_PRIVATE_ACCOUNTS": "false"})
+
+
+@pytest.mark.parametrize(
+    "change,message",
+    [
+        ({"PROVIDER_ENCRYPTION_KEY": ""}, "PROVIDER_ENCRYPTION_KEY"),
+        ({"PROVIDER_ENCRYPTION_KEY": "too-short"}, "Invalid hosted"),
+        ({"MCP_API_TOKEN": "synthetic"}, "MCP"),
+        ({"OWNER_EMAIL": "owner@example.test", "OWNER_PASSWORD_HASH": "plain-password"}, "hosted_secrets"),
+        ({"OWNER_EMAIL": "", "OWNER_PASSWORD_HASH": "$argon2id$v=19$synthetic"}, "hosted_secrets"),
+    ],
+)
+def test_private_accounts_refuse_unsafe_settings(change, message):
+    with pytest.raises(ValueError, match=message):
+        demo_environment(private_config(**change))
+
+
+def test_owner_settings_require_private_accounts_and_are_cleared_otherwise():
+    owner = {"OWNER_EMAIL": "owner@example.test", "OWNER_PASSWORD_HASH": "$argon2id$v=19$synthetic"}
+    with pytest.raises(ValueError, match="HOSTED_PRIVATE_ACCOUNTS"):
+        demo_environment({**demo_config(), **owner})
+    assert demo_environment(private_config(**owner))["OWNER_EMAIL"] == "owner@example.test"

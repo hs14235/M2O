@@ -21,5 +21,5 @@ Run the checks CI runs for the area you changed, and report what passed or faile
 ## Boundaries
 
 - Never read or print `.env` files, `.runtime/*.json` or connection strings; `.claude/settings.json` denies them.
-- The public demo stays synthetic and credential-free (`backend/scripts/serve_demo.py` enforces this).
+- The public demo stays synthetic and credential-free for visitors. The hosted site holds provider credentials only with `HOSTED_PRIVATE_ACCOUNTS=true`, for invited private accounts (`backend/scripts/serve_demo.py` enforces both; see `docs/HOSTED_PRIVATE_SETUP.md`).
 - Planning history lives in `docs/archive/` and is not current documentation.

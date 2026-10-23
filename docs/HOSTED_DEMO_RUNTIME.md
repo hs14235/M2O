@@ -36,6 +36,10 @@ docker build -f Dockerfile.render -t m2o-render-demo:local .
 
 The image still needs a disposable PostgreSQL startup/shutdown/recovery check after the current schema and frontend increment stabilizes. Native tests alone do not verify Linux signal behavior or Render startup. Render-hosted cold starts, resource usage and database recovery must be measured after an explicitly authorized deployment.
 
+## Private accounts
+
+`HOSTED_PRIVATE_ACCOUNTS=true` also serves invited private accounts with live provider connections; visitors keep the credential-free demo. Without it the launcher refuses provider credentials as before. Setup, callback addresses and the invitee rules for each provider: [HOSTED_PRIVATE_SETUP.md](HOSTED_PRIVATE_SETUP.md).
+
 ## Hosting limitations
 
 The API and worker sleep together when the free web service sleeps. The worker resumes processing when the service wakes; there is no always-on delivery promise. Slack interactive actions remain unavailable in this credential-free demo. A private live installation needs an awake endpoint and appropriate credentials.
