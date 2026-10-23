@@ -68,6 +68,28 @@ it("shows each tool's state and starts Jira consent from the sidebar", async () 
   expect(request).toHaveBeenCalledWith("/workspaces/space/integrations/jira/connect", { method: "POST" });
 });
 
+it("opens consent in a new tab and leaves the other tools usable meanwhile", async () => {
+  const tab = { closed: false, opener: {}, location: { href: "about:blank" }, close: vi.fn() };
+  vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+  let finishJira: (value: { url: string }) => void = () => undefined;
+  vi.spyOn(client, "api").mockImplementation(async (path, init) => {
+    if (init?.method === "POST")
+      return new Promise((done) => {
+        finishJira = done;
+      });
+    return path.endsWith("/slack")
+      ? { configured: true, can_manage: true, state: "disconnected", destination: null }
+      : statuses[path];
+  });
+  render(<SidebarTools workspace={workspace} user={user} onManage={vi.fn()} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Connect Jira from the sidebar" }));
+  expect(screen.getByRole("button", { name: "Connect Jira from the sidebar" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Connect Slack from the sidebar" })).toBeEnabled();
+  finishJira({ url: "https://auth.atlassian.com/authorize?x=1" });
+  await waitFor(() => expect(tab.location.href).toBe("https://auth.atlassian.com/authorize?x=1"));
+  expect(screen.getByRole("button", { name: "Connect Jira from the sidebar" })).toBeEnabled();
+});
+
 it("asks visitors for nothing and offers no connect buttons", () => {
   const request = vi.spyOn(client, "api");
   render(<SidebarTools workspace={workspace} user={{ ...user, is_visitor: true }} onManage={vi.fn()} />);

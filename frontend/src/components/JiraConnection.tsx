@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -39,6 +40,12 @@ export default function JiraConnection({
     [notice, setNotice] = useState("");
   const request = useRef<AbortController | null>(null);
   const path = scoped(workspace.id, "/integrations/jira");
+  // Consent finishes in another tab; read the status again when this one is back in view.
+  useOnReturn(() => {
+    api<Status>(path)
+      .then(setStatus)
+      .catch(() => undefined);
+  });
   useEffect(() => {
     const controller = new AbortController();
     api<Status>(path, { signal: controller.signal })
@@ -98,10 +105,12 @@ export default function JiraConnection({
       className={connected ? undefined : "primary"}
       disabled={busy || !status?.configured || !status.can_manage}
       onClick={() =>
-        run(async (signal) => {
-          const result = await api<{ url: string }>(path + "/connect", { method: "POST", signal });
-          if (!signal.aborted) window.location.assign(result.url);
-        })
+        run((signal) =>
+          openConsent(async () => {
+            const result = await api<{ url: string }>(path + "/connect", { method: "POST", signal });
+            return signal.aborted ? undefined : result.url;
+          }),
+        )
       }
     >
       {status?.state === "disconnected" ? "Connect Jira" : "Reconnect Jira"}

@@ -754,7 +754,7 @@ button.danger:hover:not(:disabled) {
 /* People: one row per name, its state as a colored initial. */
 .mentions li {
   display: grid;
-  grid-template-columns: 2.2rem minmax(0, 1fr) minmax(170px, 230px) auto;
+  grid-template-columns: 2.2rem minmax(12rem, 1fr) minmax(0, auto);
   gap: 0.4rem 0.9rem;
   padding: 0.7rem 0;
 }
@@ -822,9 +822,9 @@ button.danger:hover:not(:disabled) {
   .mentions li {
     grid-template-columns: 2.2rem minmax(0, 1fr);
   }
-  .mentions li > label,
-  .mentions li > button {
+  .mentions li > .person-picks {
     grid-column: 1 / -1;
+    justify-content: flex-start;
   }
   .step-toolbar .step-progress {
     margin-left: 0;
@@ -1259,4 +1259,56 @@ button.danger:hover:not(:disabled) {
   .studio-control:focus-visible {
     opacity: 1;
   }
+}
+
+/* Person picking: suggested matches as chips, everyone else behind one quiet picker,
+   and an explicit Confirm. */
+.person-picks {
+  max-width: 34rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.person-chip,
+.person-confirm {
+  min-height: 34px;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.person-chip {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+}
+.person-chip[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--soft);
+  color: var(--green);
+}
+.person-chip[aria-pressed="true"]::before {
+  content: "✓ ";
+}
+.person-other {
+  margin: 0;
+}
+.person-other select {
+  width: auto;
+  max-width: 15rem;
+  min-height: 34px;
+  padding: 0.3rem 2rem 0.3rem 0.85rem;
+  border: 1px dashed color-mix(in srgb, var(--green) 45%, var(--line));
+  border-radius: 999px;
+  background-color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.person-confirm:not(:disabled) {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
 }

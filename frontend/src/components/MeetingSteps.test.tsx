@@ -116,6 +116,49 @@ it("keeps demo participant confirmation usable without offering custom directory
   await userEvent.click(screen.getByRole("button", { name: "Confirm person" }));
   expect(onConfirm).toHaveBeenCalledWith("mention", "person");
 });
+it("asks about people only after extraction, with the single suggestion preselected", async () => {
+  const onConfirm = vi.fn();
+  const morgan = { id: "morgan", name: "Morgan", role: "Reviewer" };
+  const step = (extracted: boolean) => (
+    <PeopleStep
+      meeting={{
+        ...meeting,
+        tasks: [],
+        extracted,
+        index_status: "ready",
+        mentions: [
+          { id: "mention", name: "Morgan", participant_id: null, confirmed: false, candidates: [morgan] },
+        ],
+      }}
+      people={[
+        {
+          ...morgan,
+          aliases: [],
+          github_login: null,
+          linkedin_url: null,
+          linked_user_id: null,
+          provenance: "synthetic",
+        },
+      ]}
+      workspace={workspace}
+      pending={false}
+      ready
+      onExtract={vi.fn()}
+      onConfirm={onConfirm}
+      onParticipantAdded={vi.fn()}
+      onDirty={vi.fn()}
+      onBack={vi.fn()}
+      onContinue={vi.fn()}
+    />
+  );
+  const view = render(step(false));
+  expect(screen.getByText(/Extract outcomes first/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Confirm person" })).toBeNull();
+  view.rerender(step(true));
+  expect(screen.getByRole("button", { name: "Morgan · Reviewer" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(screen.getByRole("button", { name: "Confirm person" }));
+  expect(onConfirm).toHaveBeenCalledWith("mention", "morgan");
+});
 it("opens the calendar-selected outcome even when tasks arrive after the initial view", () => {
   const view = render(<ReviewStep {...props} meeting={{ ...meeting, tasks: [] }} focusItem="decision" />);
   view.rerender(<ReviewStep {...props} focusItem="decision" />);

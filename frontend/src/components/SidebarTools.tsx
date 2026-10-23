@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { GitHubStatus, User, Workspace } from "../types";
 import type { ProviderTone } from "./ProviderRow";
@@ -60,6 +61,9 @@ export default function SidebarTools({
   user: User;
   onManage: () => void;
 }) {
+  const [revision, setRevision] = useState(0);
+  // Connecting happens in another tab; read the tools again when this one is back in view.
+  useOnReturn(() => setRevision((value) => value + 1));
   const [tools, setTools] = useState<Tool[] | null>(null),
     [busy, setBusy] = useState<Provider | null>(null),
     [failed, setFailed] = useState<Provider | null>(null);
@@ -110,18 +114,22 @@ export default function SidebarTools({
       ]);
     });
     return () => controller.abort();
-  }, [workspace.id, user.is_visitor]);
+  }, [workspace.id, user.is_visitor, revision]);
   async function run(tool: Tool) {
     if (!tool.action) return;
     if (tool.action.kind === "manage" || !tool.action.path) return onManage();
     setBusy(tool.id);
     setFailed(null);
+    const path = tool.action.path;
     try {
-      const result = await api<{ url: string }>(scoped(workspace.id, tool.action.path), { method: "POST" });
-      window.location.assign(result.url);
+      await openConsent(async () => {
+        const result = await api<{ url: string }>(scoped(workspace.id, path), { method: "POST" });
+        return result.url;
+      });
     } catch {
       setFailed(tool.id);
-      setBusy(null);
+    } finally {
+      setBusy((current) => (current === tool.id ? null : current));
     }
   }
   const live = tools?.filter((tool) => tool.tone === "on").length ?? 0;
@@ -157,7 +165,7 @@ export default function SidebarTools({
                   type="button"
                   className="tool-action"
                   data-kind={tool.action.kind}
-                  disabled={busy !== null || user.capabilities.demo_mode}
+                  disabled={busy === tool.id || user.capabilities.demo_mode}
                   aria-label={tool.action.label + " " + tool.name + " from the sidebar"}
                   title={tool.action.label + " " + tool.name}
                   onClick={() => void run(tool)}

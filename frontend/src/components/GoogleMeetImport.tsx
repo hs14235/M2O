@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openConsent } from "../consent";
 import { api, scoped } from "../api";
 import type { GoogleMeetPreview, GoogleMeetStatus, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -193,13 +194,15 @@ export default function GoogleMeetImport({
                 type="button"
                 disabled={busy || !status.configured}
                 onClick={() =>
-                  run("read", async (signal) => {
-                    const value = await api<{ url: string }>(
-                      scoped(workspace.id, "/integrations/google-meet/connect"),
-                      { signal, method: "POST" },
-                    );
-                    if (!signal.aborted) window.location.assign(value.url);
-                  })
+                  run("read", (signal) =>
+                    openConsent(async () => {
+                      const value = await api<{ url: string }>(
+                        scoped(workspace.id, "/integrations/google-meet/connect"),
+                        { signal, method: "POST" },
+                      );
+                      return signal.aborted ? undefined : value.url;
+                    }),
+                  )
                 }
               >
                 {status.state === "reauthorization_required"
