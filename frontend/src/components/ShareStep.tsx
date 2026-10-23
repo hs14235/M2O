@@ -24,6 +24,18 @@ const stageHints: Record<HandoffStage, string> = {
   receipt: "Check the result, then make room for your personal plan.",
 };
 
+// Why a destination can't be chosen yet. "Configured" only means M2O holds the app's keys;
+// a delivery also needs this workspace's connection and, for Jira and Slack, a target.
+function unavailable(item: Integration) {
+  if (item.status === "needs_configuration") return "Setup required";
+  if (item.id === "github") return "Your role can't prepare GitHub issues";
+  if (item.id === "jira" && item.status === "connected") return "Connected · choose a project in Connections";
+  if (item.id === "slack" && item.status === "connected")
+    return "Connected · choose a channel in Connections";
+  if (item.id === "linkedin") return "Posting isn't connected in this workspace yet";
+  return "Not connected in this workspace yet";
+}
+
 export function ShareStep({
   meeting,
   workspace,
@@ -117,6 +129,14 @@ export function ShareStep({
     selected.length <= limit &&
     selected.every((id) => approved.some((item) => item.id === id));
   const available = catalog.find((item) => item.id === destination)?.can_preview === true;
+  // What still stands between this page and preparation, said where the button is.
+  const blocker = !approved.length
+    ? "Approve outcomes in Review to share them."
+    : !selected.length
+      ? "Tick at least one approved outcome."
+      : !available
+        ? "Choose a destination that's ready."
+        : null;
   const prepared = artifact?.key === key ? artifact.value : null;
   async function prepare() {
     if (request.current) return;
@@ -174,8 +194,12 @@ export function ShareStep({
       <p className="page-hint">{stageHints[stage]}</p>
       <ol className="handoff-stages" aria-label="Handoff stages">
         {handoffStages.map((value, i) => (
-          <li key={value} aria-current={stage === value ? "step" : undefined}>
-            <span aria-hidden="true">{i + 1}</span>
+          <li
+            key={value}
+            aria-current={stage === value ? "step" : undefined}
+            data-done={i < handoffStages.indexOf(stage) || undefined}
+          >
+            <span aria-hidden="true">{i < handoffStages.indexOf(stage) ? "✓" : i + 1}</span>
             {stageNames[value]}
           </li>
         ))}
@@ -235,7 +259,7 @@ export function ShareStep({
                   />
                   <span>
                     <strong>{item.name}</strong>
-                    <small>{integrationStatus[item.status]}</small>
+                    <small>{item.can_preview ? integrationStatus[item.status] : unavailable(item)}</small>
                     <small>{item.description}</small>
                   </span>
                 </label>
@@ -397,6 +421,7 @@ export function ShareStep({
         )}
         <button onClick={onBack}>Back to review</button>
         {/* One bar per screen: it is sticky, so a second one would stack on top. */}
+        {stage === "choose" && blocker && <p className="step-hint">{blocker}</p>}
         {stage === "choose" && (
           <button
             className="primary"

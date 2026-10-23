@@ -104,6 +104,8 @@ export interface Meeting extends MeetingSummary {
   tasks: Outcome[];
   /** Outcomes were extracted from this revision (even if none were found). */
   extracted?: boolean;
+  /** Work still queued or running for this meeting. */
+  active_job?: { id: string; kind: string } | null;
   mentions: Mention[];
   revisions: { id: string; number: number; created_at: string }[];
 }

@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { api, scoped } from "../api";
 import { useStepReveal } from "../motion";
+import { recall, remember } from "../stepMemory";
 import StepProgress from "./StepProgress";
 import type { Department, Kind, Meeting, Participant, Workspace } from "../types";
 import { Empty, ErrorNotice } from "./Feedback";
@@ -359,6 +360,7 @@ export function PeopleStep({
               key={mention.id + ":" + String(mention.confirmed)}
               mention={mention}
               people={people}
+              workspace={workspace.id}
               editable={editable && !pending && !adding}
               onConfirm={(id) => onConfirm(mention.id, id)}
             />
@@ -406,18 +408,30 @@ export function PeopleStep({
 function MentionRow({
   mention,
   people,
+  workspace,
   editable,
   onConfirm,
 }: {
   mention: Meeting["mentions"][number];
   people: Participant[];
+  workspace: string;
   editable: boolean;
   onConfirm: (id: string) => void;
 }) {
-  // A single directory match starts selected; confirming it is still an explicit click.
-  const [person, setPerson] = useState(
-    mention.participant_id || (mention.candidates.length === 1 ? mention.candidates[0].id : ""),
+  // A pick not yet confirmed outlasts leaving the workspace (see stepMemory). Otherwise a
+  // single directory match starts selected; confirming it is still an explicit click.
+  const unconfirmed = mention.confirmed ? undefined : recall(workspace, "person:" + mention.id);
+  const [person, choose] = useState(
+    (typeof unconfirmed === "string" && people.some((value) => value.id === unconfirmed)
+      ? unconfirmed
+      : null) ||
+      mention.participant_id ||
+      (mention.candidates.length === 1 ? mention.candidates[0].id : ""),
   );
+  function setPerson(id: string) {
+    choose(id);
+    remember(workspace, "person:" + mention.id, id);
+  }
   const suggested = new Set(mention.candidates.map((candidate) => candidate.id));
   const tone = mention.confirmed ? "on" : mention.candidates.length > 1 ? "attention" : "ready";
   return (

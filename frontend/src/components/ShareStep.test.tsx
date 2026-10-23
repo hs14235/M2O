@@ -148,3 +148,23 @@ it("sends one export for two clicks before the pending state is rendered", async
   expect(request.mock.calls.filter(([path]) => path.endsWith("/export"))).toHaveLength(1);
   await act(async () => finish(artifact as never));
 });
+it("says why a destination or Continue is unavailable instead of only greying it out", async () => {
+  vi.spyOn(client, "api").mockResolvedValue([
+    ...catalog.slice(0, 2),
+    { id: "jira", name: "Jira", purpose: "delivery", status: "configured", can_preview: false },
+    { id: "slack", name: "Slack", purpose: "delivery", status: "connected", can_preview: false },
+  ] as never);
+  const view = render(<ShareStep {...props} selected={[]} />);
+  expect(await screen.findByRole("radio", { name: /Jira/ })).toHaveAccessibleName(
+    /Not connected in this workspace yet/,
+  );
+  expect(screen.getByRole("radio", { name: /Slack/ })).toHaveAccessibleName(
+    /choose a channel in Connections/,
+  );
+  expect(screen.getByRole("button", { name: "Continue to preparation" })).toBeDisabled();
+  expect(screen.getByText("Tick at least one approved outcome.")).toBeInTheDocument();
+  view.rerender(<ShareStep {...props} meeting={{ ...meeting, tasks: [] }} selected={[]} />);
+  expect(screen.getByText("Approve outcomes in Review to share them.")).toBeInTheDocument();
+  view.rerender(<ShareStep {...props} />);
+  expect(screen.queryByText(/Approve outcomes|Tick at least/)).toBeNull();
+});

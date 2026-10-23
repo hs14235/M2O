@@ -159,6 +159,47 @@ it("asks about people only after extraction, with the single suggestion preselec
   await userEvent.click(screen.getByRole("button", { name: "Confirm person" }));
   expect(onConfirm).toHaveBeenCalledWith("mention", "morgan");
 });
+it("keeps a person picked but not confirmed after leaving the workspace", async () => {
+  const directory = ["morgan", "taylor"].map((id) => ({
+    id,
+    name: id[0].toUpperCase() + id.slice(1),
+    role: "Synthetic",
+    aliases: [],
+    github_login: null,
+    linkedin_url: null,
+    linked_user_id: null,
+    provenance: "synthetic",
+  }));
+  const step = () => (
+    <PeopleStep
+      meeting={{
+        ...meeting,
+        tasks: [],
+        extracted: true,
+        index_status: "ready",
+        mentions: [
+          { id: "pick", name: "Morgan", participant_id: null, confirmed: false, candidates: [directory[0]] },
+        ],
+      }}
+      people={directory}
+      workspace={workspace}
+      pending={false}
+      ready
+      onExtract={vi.fn()}
+      onConfirm={vi.fn()}
+      onParticipantAdded={vi.fn()}
+      onDirty={vi.fn()}
+      onBack={vi.fn()}
+      onContinue={vi.fn()}
+    />
+  );
+  const first = render(step());
+  await userEvent.selectOptions(screen.getByLabelText("Directory match for Morgan"), "taylor");
+  first.unmount();
+  render(step());
+  expect(screen.getByLabelText("Directory match for Morgan")).toHaveValue("taylor");
+  sessionStorage.clear();
+});
 it("opens the calendar-selected outcome even when tasks arrive after the initial view", () => {
   const view = render(<ReviewStep {...props} meeting={{ ...meeting, tasks: [] }} focusItem="decision" />);
   view.rerender(<ReviewStep {...props} focusItem="decision" />);

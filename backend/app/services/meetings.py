@@ -231,6 +231,14 @@ class MeetingService:
             )
             is not None
         )
+        # Work still queued or running for this meeting, so reopening it resumes the progress.
+        # Anyone who can read the meeting can already read its jobs.
+        active_job = self.session.scalar(
+            select(Job)
+            .where(Job.meeting_id == meeting.id, Job.state.in_(["queued", "running"]))
+            .order_by(Job.created_at.desc())
+            .limit(1)
+        )
         directory = self.session.scalars(
             select(Participant).where(Participant.workspace_id == self.principal.workspace_id)
         ).all()
@@ -274,6 +282,7 @@ class MeetingService:
             ],
             "chunk_count": len(chunks),
             "extracted": extracted,
+            "active_job": {"id": active_job.id, "kind": active_job.kind} if active_job else None,
             "tasks": ReviewService(self.session, self.principal).list_items(meeting),
             "mentions": [
                 {
