@@ -65,14 +65,19 @@ def provider(nonce, overrides=None, info_subject="synthetic-subject"):
         "e": encode(numbers.e),
     }
     claims = {
-        "iss": "https://www.linkedin.com",
+        # LinkedIn's issuer, per https://www.linkedin.com/oauth/.well-known/openid-configuration
+        "iss": "https://www.linkedin.com/oauth",
         "aud": "synthetic-client",
         "sub": "synthetic-subject",
         "exp": now() + timedelta(minutes=10),
         "iat": now(),
         "nonce": nonce,
     }
-    claims.update(overrides or {})
+    for name, value in (overrides or {}).items():
+        if value is None:
+            claims.pop(name, None)  # LinkedIn may leave a claim out entirely.
+        else:
+            claims[name] = value
     token = jwt.encode(claims, private, algorithm="RS256", headers={"kid": "synthetic-key"})
 
     def respond(request):
@@ -246,3 +251,15 @@ def test_no_app_configuration_has_honest_capability(client, auth, monkeypatch):
     monkeypatch.setattr(settings, "linkedin_client_id", "")
     assert client.get("/api/me", headers=auth).json()["capabilities"]["linkedin_configured"] is False
     assert client.post("/api/integrations/linkedin/connect", headers=auth).status_code == 503
+
+
+def test_id_token_without_nonce_is_accepted(session, connection):
+    # LinkedIn does not list nonce among its claims. In the code flow it is optional
+    # (OIDC Core 3.1.3.7); the session-bound state already protects the callback.
+    principal, state, nonce = connection
+    result = asyncio.run(
+        LinkedInAdapter(provider(nonce, {"nonce": None})).complete(
+            session, principal, state, "synthetic-code"
+        )
+    )
+    assert result["connected"] is True

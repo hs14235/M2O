@@ -1,5 +1,6 @@
 """Consenting-user OIDC connection. This is not a directory or name-search API."""
 
+import logging
 import secrets
 from datetime import timedelta
 from urllib.parse import urlencode
@@ -18,6 +19,38 @@ AUTHORIZATION_URL = "https://www.linkedin.com/oauth/v2/authorization"
 TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 USERINFO_URL = "https://api.linkedin.com/v2/userinfo"
 JWKS_URL = "https://www.linkedin.com/oauth/openid/jwks"
+# The issuer LinkedIn signs ID tokens with, from its discovery document
+# (https://www.linkedin.com/oauth/.well-known/openid-configuration).
+ISSUER = "https://www.linkedin.com/oauth"
+log = logging.getLogger("meeting.linkedin")
+
+
+def verify_id_token(id_token: str, key: dict, nonce: str) -> dict:
+    """Signed claims for this app. A nonce, when LinkedIn returns one, must match ours:
+    it is optional in the code flow (OIDC Core 3.1.3.7) and LinkedIn does not list it
+    among its claims; the session-bound state already protects the callback."""
+    claims = jwt.decode(
+        id_token,
+        jwt.PyJWK.from_dict(key).key,
+        algorithms=["RS256"],
+        audience=settings.linkedin_client_id,
+        issuer=ISSUER,
+        options={"require": ["exp", "iat", "iss", "aud", "sub"]},
+        leeway=30,
+    )
+    if "nonce" in claims and (
+        not isinstance(claims["nonce"], str) or not secrets.compare_digest(claims["nonce"], nonce)
+    ):
+        raise ValueError("Nonce mismatch")
+    return claims
+
+
+def log_unverified(flow: str, exc: Exception) -> None:
+    """Which check failed, for the operator: an error type and LinkedIn's status only."""
+    status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+    log.warning(
+        "linkedin_consent_unverified", extra={"error_code": f"{flow}:{type(exc).__name__}", "status": status}
+    )
 
 
 class LinkedInAdapter:
@@ -55,7 +88,7 @@ class LinkedInAdapter:
                 {
                     "response_type": "code",
                     "client_id": settings.linkedin_client_id,
-                    "redirect_uri": settings.linkedin_redirect_uri,
+                    "redirect_uri": settings.linkedin_profile_redirect_uri,
                     "scope": settings.linkedin_scopes,
                     "state": state,
                     "nonce": nonce,
@@ -95,7 +128,7 @@ class LinkedInAdapter:
                     data={
                         "grant_type": "authorization_code",
                         "code": code,
-                        "redirect_uri": settings.linkedin_redirect_uri,
+                        "redirect_uri": settings.linkedin_profile_redirect_uri,
                         "client_id": settings.linkedin_client_id,
                         "client_secret": settings.linkedin_client_secret.get_secret_value(),
                     },
@@ -108,17 +141,7 @@ class LinkedInAdapter:
                 if header.get("alg") != "RS256":
                     raise ValueError("Unexpected signing algorithm")
                 key = next(key for key in keys_response.json()["keys"] if key.get("kid") == header.get("kid"))
-                claims = jwt.decode(
-                    token["id_token"],
-                    jwt.PyJWK.from_dict(key).key,
-                    algorithms=["RS256"],
-                    audience=settings.linkedin_client_id,
-                    issuer="https://www.linkedin.com",
-                    options={"require": ["exp", "iat", "iss", "aud", "sub", "nonce"]},
-                    leeway=30,
-                )
-                if not secrets.compare_digest(str(claims["nonce"]), nonce):
-                    raise ValueError("Nonce mismatch")
+                claims = verify_id_token(token["id_token"], key, nonce)
                 info_response = await client.get(
                     USERINFO_URL, headers={"Authorization": f"Bearer {token['access_token']}"}
                 )
@@ -127,6 +150,7 @@ class LinkedInAdapter:
                 if info.get("sub") != claims["sub"]:
                     raise ValueError("Subject mismatch")
         except (httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, StopIteration, TypeError) as exc:
+            log_unverified("profile", exc)
             session.commit()  # Consume a verified challenge even when exchange fails.
             raise ServiceError(
                 status_code=502,
