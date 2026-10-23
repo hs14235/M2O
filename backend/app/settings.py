@@ -224,11 +224,12 @@ class Settings(BaseSettings):
 
     @property
     def linkedin_configured(self) -> bool:
-        return bool(
-            self.linkedin_client_id
-            and self.linkedin_client_secret.get_secret_value()
-            and self.linkedin_redirect_uri
-        )
+        return bool(self.linkedin_client_id and self.linkedin_client_secret.get_secret_value())
+
+    @property
+    def linkedin_profile_redirect_uri(self) -> str:
+        """LINKEDIN_REDIRECT_URI when set, else the callback on this origin (as for publishing)."""
+        return self.linkedin_redirect_uri or self.app_origin + "/api/integrations/linkedin/callback"
 
     @property
     def linkedin_publishing_configured(self) -> bool:

@@ -1,13 +1,12 @@
 """Member-owned text-post protocol, separate from token-discarding OIDC context."""
 
 import re
-import secrets
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
 
-from .linkedin import JWKS_URL, TOKEN_URL, USERINFO_URL
+from .linkedin import JWKS_URL, TOKEN_URL, USERINFO_URL, log_unverified, verify_id_token
 from .models import now
 from .services.errors import ServiceError
 from .settings import settings
@@ -57,17 +56,7 @@ class LinkedInPublishingAdapter:
                 if header.get("alg") != "RS256":
                     raise ValueError("Unexpected signing algorithm")
                 key = next(key for key in keys_response.json()["keys"] if key.get("kid") == header.get("kid"))
-                claims = jwt.decode(
-                    token["id_token"],
-                    jwt.PyJWK.from_dict(key).key,
-                    algorithms=["RS256"],
-                    audience=settings.linkedin_client_id,
-                    issuer="https://www.linkedin.com",
-                    options={"require": ["exp", "iat", "iss", "aud", "sub", "nonce"]},
-                    leeway=30,
-                )
-                if not isinstance(claims["nonce"], str) or not secrets.compare_digest(claims["nonce"], nonce):
-                    raise ValueError("Nonce mismatch")
+                claims = verify_id_token(token["id_token"], key, nonce)
                 info_response = await client.get(
                     USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"}
                 )
@@ -113,6 +102,7 @@ class LinkedInPublishingAdapter:
             OverflowError,
             AttributeError,
         ) as exc:
+            log_unverified("publishing", exc)
             raise ServiceError(
                 status_code=502,
                 error="LinkedIn publishing consent could not be verified; reconnect",
