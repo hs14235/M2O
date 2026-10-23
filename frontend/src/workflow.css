@@ -493,61 +493,6 @@
 .demo-entry .primary {
   width: 100%;
 }
-.visitor-banner {
-  margin-bottom: 1rem;
-  font-size: 0.84rem;
-}
-.visitor-banner summary {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: white;
-  cursor: pointer;
-  list-style: none;
-}
-.visitor-banner summary::-webkit-details-marker {
-  display: none;
-}
-.visitor-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--green);
-}
-.visitor-more {
-  color: var(--green);
-  font-weight: 650;
-  margin-left: 0.35rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.visitor-banner[open] .visitor-more,
-.visitor-banner details[open] .visitor-more {
-  text-decoration: none;
-}
-.visitor-banner p {
-  max-width: 62ch;
-  margin: 0.6rem 0 0 0.4rem;
-  color: var(--muted);
-}
-.scenario-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  gap: 1rem;
-}
-.scenario-grid article {
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 1rem;
-  background: var(--white);
-}
-.scenario-grid .payload-text {
-  max-height: 240px;
-}
 .privacy-page > .panel {
   margin-top: 1rem;
 }

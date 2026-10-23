@@ -31,7 +31,7 @@ Restricted meetings are accessible to their creator and workspace owners/reviewe
 | --- | --- |
 | GET `/members`; PATCH `/members/{user_id}` | Current private-owner member/role administration; retains an active owner. Legacy POST `/members` returns 409 directing callers to invitations. |
 | GET/POST `/invitations`; DELETE `/invitations/{id}` | Owner-issued email/role-bound links, manual sharing, hashed expiring single-use acceptance. See lifecycle guide. |
-| POST `/demo/load` | Visitor-only approved synthetic fixture ID; idempotently opens an indexed meeting, never arbitrary transcript text. |
+| POST `/demo/load` | Visitor-only approved synthetic fixture ID; idempotently opens an indexed meeting, never arbitrary transcript text. New sessions already have every example preloaded (`demo-<fixture>`), so this returns the existing meeting with `job_id: null`. |
 | GET `/privacy`; GET `/privacy/export`; POST `/privacy/erase` | Owner export and exact password/name/version-confirmed erasure with pending freeze/resume. See lifecycle guide. |
 | GET/POST `/participants` | List or explicitly add directory context; only the acting user can link their own application account. |
 | GET `/meetings` | Paginated accessible meetings. |

@@ -13,6 +13,7 @@ from app.models import (
     DeliveryTombstone,
     Invitation,
     Job,
+    Meeting,
     Membership,
     OAuthState,
     RateBucket,
@@ -37,9 +38,15 @@ def expired_visitor(session):
         .where(Membership.user_id == user.id, Workspace.department == "engineering")
     )
     loaded = DemoService(session).load(Principal(user.id, workspace.id, "owner"), "engineering")
+    # The example was preloaded at start; this is its still-queued index job.
+    job_id = session.scalar(
+        select(Job.id)
+        .join(Meeting, Job.meeting_id == Meeting.id)
+        .where(Meeting.workspace_id == workspace.id, Meeting.slug == loaded["meeting_id"])
+    )
     user.visitor_expires_at = now() - timedelta(seconds=1)
     session.commit()
-    return user.id, workspace.id, loaded["job_id"]
+    return user.id, workspace.id, job_id
 
 
 def test_retention_preview_does_not_mutate_and_apply_removes_only_expired_visitor(session, seeded):
@@ -230,6 +237,8 @@ def test_expired_crashed_visitor_job_recovers_then_erasure_finishes(session, see
     session.commit()
     assert RetentionService(session).run(apply=True)["pending_visitors"] == 1
     assert asyncio.run(run_once())
+    while asyncio.run(run_once()):  # The session's other preloaded jobs too.
+        pass
     session.expire_all()
     assert session.get(Job, job_id).state == "failed"
     assert session.get(Job, job_id).error_code == "service_403"

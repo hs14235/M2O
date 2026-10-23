@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..access_policy import consume_visitor_usage, workspace_access
 from ..auth import Principal, digest, hasher
-from ..demo_fixtures import DEPARTMENTS, FIXTURES
+from ..demo_fixtures import DEPARTMENTS, FIXTURES, SHARED_PEOPLE
 from ..models import (
     AuthSession,
     DemoAdmission,
@@ -71,17 +71,20 @@ class DemoService:
             self.session.add(workspace)
             self.session.flush()
             self.session.add(Membership(workspace_id=workspace.id, user_id=user.id, role="owner"))
-            for name, role in (
-                ("Alex", "Synthetic coordinator"),
-                ("Alex", "Synthetic teammate"),
-                ("Morgan", "Synthetic reviewer"),
-                ("Taylor", "Synthetic facilitator"),
-            ):
+            for name, role in [*FIXTURES[department]["people"], *SHARED_PEOPLE]:
                 self.session.add(
                     Participant(
                         workspace_id=workspace.id, name=name, role=role, aliases=[], confirmed_by=user.id
                     )
                 )
+            self.session.flush()
+            # The workspace opens like one in use: its meetings are already there, indexed by
+            # the worker, without spending the visitor's job budget. The department's own
+            # meeting goes last so the newest-first list shows it on top.
+            principal = Principal(user_id=user.id, workspace_id=workspace.id, role="owner")
+            shared = [key for key, value in FIXTURES.items() if value["department"] is None]
+            for fixture_id in [*shared, department]:
+                self.index_fixture(principal, fixture_id)
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         self.session.add(
             AuthSession(token_hash=digest(token), user_id=user.id, csrf_hash=digest(csrf), expires_at=expires)
@@ -120,9 +123,13 @@ class DemoService:
                 "synthetic": True,
             }
         consume_visitor_usage(self.session, principal, jobs=True)
-        result = MeetingService(self.session, principal).index(
+        return {**self.index_fixture(principal, fixture_id), "synthetic": True}
+
+    def index_fixture(self, principal: Principal, fixture_id: str) -> dict:
+        fixture = FIXTURES[fixture_id]
+        return MeetingService(self.session, principal).index(
             IndexInput(
-                meeting_id=slug,
+                meeting_id="demo-" + fixture_id,
                 title=fixture["title"],
                 transcript=fixture["transcript"],
                 visibility="restricted",
@@ -131,4 +138,3 @@ class DemoService:
             ),
             trusted_demo_fixture=True,
         )
-        return {**result, "synthetic": True}

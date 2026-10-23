@@ -69,7 +69,9 @@ test("a visitor completes the journey from the keyboard with the command menu", 
   await expect(page.locator("#main")).toBeFocused();
 
   // Open a synthetic meeting, extract and continue to review, by Tab and Enter only.
-  await tabTo(page, page.getByRole("button", { name: "Open Release readiness", exact: true }));
+  await tabTo(page, page.getByRole("button", { name: /^Release 2\.4 readiness\b/ }));
+  await page.keyboard.press("Enter");
+  await tabTo(page, page.getByRole("button", { name: "Continue to people", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/people$/);
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
@@ -83,7 +85,7 @@ test("a visitor completes the journey from the keyboard with the command menu", 
   // Search meetings by title and land on the meeting.
   await openMenu(page);
   await page.keyboard.type("Release");
-  const result = page.getByRole("option", { name: /Release readiness/ });
+  const result = page.getByRole("option", { name: /Release 2\.4 readiness/ });
   await expect(result.first()).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/meetings\/[^/]+\/transcript$/);

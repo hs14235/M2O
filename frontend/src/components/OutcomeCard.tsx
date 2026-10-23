@@ -14,9 +14,11 @@ export const kindNames: Record<Kind, string> = {
 const kinds = Object.keys(kindNames) as Kind[];
 
 /** Outcomes in review order: by kind as listed in kindNames, then by id. */
+// By kind, then in transcript order, so cards keep their places between loads.
 export function sortOutcomes(outcomes: readonly Outcome[]): Outcome[] {
+  const line = (item: Outcome) => Math.min(...item.evidence.map((source) => source.start_line ?? Infinity));
   return [...outcomes].sort(
-    (a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind) || a.id.localeCompare(b.id),
+    (a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind) || line(a) - line(b) || a.id.localeCompare(b.id),
   );
 }
 

@@ -4,10 +4,12 @@ import AxeBuilder from "@axe-core/playwright";
 async function enter(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the isolated demo" }).click();
-  await expect(page.getByRole("region", { name: "Synthetic demo session" })).toBeVisible();
+  // Each demo workspace opens with its meetings already listed.
+  await expect(page.getByRole("heading", { name: "Your meetings", exact: true })).toBeVisible();
 }
 async function openFixture(page: Page) {
-  await page.getByRole("button", { name: "Open Release readiness", exact: true }).click();
+  await page.getByRole("button", { name: /^Release 2\.4 readiness\b/ }).click();
+  await page.getByRole("button", { name: "Continue to people", exact: true }).click();
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
 }
 async function reviewAction(page: Page) {

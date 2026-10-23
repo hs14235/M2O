@@ -341,3 +341,40 @@ it("opens the meeting list when a remembered meeting has since been archived", a
   );
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("/workspaces/space/meetings", true));
 });
+
+it("plays a demo meeting's recording above its transcript", async () => {
+  const recorded = { ...meeting, id: "demo-recording", raw_text: "Morgan: Synthetic stand-up." } as Meeting;
+  vi.spyOn(client, "api").mockImplementation(async (path) => {
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [recorded], next_offset: null } as never;
+    if (path.endsWith("/meetings/demo-recording")) return recorded as never;
+    if (path === "/demo/scenarios")
+      return {
+        enabled: true,
+        scenarios: [
+          {
+            id: "recording",
+            recording: {
+              audio: "/demo/standup.m4a",
+              model: "faster-whisper",
+              wer: 0.011,
+              date: "2026-10-19",
+            },
+          },
+        ],
+      } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  const { container } = render(
+    <Workbench
+      workspace={workspace}
+      user={{ ...user, is_visitor: true }}
+      onDirty={vi.fn()}
+      route={{ ...route, meeting: "demo-recording", step: "transcript" }}
+      navigate={vi.fn()}
+    />,
+  );
+  expect(await screen.findByText(/1\.1% word error rate/)).toBeInTheDocument();
+  expect(container.querySelector("audio")).toHaveAttribute("src", "/demo/standup.m4a");
+  expect(screen.getByText("Morgan: Synthetic stand-up.")).toBeInTheDocument();
+});

@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, scoped } from "../api";
 import { examples } from "../demo";
 import { routePath, settingsPath, sharePath, type Route, type Step } from "../navigation";
-import type { CalendarEntry, Job, Meeting, User, Workspace } from "../types";
+import type { CalendarEntry, DemoCatalog, DemoRecording, Job, Meeting, User, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
 import { TranscriptStep, PeopleStep, ReviewStep, MeetingHistory } from "./MeetingSteps";
 import { ShareStep } from "./ShareStep";
 import { ContextBubble } from "./ContextBubble";
-import DemoScenarios from "./DemoScenarios";
 import OutcomeCalendar from "./OutcomeCalendar";
 import type { ImportedMeeting } from "./GoogleMeetImport";
 import MeetingList from "./MeetingList";
@@ -202,13 +201,6 @@ export default function Workbench({
   }
   function reviewCalendar(entry: CalendarEntry) {
     navigate(reviewOutcomePath(workspace.id, entry.meeting_id, entry.item_id));
-  }
-  async function openDemo(result: { meeting_id: string; job_id: string | null }) {
-    const saved = await loadMeeting(result.meeting_id);
-    if (!saved) return;
-    setJobId(result.job_id);
-    setJob(null);
-    go("people", saved.id);
   }
   async function imported(result: ImportedMeeting) {
     const saved = await loadMeeting(result.meeting_id);
@@ -503,7 +495,6 @@ export default function Workbench({
           </section>
           <ErrorNotice error={error} />
           {loading && <p role="status">Loading meetings…</p>}
-          {user.is_visitor && <DemoScenarios workspace={workspace} disabled={pending} onLoaded={openDemo} />}
           <MeetingList
             meetings={meetings}
             query={search}
@@ -557,13 +548,9 @@ export default function Workbench({
             </nav>
           )}
           {job && <JobStatus job={job} role={workspace.role} onReconcile={reconcile} />}
-          {user.is_visitor &&
-            step === "transcript" &&
-            (meeting ? (
-              <SyntheticSource text={meeting.raw_text} onContinue={() => go("people")} />
-            ) : (
-              <DemoScenarios workspace={workspace} disabled={pending} onLoaded={openDemo} />
-            ))}
+          {user.is_visitor && meeting && step === "transcript" && (
+            <SyntheticSource meeting={meeting} onContinue={() => go("people")} />
+          )}
           {!user.is_visitor && (meeting || route.meeting === "new") && step === "transcript" && (
             <TranscriptStep
               workspace={workspace}
@@ -671,16 +658,35 @@ export default function Workbench({
 }
 
 /** The visitor's read-only demo transcript, revealed like the other steps. */
-function SyntheticSource({ text, onContinue }: { text: string; onContinue: () => void }) {
+// A demo meeting's transcript. The one made from a recording also offers that recording.
+function SyntheticSource({ meeting, onContinue }: { meeting: Meeting; onContinue: () => void }) {
   const reveal = useStepReveal();
+  const [recording, setRecording] = useState<DemoRecording | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api<DemoCatalog>("/demo/scenarios", { signal: controller.signal })
+      .then((catalog) => {
+        const source = catalog.scenarios.find((item) => "demo-" + item.id === meeting.id);
+        if (!controller.signal.aborted) setRecording(source?.recording ?? null);
+      })
+      .catch(() => undefined); // Without the catalog the transcript still reads in full.
+    return () => controller.abort();
+  }, [meeting.id]);
   return (
     <section className={"panel step-panel " + reveal}>
       <h1>Transcript</h1>
-      <p>
-        This is an approved, immutable demo transcript. Your outcome reviews and personal plan are editable;
-        real uploads belong in invited private workspaces.
-      </p>
-      <pre className="payload-text">{text}</pre>
+      {recording && (
+        <>
+          <audio className="w-full" controls preload="none" src={recording.audio}>
+            Your browser cannot play this recording; the transcript is below.
+          </audio>
+          <p className="text-sm text-text-2">
+            Transcribed offline by {recording.model} on {recording.date}: {(recording.wer * 100).toFixed(1)}%
+            word error rate against the script. Speaker names come from the script.
+          </p>
+        </>
+      )}
+      <pre className="payload-text">{meeting.raw_text}</pre>
       <button className="primary" onClick={onContinue}>
         Continue to people
       </button>

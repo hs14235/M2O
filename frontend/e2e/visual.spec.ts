@@ -68,9 +68,9 @@ test("visitor screens match their baselines in both themes and sizes", async ({ 
   );
 
   const workspace = new URL(page.url()).pathname.split("/")[2];
-  await extractFixture(page, "Release readiness");
+  await extractFixture(page, "Release 2.4 readiness");
   // Opened fresh, the People step shows its returning-visitor view (no live job banner).
-  await snapAll(browser, page, "people", (view) => view.getByLabel("Directory match for Alex"));
+  await snapAll(browser, page, "people", (view) => view.getByLabel("Directory match for Priya"));
 
   await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
   const review = (view: Page) => view.getByRole("heading", { name: "Review", exact: true, level: 1 });

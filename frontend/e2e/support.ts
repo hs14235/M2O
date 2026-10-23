@@ -21,12 +21,21 @@ export async function settle(page: Page) {
 export async function enterDemo(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the isolated demo" }).click();
-  await expect(page.getByRole("region", { name: "Synthetic demo session" })).toBeVisible();
+  // Each demo workspace opens with its meetings already listed.
+  await expect(page.getByRole("heading", { name: "Your meetings", exact: true })).toBeVisible();
+}
+
+/** Opens a listed meeting and continues from its transcript to People. */
+export async function openMeeting(page: Page, title: string) {
+  // A meeting row's name starts with its title, then its date and identifier.
+  const name = new RegExp("^" + title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b");
+  await page.getByRole("button", { name }).click();
+  await page.getByRole("button", { name: "Continue to people", exact: true }).click();
+  await expect(page).toHaveURL(/\/people$/);
 }
 
 export async function extractFixture(page: Page, title: string) {
-  await page.getByRole("button", { name: "Open " + title, exact: true }).click();
-  await expect(page).toHaveURL(/\/people$/);
+  await openMeeting(page, title);
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Extract outcomes", exact: true }).click();
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });

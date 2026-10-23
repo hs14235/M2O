@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { openMeeting } from "./support";
 
 // Documentation captures are opt-in so ordinary runs never rewrite tracked media.
 const docMedia = process.env.MTT_UPDATE_DOC_MEDIA === "1" ? "../docs/media/" : "test-results/doc-media/";
@@ -26,13 +27,13 @@ async function accessible(page: Page) {
 async function enter(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore the isolated demo" }).click();
-  await expect(page.getByRole("region", { name: "Synthetic demo session" })).toBeVisible();
+  // Each demo workspace opens with its meetings already listed.
+  await expect(page.getByRole("heading", { name: "Your meetings", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "New meeting", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Access & audit" })).toHaveCount(0);
 }
 async function extractFixture(page: Page, title: string) {
-  await page.getByRole("button", { name: "Open " + title, exact: true }).click();
-  await expect(page).toHaveURL(/\/people$/);
+  await openMeeting(page, title);
   await expect(page.getByText("Transcript indexing ready")).toBeVisible({ timeout: 30000 });
   await page.getByRole("button", { name: "Extract outcomes", exact: true }).click();
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });
@@ -48,9 +49,9 @@ test("real isolated visitor journeys across departments, exact local handoff and
 }) => {
   await enter(page);
   for (const [department, name, fixture] of [
-    ["engineering", "Engineering", "Release readiness"],
-    ["hr", "People Operations", "Onboarding coordination"],
-    ["finance", "Finance Control", "Month-end controls"],
+    ["engineering", "Engineering", "Release 2.4 readiness"],
+    ["hr", "People Operations", "New-hire onboarding sync"],
+    ["finance", "Finance Control", "October close review"],
   ]) {
     await page
       .getByRole("group", { name: "Department experiences" })
@@ -66,19 +67,8 @@ test("real isolated visitor journeys across departments, exact local handoff and
       await page.screenshot({ path: docMedia + "visitor-mobile-people.png", fullPage: true });
       await page.setViewportSize({ width: 1280, height: 720 });
     }
-    const alex = page.getByLabel("Directory match for Alex");
-    const choice = await alex
-      .locator("option")
-      .evaluateAll(
-        (options) =>
-          (options.find((option) => (option as HTMLOptionElement).value) as HTMLOptionElement).value,
-      );
-    await alex.selectOption(choice);
-    await page
-      .locator(".mentions li")
-      .filter({ has: alex })
-      .getByRole("button", { name: "Confirm person" })
-      .click();
+    // Each name has one directory match, preselected; confirming it is still a click.
+    await page.locator(".mentions li").first().getByRole("button", { name: "Confirm person" }).click();
     await expect(page.getByText("Confirmed directory match", { exact: true })).toHaveCount(1);
     await page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }).click();
     const action = page.locator("article.action");
@@ -202,7 +192,7 @@ test("authored media plays and loops, pause survives department changes, and too
     .click();
   await expect(page.getByRole("button", { name: "Play studio motion" })).toBeVisible();
   await expect(video).not.toHaveAttribute("src");
-  await page.getByRole("button", { name: "Open Onboarding coordination" }).click();
+  await openMeeting(page, "New-hire onboarding sync");
   for (const width of [850, 851, 1179, 1180, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const trigger = page.getByRole("button", { name: "People tools", exact: true });

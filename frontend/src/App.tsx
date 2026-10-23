@@ -299,28 +299,6 @@ export default function App() {
             />
           )}
           <ErrorNotice error={error} />
-          {user.is_visitor && (
-            <section className="visitor-banner" aria-label="Synthetic demo session">
-              <details>
-                <summary>
-                  <span className="visitor-dot" aria-hidden="true" />
-                  <strong>Synthetic demo</strong>
-                  {user.expires_at && (
-                    <span>
-                      {" "}
-                      · until <time dateTime={user.expires_at}>{demoUntil(user.expires_at)}</time>
-                    </span>
-                  )}
-                  <span className="visitor-more">What this means</span>
-                </summary>
-                <p>
-                  Your isolated synthetic demo uses synthetic data. Your reviews and plan are isolated; real
-                  uploads and external sends are disabled. When access expires, start a fresh demo. Access
-                  expiry does not immediately erase stored data.
-                </p>
-              </details>
-            </section>
-          )}
           {/* While a page loads, hold about a step's height so the content does not push
               anything when it arrives. */}
           <Suspense
@@ -481,15 +459,6 @@ function Login({
       </section>
     </main>
   );
-}
-
-/** "6:30 PM" today, or "Oct 16, 6:30 PM" when the demo runs past midnight. */
-export function demoUntil(value: string, today = new Date()) {
-  const end = new Date(value);
-  const time = end.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return end.toDateString() === today.toDateString()
-    ? time
-    : end.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + time;
 }
 
 function CreateWorkspace({ onCreated }: { onCreated: () => void }) {
