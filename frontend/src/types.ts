@@ -102,6 +102,8 @@ export interface Meeting extends MeetingSummary {
   embedding_provider: string | null;
   chunk_count: number;
   tasks: Outcome[];
+  /** Outcomes were extracted from this revision (even if none were found). */
+  extracted?: boolean;
   mentions: Mention[];
   revisions: { id: string; number: number; created_at: string }[];
 }

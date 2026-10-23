@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -45,6 +46,12 @@ export default function SlackConnection({
     [notice, setNotice] = useState("");
   const pending = useRef<AbortController | null>(null),
     path = scoped(workspace.id, "/integrations/slack");
+  // Consent finishes in another tab; read the status again when this one is back in view.
+  useOnReturn(() => {
+    api<SlackStatus>(path)
+      .then(setStatus)
+      .catch(() => undefined);
+  });
   useEffect(() => {
     const controller = new AbortController();
     api<SlackStatus>(path, { signal: controller.signal })
@@ -102,10 +109,12 @@ export default function SlackConnection({
             className={connected ? undefined : "primary"}
             disabled={busy || !status.configured || !status.can_manage}
             onClick={() =>
-              run(async (signal) => {
-                const value = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
-                if (!signal.aborted) window.location.assign(value.url);
-              })
+              run((signal) =>
+                openConsent(async () => {
+                  const value = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
+                  return signal.aborted ? undefined : value.url;
+                }),
+              )
             }
           >
             {status.state === "disconnected" ? "Connect Slack" : "Reconnect Slack"}

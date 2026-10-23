@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { Integration, User, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -27,6 +28,10 @@ export default function Integrations({
   user: User;
   refreshUser: () => void;
 }) {
+  // The LinkedIn profile consent finishes in another tab; refresh the account on return.
+  useOnReturn(() => {
+    if (!user.is_visitor) refreshUser();
+  });
   const [catalog, setCatalog] = useState<Integration[]>([]),
     [error, setError] = useState<unknown>(null),
     [busy, setBusy] = useState(false),
@@ -53,8 +58,10 @@ export default function Integrations({
         await api("/integrations/linkedin", { method: "DELETE" });
         refreshUser();
       } else {
-        const result = await api<{ url: string }>("/integrations/linkedin/connect", { method: "POST" });
-        window.location.assign(result.url);
+        await openConsent(async () => {
+          const result = await api<{ url: string }>("/integrations/linkedin/connect", { method: "POST" });
+          return result.url;
+        });
       }
     } catch (e) {
       setError(e);

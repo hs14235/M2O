@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { GoogleMeetStatus, User, Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -11,6 +12,7 @@ export default function GoogleMeetConnection({ workspace, user }: { workspace: W
     [refresh, setRefresh] = useState(0),
     [notice, setNotice] = useState("");
   const eligible = !user.is_visitor && workspace.role !== "viewer" && !user.capabilities.demo_mode;
+  useOnReturn(() => eligible && setRefresh((value) => value + 1));
   useEffect(() => {
     if (!eligible) return;
     const controller = new AbortController();
@@ -27,10 +29,13 @@ export default function GoogleMeetConnection({ workspace, user }: { workspace: W
     setBusy(true);
     setError(null);
     try {
-      const value = await api<{ url: string }>(scoped(workspace.id, "/integrations/google-meet/connect"), {
-        method: "POST",
+      await openConsent(async () => {
+        const value = await api<{ url: string }>(scoped(workspace.id, "/integrations/google-meet/connect"), {
+          method: "POST",
+        });
+        return value.url;
       });
-      window.location.assign(value.url);
+      setBusy(false);
     } catch (e) {
       setError(e);
       setBusy(false);

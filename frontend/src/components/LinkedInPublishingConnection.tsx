@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { openConsent, useOnReturn } from "../consent";
 import { api, scoped } from "../api";
 import type { Workspace } from "../types";
 import { ErrorNotice } from "./Feedback";
@@ -22,6 +23,12 @@ export default function LinkedInPublishingConnection({
     [revision, setRevision] = useState(0);
   const pending = useRef<AbortController | null>(null),
     path = scoped(workspace.id, "/integrations/linkedin/publishing");
+  // Consent finishes in another tab; read the status again when this one is back in view.
+  useOnReturn(() => {
+    api<LinkedInPublishingStatus>(path)
+      .then(setStatus)
+      .catch(() => undefined);
+  });
   useEffect(() => {
     const controller = new AbortController();
     api<LinkedInPublishingStatus>(path, { signal: controller.signal })
@@ -51,10 +58,12 @@ export default function LinkedInPublishingConnection({
     }
   }
   const connect = () =>
-    run(async (signal) => {
-      const result = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
-      if (!signal.aborted) window.location.assign(result.url);
-    });
+    run((signal) =>
+      openConsent(async () => {
+        const result = await api<{ url: string }>(path + "/connect", { signal, method: "POST" });
+        return signal.aborted ? undefined : result.url;
+      }),
+    );
   const disconnect = () =>
     run(async (signal) => {
       await api(path, { signal, method: "DELETE" });

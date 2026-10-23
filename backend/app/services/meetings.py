@@ -12,6 +12,7 @@ from ..access_policy import account, consume_visitor_usage
 from ..auth import Principal, require_role
 from ..chunking import CHUNKING_VERSION, to_chunk_records
 from ..models import (
+    ExtractionRun,
     Job,
     Meeting,
     MeetingImport,
@@ -222,6 +223,14 @@ class MeetingService:
         mentions = self.session.scalars(
             select(ParticipantMention).where(ParticipantMention.revision_id == revision.id)
         ).all()
+        # Whether outcomes were extracted from this revision, even if none were found: the
+        # People step asks for confirmation only once extraction has named the people.
+        extracted = (
+            self.session.scalar(
+                select(ExtractionRun.id).where(ExtractionRun.revision_id == revision.id).limit(1)
+            )
+            is not None
+        )
         directory = self.session.scalars(
             select(Participant).where(Participant.workspace_id == self.principal.workspace_id)
         ).all()
@@ -264,6 +273,7 @@ class MeetingService:
                 for chunk in chunks
             ],
             "chunk_count": len(chunks),
+            "extracted": extracted,
             "tasks": ReviewService(self.session, self.principal).list_items(meeting),
             "mentions": [
                 {

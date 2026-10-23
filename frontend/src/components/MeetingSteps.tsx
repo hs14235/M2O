@@ -227,7 +227,9 @@ export function PeopleStep({
     [error, setError] = useState<unknown>(null),
     [adding, setAdding] = useState(false);
   const editable = workspace.role !== "viewer",
-    unconfirmed = meeting.mentions.filter((m) => !m.confirmed).length;
+    unconfirmed = meeting.mentions.filter((m) => !m.confirmed).length,
+    // Older payloads have no flag; outcomes on the revision mean extraction ran.
+    extracted = meeting.extracted ?? meeting.tasks.length > 0;
   useEffect(() => {
     onDirty("participant-form", Boolean(name || role));
     return () => onDirty("participant-form", false);
@@ -313,8 +315,8 @@ export function PeopleStep({
         </button>
         <span className="muted">Transcript indexing {meeting.index_status}</span>
         <StepProgress
-          done={meeting.mentions.length - unconfirmed}
-          total={meeting.mentions.length}
+          done={extracted ? meeting.mentions.length - unconfirmed : 0}
+          total={extracted ? meeting.mentions.length : 0}
           label="people confirmed"
         />
       </div>
@@ -343,7 +345,14 @@ export function PeopleStep({
           </>
         )}
       </div>
-      {meeting.mentions.length ? (
+      {/* Names are confirmed once extraction has found them, not while the transcript indexes. */}
+      {!extracted ? (
+        <Empty>
+          {pending
+            ? "Preparing the transcript and outcomes…"
+            : "Extract outcomes first. The people they name appear here to confirm."}
+        </Empty>
+      ) : meeting.mentions.length ? (
         <ul className="mentions">
           {meeting.mentions.map((mention) => (
             <MentionRow
@@ -359,7 +368,7 @@ export function PeopleStep({
         <Empty>
           {pending
             ? "Preparing the transcript and outcomes…"
-            : "Extract outcomes to find participant suggestions. You can also add directory context below."}
+            : "No names were found in this transcript. You can add directory context below."}
         </Empty>
       )}
       {editable && directoryEditable && (
@@ -405,7 +414,11 @@ function MentionRow({
   editable: boolean;
   onConfirm: (id: string) => void;
 }) {
-  const [person, setPerson] = useState(mention.participant_id || "");
+  // A single directory match starts selected; confirming it is still an explicit click.
+  const [person, setPerson] = useState(
+    mention.participant_id || (mention.candidates.length === 1 ? mention.candidates[0].id : ""),
+  );
+  const suggested = new Set(mention.candidates.map((candidate) => candidate.id));
   const tone = mention.confirmed ? "on" : mention.candidates.length > 1 ? "attention" : "ready";
   return (
     <li data-tone={tone}>
@@ -424,23 +437,42 @@ function MentionRow({
                 : "No confirmed match yet"}
         </small>
       </div>
-      <label>
-        <span className="sr-only">Directory match for {mention.name}</span>
-        <select value={person} disabled={!editable} onChange={(e) => setPerson(e.target.value)}>
-          <option value="">Leave unassigned</option>
-          {people.map((p) => (
-            <option value={p.id} key={p.id}>
-              {p.name} · {p.role || "Participant"}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        disabled={!person || !editable || (mention.confirmed && person === mention.participant_id)}
-        onClick={() => onConfirm(person)}
-      >
-        Confirm person
-      </button>
+      <div className="person-picks" role="group" aria-label={"Who is " + mention.name + "?"}>
+        {mention.candidates.map((candidate) => (
+          <button
+            key={candidate.id}
+            type="button"
+            className="person-chip"
+            aria-pressed={person === candidate.id}
+            disabled={!editable}
+            onClick={() => setPerson(candidate.id)}
+          >
+            {candidate.name} · {candidate.role || "Participant"}
+          </button>
+        ))}
+        <label className="person-other">
+          <span className="sr-only">Directory match for {mention.name}</span>
+          <select
+            value={suggested.has(person) ? "" : person}
+            disabled={!editable}
+            onChange={(e) => setPerson(e.target.value)}
+          >
+            <option value="">{mention.candidates.length ? "Someone else…" : "Choose from directory…"}</option>
+            {people.map((p) => (
+              <option value={p.id} key={p.id}>
+                {p.name} · {p.role || "Participant"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="person-confirm"
+          disabled={!person || !editable || (mention.confirmed && person === mention.participant_id)}
+          onClick={() => onConfirm(person)}
+        >
+          Confirm person
+        </button>
+      </div>
     </li>
   );
 }
