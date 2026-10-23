@@ -97,14 +97,16 @@ def test_expired_visitor_session_and_queued_job_lose_authority(engine, seeded, m
             scope + "/demo/load", json={"fixture_id": spaces[0]["department"]}, headers=headers
         )
         assert loaded.status_code == 202, loaded.text
-        job_id = loaded.json()["job_id"]
+        # The example was preloaded at start; its index job is still queued.
+        job_id = browser.get(scope + "/meetings/" + loaded.json()["meeting_id"]).json()["active_job"]["id"]
         with Session(engine) as session:
             visitor = session.get(User, identity["id"])
             visitor.visitor_expires_at = now() - timedelta(seconds=1)
             session.commit()
         assert browser.get("/api/me").status_code == 401
         assert browser.get(scope + "/meetings").status_code == 401
-        asyncio.run(run_once())
+        while asyncio.run(run_once()):
+            pass
         with Session(engine) as session:
             job = session.scalar(select(Job).where(Job.id == job_id))
             assert job.state == "failed"
@@ -120,7 +122,8 @@ def test_demo_review_plan_and_exact_export_work_without_provider_access(engine, 
         loaded = browser.post(scope + "/demo/load", json={"fixture_id": "engineering"}, headers=headers)
         assert loaded.status_code == 202, loaded.text
         meeting_path = scope + "/meetings/" + loaded.json()["meeting_id"]
-        asyncio.run(run_once())
+        while asyncio.run(run_once()):  # Every preloaded example's index job.
+            pass
         assert browser.post(meeting_path + "/extract", headers=headers).status_code == 202
         asyncio.run(run_once())
         meeting = browser.get(meeting_path).json()

@@ -191,8 +191,9 @@ def main() -> int:
             assert status == 200 and result["state"] not in {"failed", "cancelled"}
             return result["state"] == "completed"
 
-        wait_until(lambda: completed(job["job_id"]))
         meeting_path = root + "/meetings/" + job["meeting_id"]
+        # Examples are preloaded when the demo starts; the worker indexes them.
+        wait_until(lambda: browser.request("GET", meeting_path)[1]["index_status"] == "ready")
         status, extraction, _ = browser.request("POST", meeting_path + "/extract", {})
         assert status == 202
         wait_until(lambda: completed(extraction["job_id"]))

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { enterDemo, settle } from "./support";
+import { enterDemo, openMeeting, settle } from "./support";
 
 // The transcript-to-outcome moment: one view transition when motion is allowed, none
 // in calm mode or with reduced motion, and the same end state every time. One demo
@@ -69,8 +69,7 @@ async function forgetMoment(page: Page, calm: boolean) {
 test("the transcript lines become draft cards once, and calm or reduced motion skip it", async ({ page }) => {
   await countTransitions(page);
   await enterDemo(page);
-  await page.getByRole("button", { name: "Open Release readiness", exact: true }).click();
-  await expect(page).toHaveURL(/\/people$/);
+  await openMeeting(page, "Release 2.4 readiness");
   await expect(page.getByRole("region", { name: "Transcript lines" })).toBeVisible();
 
   // Motion allowed: exactly one view transition, with at least one line morphing.

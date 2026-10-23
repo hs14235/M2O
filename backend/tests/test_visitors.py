@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import digest
+from app.demo_fixtures import FIXTURES
 from app.main import app
 from app.models import (
     ApiToken,
@@ -36,10 +37,34 @@ def start(client):
 
 
 def load(client, headers, workspace, fixture="engineering"):
+    """A preloaded example, with its index job while that is still queued."""
     root = "/api/workspaces/" + workspace["id"]
     response = client.post(root + "/demo/load", json={"fixture_id": fixture}, headers=headers)
     assert response.status_code == 202, response.json()
-    return root, response.json()
+    meeting = client.get(root + "/meetings/" + response.json()["meeting_id"]).json()
+    return root, {**response.json(), "job_id": (meeting["active_job"] or {}).get("id")}
+
+
+def drain():
+    while asyncio.run(run_once()):
+        pass
+
+
+def test_each_demo_workspace_opens_with_its_meetings_and_people(client, session):
+    data, _, spaces = start(client)
+    for department, space in spaces.items():
+        root = "/api/workspaces/" + space["id"]
+        listed = client.get(root + "/meetings").json()["meetings"]
+        # Newest first: the department's own meeting leads, then the shared examples.
+        assert [row["id"] for row in listed] == ["demo-" + department, "demo-recording", "demo-no-outcomes"]
+        people = {person["name"] for person in client.get(root + "/participants").json()}
+        assert {name for name, _ in FIXTURES[department]["people"]} <= people
+        assert {"Morgan", "Alex", "Taylor"} <= people
+    # Preloading is not the visitor's work, so it spends none of their job budget.
+    assert session.get(VisitorUsage, data["id"]).jobs == 0
+    drain()
+    root = "/api/workspaces/" + spaces["engineering"]["id"]
+    assert client.get(root + "/meetings/demo-engineering").json()["index_status"] == "ready"
 
 
 def test_visitors_have_distinct_authority_and_no_private_workspace_access(client, seeded, monkeypatch):
@@ -79,6 +104,7 @@ def test_fixture_loading_is_scoped_idempotent_and_custom_text_is_denied(client, 
     root, result = load(client, headers, spaces["engineering"])
     assert client.post(root + "/demo/load", json={"fixture_id": "hr"}, headers=headers).status_code == 404
     assert client.post(root + "/demo/load", json={"fixture_id": "engineering"}).status_code == 403
+    # The example was preloaded, so loading it again opens the same meeting.
     repeated = client.post(root + "/demo/load", json={"fixture_id": "engineering"}, headers=headers)
     assert repeated.status_code == 202 and repeated.json()["job_id"] is None
     assert (
@@ -95,14 +121,14 @@ def test_fixture_loading_is_scoped_idempotent_and_custom_text_is_denied(client, 
     )
     assert upload.status_code == 403
     usage = session.get(VisitorUsage, user["id"])
-    assert usage.jobs == 1
+    assert usage.jobs == 0
     assert (
         session.scalar(
             select(func.count())
             .select_from(Meeting)
             .where(Meeting.workspace_id == spaces["engineering"]["id"])
         )
-        == 1
+        == 3
     )
     assert result["synthetic"]
 
@@ -178,7 +204,7 @@ def test_visitor_expiry_invalidates_sessions_and_queued_jobs(client, session):
     session.commit()
     assert client.get("/api/me").status_code == 401
     assert client.get(root + "/meetings").status_code == 401
-    assert asyncio.run(run_once())
+    drain()
     session.expire_all()
     assert session.get(Job, result["job_id"]).state == "failed"
     assert (
@@ -196,7 +222,7 @@ def test_workspace_expiry_invalidates_work_and_removes_it_from_directory(client,
     session.commit()
     assert client.get(root + "/meetings").status_code == 404
     assert len(client.get("/api/workspaces").json()) == 2
-    assert asyncio.run(run_once())
+    drain()
     session.expire_all()
     assert session.get(Job, result["job_id"]).state == "failed"
 
@@ -245,10 +271,10 @@ def test_demo_workers_use_hash_and_rules_with_private_ai_configured(client, sess
         raise AssertionError("Visitor work must not run model inference")
 
     monkeypatch.setattr("app.services.extraction.extract_tasks_ollama", forbidden_model)
-    assert asyncio.run(run_once())
+    drain()
     extraction = client.post(root + "/meetings/" + result["meeting_id"] + "/extract", headers=headers)
     assert extraction.status_code == 202
-    assert asyncio.run(run_once())
+    drain()
     session.expire_all()
     meeting = client.get(root + "/meetings/" + result["meeting_id"]).json()
     assert meeting["index_status"] == "ready" and meeting["embedding_provider"] == "hash"
@@ -261,7 +287,7 @@ def test_demo_workers_use_hash_and_rules_with_private_ai_configured(client, sess
 def test_no_outcomes_is_a_useful_completed_demo_result(client, session):
     _, headers, spaces = start(client)
     root, result = load(client, headers, spaces["finance"], "no-outcomes")
-    assert asyncio.run(run_once())
+    drain()
     extract = client.post(root + "/meetings/" + result["meeting_id"] + "/extract", headers=headers)
     assert extract.status_code == 202 and asyncio.run(run_once())
     assert client.get(root + "/meetings/" + result["meeting_id"]).json()["tasks"] == []
@@ -316,7 +342,7 @@ def test_recording_example_carries_provenance_and_extracts_in_every_department(c
     _, headers, spaces = start(client)
     for department in ("engineering", "hr", "finance"):
         root, result = load(client, headers, spaces[department], "recording")
-        assert asyncio.run(run_once())
+        drain()
         extract = client.post(root + "/meetings/" + result["meeting_id"] + "/extract", headers=headers)
         assert extract.status_code == 202 and asyncio.run(run_once())
         # Whisper's unedited words still yield reviewable outcomes in rules mode.

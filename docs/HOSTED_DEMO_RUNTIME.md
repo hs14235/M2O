@@ -40,6 +40,12 @@ The image still needs a disposable PostgreSQL startup/shutdown/recovery check af
 
 The API and worker sleep together when the free web service sleeps. The worker resumes processing when the service wakes; there is no always-on delivery promise. Slack interactive actions remain unavailable in this credential-free demo. A private live installation needs an awake endpoint and appropriate credentials.
 
-Render Free PostgreSQL has a limited lifetime and no managed backups. The demo must disclose its temporary nature and synthetic-data boundary. Durable invited private use requires an explicit database/backup/restore decision. No local container check proves hosted availability, retention or recovery.
+Render Free PostgreSQL has a limited lifetime and no managed backups. Durable invited private use requires an explicit database/backup/restore decision. No local container check proves hosted availability, retention or recovery.
+
+## What a visitor sees
+
+Decision (Hamza, October 22, 2026): the demo looks like a working private installation. There is no in-app demo notice; the landing page's "Explore the isolated demo" entry is where a visitor chooses the demo. This replaces the earlier rule that the demo must disclose its temporary nature and synthetic-data boundary inside the app. The boundary itself is unchanged: every transcript is an approved synthetic fixture, custom text and uploads are refused by the API, external delivery is unavailable, and a session expires after `VISITOR_HOURS`.
+
+Each new visitor session gets one workspace per department, each with its people already in the directory and three meetings already listed and indexed by the worker: the department's own meeting, the launch stand-up made from a recording (its audio plays on the Transcript step), and a check-in with no outcomes. Preloading spends none of the visitor's job budget. Sessions started before this change have empty workspaces until they expire.
 
 References: [Render Free](https://render.com/docs/free), [Blueprint fields](https://render.com/docs/blueprint-spec), [web-service ports and health checks](https://render.com/docs/web-services).

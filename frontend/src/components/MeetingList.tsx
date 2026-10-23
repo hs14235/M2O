@@ -31,7 +31,11 @@ export default function MeetingList({
       <li key={meeting.id}>
         <button onClick={() => onOpen(meeting.id)}>
           <strong>{meeting.title}</strong>
-          {meeting.occurred_on && <span>Meeting date: {meeting.occurred_on}</span>}
+          {meeting.occurred_on && (
+            <span>
+              Meeting date: <time dateTime={meeting.occurred_on}>{meeting.occurred_on}</time>
+            </span>
+          )}
           {meeting.created_at && (
             <time dateTime={meeting.created_at}>Saved {new Date(meeting.created_at).toLocaleString()}</time>
           )}
@@ -74,7 +78,7 @@ export default function MeetingList({
           {query
             ? "No permitted meetings match this title or identifier."
             : visitor
-              ? "No examples opened yet. Choose a synthetic conversation above."
+              ? "No meetings in this workspace yet."
               : "Create a meeting or open a saved conversation. Saving an example as a new meeting creates a new identifier."}
         </Empty>
       ) : grouped ? (
