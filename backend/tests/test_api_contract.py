@@ -130,12 +130,22 @@ def test_complete_rest_journey(client, seeded, auth):
         },
     )
     assert response.status_code == 202
+
+    def active_job():
+        return client.get(root(seeded) + "/meetings/api-demo", headers=auth).json()["active_job"]
+
+    # A queued or running job is part of the meeting, so leaving and reopening it resumes
+    # the progress instead of offering to start the work again.
+    assert active_job() == {"id": response.json()["job_id"], "kind": "index"}
     assert asyncio.run(run_once())
+    assert active_job() is None
     # Indexing alone does not count as extraction; the People step waits for this flag.
     assert client.get(root(seeded) + "/meetings/api-demo", headers=auth).json()["extracted"] is False
     extract = client.post(root(seeded) + "/meetings/api-demo/extract", headers=auth)
     assert extract.status_code == 202
+    assert active_job() == {"id": extract.json()["job_id"], "kind": "extract"}
     assert asyncio.run(run_once())
+    assert active_job() is None
     job = client.get(root(seeded) + "/jobs/" + extract.json()["job_id"], headers=auth).json()
     assert job["state"] == "completed" and job["result"]["coverage"]["full_transcript"]
     meeting = client.get(root(seeded) + "/meetings/api-demo", headers=auth).json()

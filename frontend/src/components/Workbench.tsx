@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, scoped } from "../api";
+import { api, ApiError, scoped } from "../api";
 import { examples } from "../demo";
 import { routePath, settingsPath, sharePath, type Route, type Step } from "../navigation";
 import type { CalendarEntry, Job, Meeting, User, Workspace } from "../types";
@@ -21,6 +21,7 @@ import { usePeople } from "./workbench/usePeople";
 import { stagger, useStepReveal } from "../motion";
 import { useRouteFence } from "./workbench/useRouteFence";
 import { reviewOutcomePath } from "./workbench/links";
+import { recall, remember } from "../stepMemory";
 
 const stepHints: Record<Step, string> = {
   transcript: "Next: confirm the people and extract outcomes.",
@@ -50,7 +51,7 @@ export default function Workbench({
   user: User;
   onDirty: (dirty: boolean) => void;
   route: Route;
-  navigate: (path: string) => void;
+  navigate: (path: string, replace?: boolean) => void;
 }) {
   const [active, setActive] = useState(""),
     [meeting, setMeeting] = useState<Meeting | null>(null);
@@ -149,6 +150,11 @@ export default function Workbench({
         }
         return controller.signal.aborted ? undefined : row;
       } catch (e) {
+        // An archived meeting (say, the one a workspace was last left on) opens the list.
+        if (!controller.signal.aborted && e instanceof ApiError && e.status === 404) {
+          navigate(routePath(workspace.id), true);
+          return;
+        }
         if (!controller.signal.aborted) {
           setError(e);
           setMeetingReadFailed(true);
@@ -157,14 +163,15 @@ export default function Workbench({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [workspace.id, list, hasDirtyItems],
+    [workspace.id, list, hasDirtyItems, navigate],
   );
 
   useEffect(() => {
     if (route.meeting === active) return;
     detailRequest.current?.abort();
     dirtyItems.current.clear();
-    setSelected([]);
+    const ticked = route.meeting ? recall(workspace.id, "selected:" + route.meeting) : undefined;
+    setSelected(Array.isArray(ticked) ? ticked.filter((id) => typeof id === "string") : []);
     setJobId(null);
     setJob(null);
     setJobReadError(null);
@@ -184,7 +191,11 @@ export default function Workbench({
       setOccurred("");
       setVisibility(workspace.department === "hr" ? "restricted" : "workspace");
     }
-  }, [route.meeting, loadMeeting, workspace.department]);
+  }, [route.meeting, loadMeeting, workspace.department, workspace.id]);
+  // Outcomes ticked for sharing outlast leaving the workspace (see stepMemory).
+  useEffect(() => {
+    if (meeting && meeting.id === active) remember(workspace.id, "selected:" + active, selected);
+  }, [workspace.id, meeting, active, selected]);
 
   function go(step: Step, id = active) {
     navigate(routePath(workspace.id, "meetings", id || "new", step));
@@ -363,6 +374,16 @@ export default function Workbench({
       setMoment({ job: job.id, revision: meeting.current_revision });
     }
   }, [extractJob, job, reloaded, meeting, route.step]);
+  // Work started before leaving this meeting (or in another tab) shows its progress again
+  // instead of offering to start it over.
+  const running = meeting?.active_job;
+  useEffect(() => {
+    if (!running || running.id === jobId) return;
+    if (jobId && (!job || ["queued", "running"].includes(job.state))) return;
+    setJobId(running.id);
+    setJob(null);
+    if (running.kind === "extract") setExtractJob(running.id);
+  }, [running, jobId, job, setJob]);
   useEffect(() => {
     if (!meeting || meeting.index_status !== "queued" || jobId) return;
     const timer = setTimeout(() => {

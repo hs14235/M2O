@@ -190,24 +190,43 @@
   padding: 0;
   flex-wrap: wrap;
 }
+/* A progress line, not buttons: stages light up as the handoff reaches them. */
 .handoff-stages li {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: white;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
-.handoff-stages li[aria-current="step"] {
-  background: var(--green);
-  color: white;
-  border-color: var(--green);
+.handoff-stages li + li::before {
+  content: "";
+  width: 1.4rem;
+  height: 1px;
+  background: var(--line);
 }
 .handoff-stages li > span {
-  opacity: 0.8;
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
   font-size: 0.7rem;
+}
+.handoff-stages li[aria-current="step"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.handoff-stages li[aria-current="step"] > span,
+.handoff-stages li[data-done] > span {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.step-actions .step-hint {
+  margin: 0 0 0 auto;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 .handoff-context {
   padding: 0.8rem 1rem;

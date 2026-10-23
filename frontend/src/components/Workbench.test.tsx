@@ -46,6 +46,7 @@ const route: Route = { workspace: "space", page: "meetings", meeting: "weekly", 
 afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 it("plays the outcome moment only after the finished extraction's meeting has reloaded", async () => {
@@ -267,4 +268,76 @@ it("queues a recording once, reports transcription, then opens the new meeting",
   );
   expect(navigate).toHaveBeenCalledTimes(1);
   expect(request.mock.calls.filter(([path]) => path.endsWith("/transcribe"))).toHaveLength(1);
+});
+
+it("resumes a running extraction when its meeting is opened again", async () => {
+  let reads = 0;
+  const request = vi.spyOn(client, "api").mockImplementation(async (path, options) => {
+    if (path.endsWith("/jobs/job")) {
+      reads += 1;
+      return { id: "job", kind: "extract", state: "running", error_code: null, result: null } as never;
+    }
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [meeting], next_offset: null } as never;
+    if (path.endsWith("/meetings/weekly") && !options?.method)
+      return { ...meeting, active_job: { id: "job", kind: "extract" } } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  render(<Workbench workspace={workspace} user={user} onDirty={vi.fn()} route={route} navigate={vi.fn()} />);
+  await waitFor(() => expect(reads).toBeGreaterThan(0));
+  expect(screen.getByRole("button", { name: "Extract outcomes" })).toBeDisabled();
+  expect(request).not.toHaveBeenCalledWith(expect.stringMatching(/\/extract$/), expect.anything());
+});
+
+it("keeps ticked outcomes after leaving the workspace and coming back", async () => {
+  const approved = {
+    id: "approved",
+    kind: "action",
+    title: "Synthetic approved outcome",
+    body: "",
+    labels: [],
+    status: "approved",
+    version: 2,
+    owner_id: null,
+    assignee_hint: null,
+    due_hint: null,
+    due_date: null,
+    confidence: 0.6,
+    evidence: [],
+  };
+  vi.spyOn(client, "api").mockImplementation(async (path, options) => {
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.endsWith("/integrations")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [meeting], next_offset: null } as never;
+    if (path.endsWith("/meetings/weekly") && !options?.method)
+      return { ...meeting, tasks: [approved] } as never;
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  const share: Route = { ...route, step: "share" };
+  const props = { workspace, user, onDirty: vi.fn(), route: share, navigate: vi.fn() };
+  const first = render(<Workbench {...props} />);
+  await userEvent.click(await screen.findByRole("checkbox", { name: "Synthetic approved outcome" }));
+  first.unmount(); // Switching workspaces unmounts this one's Workbench.
+  render(<Workbench {...props} />);
+  expect(await screen.findByRole("checkbox", { name: "Synthetic approved outcome" })).toBeChecked();
+});
+
+it("opens the meeting list when a remembered meeting has since been archived", async () => {
+  vi.spyOn(client, "api").mockImplementation(async (path) => {
+    if (path.endsWith("/participants")) return [] as never;
+    if (path.includes("/meetings?")) return { meetings: [meeting], next_offset: null } as never;
+    if (path.endsWith("/meetings/archived")) throw new client.ApiError(404, "Meeting not found");
+    throw new Error("Unexpected synthetic request: " + path);
+  });
+  const navigate = vi.fn();
+  render(
+    <Workbench
+      workspace={workspace}
+      user={user}
+      onDirty={vi.fn()}
+      route={{ ...route, meeting: "archived" }}
+      navigate={navigate}
+    />,
+  );
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith("/workspaces/space/meetings", true));
 });
