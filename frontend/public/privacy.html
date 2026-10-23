@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>M2O privacy</title>
+    <link rel="icon" href="/favicon.png" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main>
+      <p class="brand">
+        <a href="/"><img src="/brand-mark.png" alt="" width="40" height="40" /> M2O</a>
+      </p>
+      <h1>Privacy</h1>
+      <p class="updated">Last updated October 22, 2026</p>
+
+      <p>
+        M2O turns meeting transcripts into reviewed outcomes and, when you approve it, sends them to tools you
+        connect. This page says what M2O stores, where, for how long, and what leaves it. It covers this site:
+        the public demo and invited private accounts.
+      </p>
+
+      <h2>The public demo</h2>
+      <p>
+        "Explore the isolated demo" starts a temporary session with its own workspaces and synthetic example
+        meetings. The demo accepts no text, files or recordings of your own and sends nothing to outside
+        tools. What you do in it (reviews, plans) is kept with the session, which expires after two hours and
+        is then deleted automatically.
+      </p>
+
+      <h2>Invited private accounts</h2>
+      <p>Accounts exist only by invitation. For an account M2O stores:</p>
+      <ul>
+        <li>your email address, name and a one-way hash of your password (never the password itself);</li>
+        <li>
+          the meetings you add: transcripts, the outcomes found in them, your reviews and your personal plan;
+        </li>
+        <li>an audit history of changes and deliveries, so a workspace can see who did what;</li>
+        <li>
+          for each tool you connect (Jira, Slack, LinkedIn), the access the tool granted, encrypted, plus the
+          destination you chose.
+        </li>
+      </ul>
+
+      <h2>What leaves M2O</h2>
+      <p>
+        Nothing is sent to a connected tool until you approve the exact preview of what will be sent. Then
+        only that content goes to that tool, under your connection. M2O does not sell data, show advertising
+        or use your content to train models. Outcomes are found by rules running on this server; no outside AI
+        service reads your transcripts.
+      </p>
+
+      <h2>Where it is kept</h2>
+      <p>
+        The site runs on Render and its database on Neon, both in the United States (Virginia). Both providers
+        process the data only to host this service.
+      </p>
+
+      <h2>How long, and your choices</h2>
+      <p>
+        Private data stays until you delete it. In the app, Settings → Privacy lets you export your account or
+        a workspace and delete them. Disconnecting a tool removes its stored access; content already delivered
+        to that tool stays there under the tool's own rules. Deleted data may remain in the database
+        provider's short-term recovery history for a limited time before it is gone.
+      </p>
+
+      <h2>Contact</h2>
+      <p>Questions or requests: <a href="mailto:privacy@example.invalid">privacy@example.invalid</a>.</p>
+    </main>
+  </body>
+</html>

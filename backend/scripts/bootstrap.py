@@ -14,13 +14,21 @@ from app.database import session_scope
 from app.models import ApiToken, Membership, User, Workspace, now
 
 
-def create_owner(session, email, name, password):
+def create_owner(session, email, name, password=None, *, password_hash=None):
+    """An owner with one workspace per department; an existing account is left unchanged.
+
+    The hosted site passes a hash made on the operator's machine, so the password itself
+    never reaches the host (see scripts/hosted_secrets.py)."""
     user = session.scalar(select(User).where(User.email == email.casefold()))
     if user:
         return user, False
-    if len(password) < 12 or len(password) > 256 or "@" not in email:
+    if password_hash is None:
+        if password is None or len(password) < 12 or len(password) > 256:
+            raise ValueError("Use an email address and a password of 12 to 256 characters")
+        password_hash = hasher.hash(password)
+    if "@" not in email or not password_hash.startswith("$argon2id$"):
         raise ValueError("Use an email address and a password of 12 to 256 characters")
-    user = User(email=email.casefold(), name=name, password_hash=hasher.hash(password))
+    user = User(email=email.casefold(), name=name, password_hash=password_hash)
     session.add(user)
     session.flush()
     for department in ("engineering", "hr", "finance"):
