@@ -264,3 +264,18 @@ def test_safe_database_error(client, seeded, auth, monkeypatch):
     assert response.status_code == 503
     assert "do-not-leak" not in response.text and "sensitive-stack" not in response.text
     assert response.headers["X-Request-ID"]
+
+
+@pytest.mark.parametrize(
+    "path,provider",
+    [
+        ("/api/integrations/slack/callback", "slack"),
+        ("/api/integrations/jira/callback", "jira"),
+        ("/api/integrations/linkedin/publishing/callback", "linkedin"),
+    ],
+)
+def test_failed_provider_sign_in_returns_to_the_app(client, seeded, auth, path, provider):
+    # An unknown state fails the sign-in; the browser goes back to the app, not to JSON.
+    response = client.get(path + "?state=unknown&code=synthetic", headers=auth, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/?connection_failed=" + provider)

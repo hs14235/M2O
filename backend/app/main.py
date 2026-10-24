@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import date
 from time import perf_counter
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, Query, Request, Response, UploadFile
@@ -181,8 +181,32 @@ async def observe(request: Request, call_next):
     return response
 
 
+# Provider sign-ins return the browser to these addresses.
+CALLBACK_PROVIDERS = {
+    "/api/integrations/jira/callback": "jira",
+    "/api/integrations/slack/callback": "slack",
+    "/api/integrations/linkedin/callback": "linkedin",
+    "/api/integrations/linkedin/publishing/callback": "linkedin",
+    "/api/integrations/google-meet/callback": "google-meet",
+}
+
+
 @app.exception_handler(ServiceError)
 async def service_error(request, exc):
+    # A failed sign-in returns the browser to the app rather than to an API error body; the
+    # app names the tool that did not connect, and the reason is logged here.
+    provider = CALLBACK_PROVIDERS.get(request.url.path) if request.method == "GET" else None
+    if provider:
+        log.warning(
+            "provider_callback_failed",
+            extra={
+                "request_id": request.state.request_id,
+                "error_code": provider + ":" + str(exc.status_code),
+            },
+        )
+        return RedirectResponse(
+            settings.app_origin + "/?" + urlencode({"connection_failed": provider}), status_code=303
+        )
     return error_response(exc, request.state.request_id)
 
 

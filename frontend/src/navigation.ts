@@ -42,7 +42,8 @@ export function parseRoute(path: string): Route {
     page: "meetings",
     meeting: null,
     step: "transcript",
-    valid: path === "/",
+    // The site root may carry a query, e.g. a provider sign-in's ?linkedin=connected.
+    valid: path.split("?")[0] === "/",
   };
   try {
     const [pathname, search = ""] = path.split("?");
@@ -81,6 +82,27 @@ export function parseRoute(path: string): Route {
   } catch {
     return fallback;
   }
+}
+// Tools whose sign-in can return to the site root with ?connection_failed=<id>.
+const providerNames: Record<string, string> = {
+  jira: "Jira",
+  slack: "Slack",
+  linkedin: "LinkedIn",
+  "google-meet": "Google Meet",
+};
+/** The tool a failed sign-in names; only known names, so a crafted link adds no text. */
+export function failedConnection(path: string): string | null {
+  const id = new URLSearchParams(path.split("?")[1] || "").get("connection_failed") || "";
+  return Object.hasOwn(providerNames, id) ? providerNames[id] : null;
+}
+/** Where the site root leads. Provider sign-ins come back there: the LinkedIn profile one
+ * (it belongs to the account, not a workspace) and any that failed; both show on Connections. */
+export function rootDestination(search: string, workspace: string): string {
+  const query = new URLSearchParams(search),
+    failed = query.get("connection_failed") || "";
+  if (Object.hasOwn(providerNames, failed))
+    return settingsPath(workspace, "connections") + "?connection_failed=" + failed;
+  return query.has("linkedin") ? settingsPath(workspace, "connections") : routePath(workspace);
 }
 export function settingsPath(workspace: string, section: SettingsSection = "people") {
   return routePath(workspace, "settings") + "/" + section;

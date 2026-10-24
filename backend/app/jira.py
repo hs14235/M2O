@@ -1,5 +1,7 @@
 """Personal Atlassian grants with explicit, authorized workspace destinations."""
 
+import logging
+import re
 import secrets
 from datetime import timedelta
 from urllib.parse import urlencode, urlsplit
@@ -27,6 +29,8 @@ from .schemas import JiraDestinationInput
 from .services.common import audit
 from .services.errors import ServiceError
 from .settings import settings
+
+log = logging.getLogger("meeting.jira")
 
 TOKEN_URL = "https://auth.atlassian.com/oauth/token"
 RESOURCES_URL = "https://api.atlassian.com/oauth/token/accessible-resources"
@@ -158,6 +162,18 @@ class JiraAdapter:
             ) as client:
                 response = await client.request(
                     method, url, json=payload, headers={"Authorization": "Bearer " + token} if token else {}
+                )
+            if response.status_code >= 400:
+                # Atlassian's status and OAuth error code (never a token or secret) tell the
+                # operator what failed, e.g. 401 access_denied for a wrong client secret.
+                try:
+                    code = response.json().get("error") if len(response.content) < 10_000 else None
+                except ValueError:
+                    code = None
+                safe = code if isinstance(code, str) and re.fullmatch(r"[a-z_]{1,64}", code) else "unknown"
+                log.warning(
+                    "jira_request_refused",
+                    extra={"error_code": "jira:" + safe, "status": response.status_code},
                 )
             if response.status_code == 429:
                 raise ServiceError(
