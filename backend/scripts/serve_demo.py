@@ -165,6 +165,11 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("PORT must be an unprivileged TCP port")
     # Explicit empty environment values also override an accidental local .env.
     if private:
+        # Pasted keys often carry a stray space or line break, which providers reject
+        # as a wrong secret.
+        env.update(
+            {key: values[key].strip() for key in (*PRIVATE_CREDENTIAL_KEYS, *OWNER_KEYS) if key in values}
+        )
         env["MCP_API_TOKEN"] = ""
     else:
         env.update({key: "" for key in (*PRIVATE_CREDENTIAL_KEYS, *OWNER_KEYS)})

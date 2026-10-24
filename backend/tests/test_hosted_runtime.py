@@ -248,3 +248,8 @@ def test_owner_settings_require_private_accounts_and_are_cleared_otherwise():
     with pytest.raises(ValueError, match="HOSTED_PRIVATE_ACCOUNTS"):
         demo_environment({**demo_config(), **owner})
     assert demo_environment(private_config(**owner))["OWNER_EMAIL"] == "owner@example.test"
+
+
+def test_private_accounts_trim_pasted_whitespace_from_keys():
+    env = demo_environment(private_config(JIRA_CLIENT_SECRET="  synthetic-secret\n", SLACK_CLIENT_ID=" 1.2 "))
+    assert env["JIRA_CLIENT_SECRET"] == "synthetic-secret" and env["SLACK_CLIENT_ID"] == "1.2"

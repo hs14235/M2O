@@ -2,7 +2,9 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   meetingStages,
+  failedConnection,
   parseRoute,
+  rootDestination,
   primaryPage,
   routePath,
   settingsPath,
@@ -97,4 +99,25 @@ it("addresses settings sections and keeps legacy settings URLs mapped to the sam
     expect(settingsSection(route)).toBe(section);
   }
   expect(primaryPage(parseRoute("/workspaces/scope/audit"))).toBe("audit");
+});
+
+it("treats the site root as valid with or without a query", () => {
+  // The LinkedIn profile sign-in returns to /?linkedin=connected.
+  for (const path of ["/", "/?linkedin=connected", "/?linkedin=cancelled"]) {
+    expect(parseRoute(path)).toMatchObject({ valid: true, workspace: "" });
+  }
+  expect(parseRoute("/unknown").valid).toBe(false);
+});
+
+it("sends provider sign-ins that return to the root to Connections", () => {
+  expect(rootDestination("", "space")).toBe("/workspaces/space/meetings");
+  expect(rootDestination("linkedin=connected", "space")).toBe("/workspaces/space/settings/connections");
+  expect(rootDestination("connection_failed=slack", "space")).toBe(
+    "/workspaces/space/settings/connections?connection_failed=slack",
+  );
+  // Unknown or built-in names are ignored rather than echoed.
+  expect(rootDestination("connection_failed=toString", "space")).toBe("/workspaces/space/meetings");
+  expect(failedConnection("/workspaces/space/settings/connections?connection_failed=jira")).toBe("Jira");
+  expect(failedConnection("/x?connection_failed=constructor")).toBeNull();
+  expect(failedConnection("/x?connection_failed=%3Cb%3E")).toBeNull();
 });

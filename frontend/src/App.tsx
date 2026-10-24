@@ -2,7 +2,16 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { api, ApiError } from "./api";
 import type { User, Workspace } from "./types";
 import { ErrorNotice } from "./components/Feedback";
-import { canAudit, primaryPage, routePath, settingsPath, settingsSection, useNavigation } from "./navigation";
+import {
+  canAudit,
+  failedConnection,
+  primaryPage,
+  rootDestination,
+  routePath,
+  settingsPath,
+  settingsSection,
+  useNavigation,
+} from "./navigation";
 import { DepartmentHero, DepartmentSwitch, useMotionPreference } from "./components/DepartmentExperience";
 import DemoEntry from "./components/DemoEntry";
 import AccessPortal from "./components/AccessPortal";
@@ -65,7 +74,9 @@ export default function App() {
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (user && path === "/" && workspaces[0]) navigate(routePath(workspaces[0].id), true);
+    const [pathname, search = ""] = path.split("?");
+    if (!user || pathname !== "/" || !workspaces[0]) return;
+    navigate(rootDestination(search, workspaces[0].id), true);
   }, [user, path, workspaces, navigate]);
   useEffect(() => {
     if (!user) return;
@@ -182,6 +193,7 @@ export default function App() {
         reduced={motion.reduced}
       />
     );
+  const failedTool = failedConnection(path);
   const section = settingsSection(route),
     active = primaryPage(route);
   const accountErased = () => {
@@ -314,19 +326,27 @@ export default function App() {
                 <p>Choose a workspace to return to your meetings.</p>
               </section>
             ) : section && route.workspace ? (
-              <SettingsPage
-                key={route.workspace}
-                workspaceId={route.workspace}
-                workspace={workspace}
-                section={section}
-                user={user}
-                navigate={navigate}
-                onDirty={onDirty}
-                refreshUser={refreshUser}
-                onAccountErased={accountErased}
-                motion={motion}
-                chrome={chrome}
-              />
+              <>
+                {section === "connections" && failedTool && (
+                  <p className="notice" role="alert">
+                    {failedTool} didn&apos;t connect. Try again; if it keeps failing, check that the keys for
+                    its app on the server match the ones in {failedTool}&apos;s developer settings.
+                  </p>
+                )}
+                <SettingsPage
+                  key={route.workspace}
+                  workspaceId={route.workspace}
+                  workspace={workspace}
+                  section={section}
+                  user={user}
+                  navigate={navigate}
+                  onDirty={onDirty}
+                  refreshUser={refreshUser}
+                  onAccountErased={accountErased}
+                  motion={motion}
+                  chrome={chrome}
+                />
+              </>
             ) : workspace ? (
               route.page === "plan" ? (
                 <DailyPlanner key={workspace.id} workspace={workspace} navigate={navigate} />

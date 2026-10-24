@@ -1,5 +1,6 @@
 """Owner-bound Slack installation and verified public-channel destinations."""
 
+import logging
 import re
 import secrets
 from datetime import timedelta
@@ -29,6 +30,8 @@ from .schemas import SlackDestinationInput
 from .services.common import audit
 from .services.errors import ServiceError
 from .settings import settings
+
+log = logging.getLogger("meeting.slack")
 
 SCOPES = {"chat:write", "channels:read", "channels:history", "commands"}
 BASE = "https://slack.com/api/"
@@ -214,6 +217,18 @@ class SlackAdapter:
             body = response.json()
             if not isinstance(body, dict) or body.get("ok") is not True:
                 code = body.get("error") if isinstance(body, dict) else None
+                # Slack's error code (never a token or secret) tells the operator what failed.
+                log.warning(
+                    "slack_request_refused",
+                    extra={
+                        "error_code": "slack:"
+                        + (
+                            code
+                            if isinstance(code, str) and re.fullmatch(r"[a-z_]{1,64}", code)
+                            else "unknown"
+                        )
+                    },
+                )
                 if code in {
                     "invalid_auth",
                     "token_revoked",
