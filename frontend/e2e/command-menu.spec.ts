@@ -78,6 +78,8 @@ test("a visitor completes the journey from the keyboard with the command menu", 
   await tabTo(page, page.getByRole("button", { name: "Extract outcomes", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page.getByText(/Job completed/)).toBeVisible({ timeout: 30000 });
+  // "Job completed" shows before the meeting reloads; Continue is ready once its outcomes are.
+  await expect(page.getByRole("heading", { name: /draft outcomes? found/ })).toBeVisible();
   await tabTo(page, page.getByRole("button", { name: /Continue (to review|with unassigned people)/ }));
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Review", exact: true, level: 1 })).toBeVisible();

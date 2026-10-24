@@ -253,3 +253,13 @@ def test_owner_settings_require_private_accounts_and_are_cleared_otherwise():
 def test_private_accounts_trim_pasted_whitespace_from_keys():
     env = demo_environment(private_config(JIRA_CLIENT_SECRET="  synthetic-secret\n", SLACK_CLIENT_ID=" 1.2 "))
     assert env["JIRA_CLIENT_SECRET"] == "synthetic-secret" and env["SLACK_CLIENT_ID"] == "1.2"
+
+
+def test_private_accounts_post_to_linkedin_by_default_when_its_keys_are_set():
+    linkedin = {"LINKEDIN_CLIENT_ID": "synthetic-id", "LINKEDIN_CLIENT_SECRET": "synthetic-secret"}
+    assert demo_environment(private_config(**linkedin))["LINKEDIN_PUBLISHING_ENABLED"] == "true"
+    off = private_config(**linkedin, LINKEDIN_PUBLISHING_ENABLED="false")
+    assert demo_environment(off)["LINKEDIN_PUBLISHING_ENABLED"] == "false"
+    assert demo_environment(private_config())["LINKEDIN_PUBLISHING_ENABLED"] == "false"
+    # The demo never posts.
+    assert demo_environment(demo_config())["LINKEDIN_PUBLISHING_ENABLED"] == "false"

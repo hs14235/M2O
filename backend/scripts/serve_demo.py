@@ -181,7 +181,11 @@ def demo_environment(source: Mapping[str, str]) -> dict[str, str]:
         PUBLIC_DEMO_MODE="false" if private else "true",
         EMBED_PROVIDER="hash",
         OLLAMA_MODEL="",
-        LINKEDIN_PUBLISHING_ENABLED=values.get("LINKEDIN_PUBLISHING_ENABLED", "false")
+        # With LinkedIn keys present, private accounts may post unless the operator says no.
+        LINKEDIN_PUBLISHING_ENABLED=(
+            values.get("LINKEDIN_PUBLISHING_ENABLED", "").strip()
+            or ("true" if values.get("LINKEDIN_CLIENT_SECRET", "").strip() else "false")
+        )
         if private
         else "false",
         SLACK_INTERACTIONS_ENABLED="false",
