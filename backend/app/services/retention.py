@@ -26,6 +26,7 @@ from ..models import (
     SlackInboundReceipt,
     SlackInteractionContext,
     SlackLinkChallenge,
+    TrustedDevice,
     User,
     Workspace,
     now,
@@ -49,6 +50,7 @@ TEMPORARY_RECORDS = (
     (AudioUpload, AudioUpload.id),
     # Session removal may also cascade expired or unexpired session-bound states.
     (AuthSession, AuthSession.token_hash),
+    (TrustedDevice, TrustedDevice.token_hash),
 )
 
 

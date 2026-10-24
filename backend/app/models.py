@@ -159,6 +159,15 @@ class AuthSession(Base):
     auth_version: Mapped[int] = mapped_column(Integer)
 
 
+class TrustedDevice(Base):
+    """A browser this account signed in from; it keeps its own sign-in budget."""
+
+    __tablename__ = "trusted_devices"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class ApiToken(Base):
     __tablename__ = "api_tokens"
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)

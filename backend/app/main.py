@@ -16,7 +16,17 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .access_policy import aware, require_private_account, require_private_scope, user_is_active
-from .auth import Principal, authenticate, create_session, require_role, workspace_principal
+from .auth import (
+    DEVICE_COOKIE,
+    DEVICE_DAYS,
+    Principal,
+    authenticate,
+    create_session,
+    require_role,
+    trust_device,
+    trusted_device,
+    workspace_principal,
+)
 from .client_identity import budget_key, budget_limit
 from .database import check_database, get_session, must_get
 from .demo_fixtures import scenarios
@@ -275,9 +285,23 @@ def login(
 ):
     if request.headers.get("Origin") != settings.app_origin:
         raise ServiceError(status_code=403, error="Request origin is not allowed", where="client")
-    consume(budget_key(request, "login"), budget_limit(30))
-    consume("login-account:" + payload.email.casefold(), 10)
+    device = trusted_device(session, request.cookies.get(DEVICE_COOKIE), payload.email)
+    if device is not None:
+        consume("login-device:" + device.token_hash, 10)
+    else:
+        consume(budget_key(request, "login"), budget_limit(30))
+        consume("login-account:" + payload.email.casefold(), 10)
     user, token, csrf = create_session(session, payload.email, payload.password)
+    if fresh := trust_device(session, user, device):
+        response.set_cookie(
+            DEVICE_COOKIE,
+            fresh,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite="strict",
+            max_age=DEVICE_DAYS * 86400,
+            path="/api/auth",
+        )
     response.set_cookie(
         "mtt_session",
         token,
