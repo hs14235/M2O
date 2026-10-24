@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .access_policy import aware, consume_visitor_usage, user_is_active, workspace_access
 from .database import get_session
-from .models import ApiToken, AuthSession, Membership, User, now
+from .models import ApiToken, AuthSession, Membership, TrustedDevice, User, now
 from .schemas import RecordId
 from .services.errors import ServiceError
 from .settings import settings
@@ -138,6 +138,36 @@ def create_session(session: Session, email: str, password: str):
     )
     session.flush()
     return user, token, csrf
+
+
+DEVICE_COOKIE, DEVICE_DAYS = "mtt_device", 90
+
+
+def trusted_device(session: Session, value: str | None, email: str) -> TrustedDevice | None:
+    """The unexpired device this browser signed in from, if it belongs to this email's account.
+
+    OWASP's device cookies: a known browser gets its own sign-in budget, so guessing at an
+    account from elsewhere cannot lock its owner out. Trust only changes throttling; the
+    password is still checked every time.
+    """
+    if not value or len(value) > 200:
+        return None
+    device = session.get(TrustedDevice, digest(value))
+    if device is None or aware(device.expires_at) <= now():
+        return None
+    user = session.get(User, device.user_id)
+    return device if user is not None and user.email == email.casefold().strip() else None
+
+
+def trust_device(session: Session, user: User, device: TrustedDevice | None) -> str | None:
+    """Extends a trusted device, or trusts this browser and returns its new cookie value."""
+    expires = now() + timedelta(days=DEVICE_DAYS)
+    if device is not None:
+        device.expires_at = expires
+        return None
+    value = secrets.token_urlsafe(32)
+    session.add(TrustedDevice(token_hash=digest(value), user_id=user.id, expires_at=expires))
+    return value
 
 
 def mcp_principal(session: Session) -> Principal:

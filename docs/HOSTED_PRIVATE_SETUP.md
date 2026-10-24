@@ -73,9 +73,26 @@ Within a workspace, only its owner connects Jira and Slack, and deliveries use t
 
 ## Data and backups
 
-Private data lives in the Neon free database. Neon keeps a short restore history, which you can check in the Neon console (Project → Backup & Restore), but there are no scheduled backups. Before relying on it, export important workspaces from **Settings → Privacy** now and then.
+Private data lives in the Neon free database. Neon keeps a short restore history, which you can check in the Neon console (Project → Backup & Restore), but there are no scheduled backups. Take your own, for example weekly and before any risky change. From the repository root, with Docker Desktop running:
 
-Before you share the privacy page, read it and replace its placeholder contact address (`privacy@example.invalid`, in `frontend/public/privacy.html`).
+```
+python scripts/backup_hosted.py
+```
+
+- **Connection string:** paste the direct one from Neon (Connect → pooled connection off). It isn't shown as you type, and it goes to a temporary PostgreSQL 17 container only, never to a file or command line.
+- **The backup:** a dated `m2o-live-….dump` in `~/M2O-backups`, read back after writing to confirm every table is there. That folder holds real data; keep it private and out of the repository.
+- **To restore:**
+  1. In Neon, create a new branch or database.
+  2. Restore into it: `pg_restore --no-owner --dbname "<its direct URL>" <file>` (from the same `postgres:17-alpine` image if you have no local PostgreSQL).
+  3. Point Render's `DATABASE_URL` at it.
+
+  Restoring into a fresh target keeps the current data until you've checked the restored copy.
+
+Exporting a workspace from **Settings → Privacy** also works for smaller, readable copies.
+
+Sign-in is throttled per account, but a browser that has signed in before keeps its own allowance (OWASP's "device cookies"), so someone guessing at your email cannot lock you out of a browser you already use.
+
+The privacy page's contact is Hamza's GitHub profile (`frontend/public/privacy.html`); review the page whenever what M2O stores changes.
 
 ## Turning it off
 
