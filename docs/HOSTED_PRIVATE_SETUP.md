@@ -32,7 +32,7 @@ In Render, open the **m2o-synthetic-demo** service and choose **Environment**. A
 | `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET`                                           | from your Atlassian app (developer console → your app → Settings)                      |
 | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_ID`, `SLACK_SIGNING_SECRET` | from your Slack app (Basic Information → App Credentials)                              |
 | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`                                   | from your LinkedIn app (Auth tab)                                                      |
-| `LINKEDIN_PUBLISHING_ENABLED`                                                    | `true` to allow LinkedIn posts                                                         |
+| `LINKEDIN_PUBLISHING_ENABLED`                                                    | optional: posting is on when the LinkedIn keys are set; `false` turns it off           |
 | `GITHUB_TOKEN`, `GITHUB_ALLOWED_REPOS`                                           | a fine-grained token with Issues read/write, and the `owner/repo` list it may write to |
 
 These are the same values your local installation uses, so the same provider apps serve both.
