@@ -34,17 +34,27 @@ sequenceDiagram
 
 ## Limits and settings
 
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `TRANSCRIPTION_ENABLED` | `false` | Turns on the `/transcribe` endpoint and worker job |
-| `TRANSCRIPTION_MODEL` | `small` | Whisper model size (`base` is about 3× faster; see below) |
-| `TRANSCRIPTION_COMPUTE_TYPE` | `int8` | Quantization; int8 keeps CPU and memory use low |
-| `TRANSCRIPTION_MAX_SECONDS` | `3600` | Longest accepted recording (60 minutes) |
-| `TRANSCRIPTION_MAX_BYTES` | `100000000` | Largest accepted upload (100 MB); prefer compressed formats |
+| Setting                      | Default     | Meaning                                                     |
+| ---------------------------- | ----------- | ----------------------------------------------------------- |
+| `TRANSCRIPTION_ENABLED`      | `false`     | Turns on the `/transcribe` endpoint and worker job          |
+| `TRANSCRIPTION_MODEL`        | `small`     | Whisper model size (`base` is about 3× faster; see below)   |
+| `TRANSCRIPTION_COMPUTE_TYPE` | `int8`      | Quantization; int8 keeps CPU and memory use low             |
+| `TRANSCRIPTION_MAX_SECONDS`  | `3600`      | Longest accepted recording (60 minutes)                     |
+| `TRANSCRIPTION_MAX_BYTES`    | `100000000` | Largest accepted upload (100 MB); prefer compressed formats |
 
 Accepted formats are `.mp3`, `.m4a`, `.wav`, `.ogg`, `.webm`, `.flac` and `.mp4` (audio track). Uploads are limited to 10 per workspace per hour. If a worker heartbeat file is configured, raise `WORKER_JOB_DEADLINE` above the longest expected transcription time, or the health check will treat a long job as a hung worker.
 
 ## Enabling it
+
+With Docker Compose, `TRANSCRIPTION_ENABLED=true` in the root `.env` both builds faster-whisper into the backend image (only `requirements-transcription.txt`, not the rest of the AI requirements) and turns the feature on. `python scripts/configure_local_ai.py` sets it, together with the local Ollama model. Then rebuild:
+
+```powershell
+docker compose --profile ai up -d --build migrate api worker
+```
+
+The worker keeps the downloaded model in the `whisper-models` volume, so rebuilds don't download it again. Measured in the Compose worker on 2026-10-23 (Hamza's Windows 11 laptop, CPU, `small` int8): the 46-second demo recording took 7.1 s, a real-time factor of 0.15, with the cached model loading in 2.1 s.
+
+For native development instead:
 
 ```powershell
 cd backend
@@ -61,9 +71,9 @@ The first transcription downloads the chosen model from Hugging Face (`small` is
 Measured on 2026-10-11 on the developer's Windows 11 laptop (CPU only), using `scripts/evaluate_transcription.py`. The recording is 31 seconds of a 73-word meeting script, synthesized with Windows' built-in offline voice so the exact words are known.
 
 | Model (int8) | Transcription time | Real-time factor | Word error rate |
-| --- | ---: | ---: | ---: |
-| `small` | 12.2 s | 0.39 | 0.000 |
-| `base` | 4.1 s | 0.13 | 0.000 |
+| ------------ | -----------------: | ---------------: | --------------: |
+| `small`      |             12.2 s |             0.39 |           0.000 |
+| `base`       |              4.1 s |             0.13 |           0.000 |
 
 The model loads in about 3 seconds once cached, once per worker process. At a real-time factor of 0.39, a 60-minute meeting would take roughly 24 minutes with `small` on this machine.
 
@@ -96,11 +106,11 @@ The public demo can't run Whisper: Render Free has 512 MB of memory, and even `s
   - writes `backend/evals/audio/standup.whisper.json`.
 - The fixture in `backend/app/demo_fixtures.py` is copied from that JSON by hand after review. The words are Whisper's, unedited. Speaker names come from the script, because Whisper doesn't identify speakers.
 
-| Measured on Windows 11, Intel laptop CPU, 2026-10-19 | Result |
-| --- | --- |
-| Audio | 43.0 s, 91 reference words |
-| Word error rate | 1.1% (the spoken "Risk:" was dropped) |
-| Transcription time | 236 s, so 5.5× slower than real time; model download and load, one time: 332 s, 2.9 GB |
+| Measured on Windows 11, Intel laptop CPU, 2026-10-19 | Result                                                                                 |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Audio                                                | 43.0 s, 91 reference words                                                             |
+| Word error rate                                      | 1.1% (the spoken "Risk:" was dropped)                                                  |
+| Transcription time                                   | 236 s, so 5.5× slower than real time; model download and load, one time: 332 s, 2.9 GB |
 
 What extraction finds in it, in rules mode: 3 actions, each with its owner and 2 with due dates. Whisper wrote "Decision," "Blocker," and "Follow-up," with commas, and the rules extractor only recognizes those labels before a colon, so the decision, blocker, follow-up and risk aren't extracted. The extractor wasn't tuned to this sample. Accepting a label followed by a comma at the start of a sentence is a candidate improvement, to be scored with `scripts.evaluate_extraction` before changing the rules.
 
