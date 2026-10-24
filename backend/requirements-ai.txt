@@ -1,7 +1,3 @@
 -r requirements.txt
+-r requirements-transcription.txt
 sentence-transformers==6.1.0
-# Local speech-to-text (TRANSCRIPTION_ENABLED). MIT; runs Whisper on CTranslate2 with int8 on CPU.
-faster-whisper==1.2.1
-# faster-whisper 1.2.1 accepts av>=11, but PyAV 19 removed av.open(metadata_errors=...),
-# which faster-whisper still passes. 18.1.0 is the newest version verified to work.
-av==18.1.0

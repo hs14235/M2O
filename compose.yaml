@@ -18,7 +18,11 @@ services:
       timeout: 3s
       retries: 10
   migrate:
-    build: ./backend
+    build: &backend-build
+      context: ./backend
+      args:
+        # Builds faster-whisper into the image; the same switch turns transcription on below.
+        TRANSCRIPTION: ${TRANSCRIPTION_ENABLED:-false}
     command: ["python", "-m", "scripts.migrate"]
     environment: &backend-env
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -55,11 +59,13 @@ services:
       SLACK_APP_ID: ${SLACK_APP_ID:-}
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
       SLACK_INTERACTIONS_ENABLED: ${SLACK_INTERACTIONS_ENABLED:-false}
+      TRANSCRIPTION_ENABLED: ${TRANSCRIPTION_ENABLED:-false}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-small}
     depends_on:
       db:
         condition: service_healthy
   api:
-    build: ./backend
+    build: *backend-build
     restart: unless-stopped
     environment: *backend-env
     depends_on:
@@ -71,10 +77,13 @@ services:
       timeout: 5s
       retries: 5
   worker:
-    build: ./backend
+    build: *backend-build
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment: *backend-env
+    volumes:
+      # The Whisper model downloads once (small: about 0.5 GB) and survives rebuilds.
+      - whisper-models:/home/app/.cache/huggingface
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -98,3 +107,4 @@ services:
 volumes:
   postgres-data:
   ollama-data:
+  whisper-models:

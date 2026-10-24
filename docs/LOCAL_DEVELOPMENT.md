@@ -15,17 +15,17 @@ Most work needs only the first two rows. Native development is optional.
 
 ## Optional local AI
 
-The default empty model setting uses deterministic rules. Enable the existing local Ollama service only when you want private local inference:
+The default empty model setting uses deterministic rules. Enable local inference and recording transcription when you want to try them:
 
 ```powershell
 # Repository root
 docker compose --profile ai up -d ollama
 docker compose exec -T ollama ollama pull qwen2.5:1.5b
 python scripts/configure_local_ai.py
-docker compose --profile ai up -d api worker
+docker compose --profile ai up -d --build migrate api worker
 ```
 
-The helper explicitly changes the model and Ollama endpoint keys in private local configuration. The current baseline is Qwen2.5 1.5B; replacing it requires representative synthetic extraction and CPU latency evaluation. A model name or generic benchmark is not M2O quality evidence.
+The helper explicitly changes the model, Ollama endpoint and `TRANSCRIPTION_ENABLED` keys in private local configuration; the rebuild adds faster-whisper to the backend image ([Audio transcription](AUDIO_TRANSCRIPTION.md)). Measured on 2026-10-23, Qwen2.5 1.5B scores below the rules on M2O's cases ([Extraction evaluation](EXTRACTION_EVALUATION.md)); to go back to rules, set `OLLAMA_MODEL=` empty in the root `.env` and restart the API and worker. The current baseline is Qwen2.5 1.5B; replacing it requires representative synthetic extraction and CPU latency evaluation. A model name or generic benchmark is not M2O quality evidence.
 
 Extraction processes bounded transcript chunks in batches and validates model output against actual source UUIDs. Explicit labels retain literal facts through deterministic rules. The interface reports `ollama`, `rules` or `mixed`, coverage and warnings. Visitors use approved synthetic material and deterministic extraction even if a private installation has a model configured.
 
