@@ -9,7 +9,7 @@
 
 **▶ Try it: [m2o-synthetic-demo.onrender.com](https://m2o-synthetic-demo.onrender.com)**. Choose *Explore the isolated demo*; each visitor gets private synthetic workspaces. The demo runs on a free tier, so the first visit after 15 idle minutes takes about a minute to wake up.
 
-[![Source-linked engineering review](docs/media/visitor-engineering-review.png)](docs/media/visitor-engineering-review.png)
+[![A meeting transcript becomes source-linked outcomes: open the meeting, extract, and twelve outcome cards appear, each citing its transcript line](docs/media/m2o-transcript-to-outcomes.gif)](https://m2o-synthetic-demo.onrender.com)
 
 **Stack:** React + TypeScript · FastAPI · PostgreSQL + Alembic · a durable job worker · Docker · GitHub Actions · Render + Neon · optional local Ollama
 
@@ -103,6 +103,20 @@ Composite foreign keys keep workspace and source relationships consistent. Versi
 | **2 · People** | Resolve ambiguous names against the workspace directory. A suggested match counts only after confirmation. |
 | **3 · Review & Deliver** | Approve source-linked outcomes, then choose a destination and approve its exact preview. Review approval and delivery approval are separate actions. |
 | **4 · Calendar** | See approved outcomes in a calendar or an accessible agenda; undated work stays visible. |
+
+**Confirm people, then review against the evidence.** Each name in the transcript is matched to the workspace directory and confirmed with a click; each outcome opens its source line before you approve it.
+
+![Confirming two people from suggested matches, opening an outcome's evidence, and approving two outcomes](docs/media/m2o-people-and-review.gif)
+
+**Hand off exactly what was approved.** Pick approved outcomes and a destination, prepare the handoff, check the stored text, and only then download or send it. A receipt records what left.
+
+![Choosing two approved outcomes for a local handoff, checking the exact stored Markdown, downloading it, and seeing the receipt](docs/media/m2o-exact-handoff.gif)
+
+**Plan your day.** Approved work moves into a personal plan whose progress stays separate from review and from the external tool's status.
+
+![Adding an approved outcome to today's plan and marking it done](docs/media/m2o-my-day.gif)
+
+These are recorded from the public demo with synthetic data; the [live demo](https://m2o-synthetic-demo.onrender.com) runs the same flow.
 
 **My day** holds personal priorities and progress without changing review approval or external issue status. Three department experiences (Engineering, People Operations and Finance Control) share the same permission and review rules, each with its own examples and visual identity. Content reveals in reading order, extracted outcomes grow out of the transcript lines they came from, and Ctrl+K (⌘K on a Mac) opens a command menu. Calm mode and the system reduced-motion setting turn off decorative motion.
 
