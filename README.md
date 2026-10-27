@@ -9,7 +9,9 @@
 
 **▶ Try it: [m2o-synthetic-demo.onrender.com](https://m2o-synthetic-demo.onrender.com)**. Choose *Explore the isolated demo*; each visitor gets private synthetic workspaces. The demo runs on a free tier, so the first visit after 15 idle minutes takes about a minute to wake up.
 
-[![A meeting transcript becomes source-linked outcomes: open the meeting, extract, and twelve outcome cards appear, each citing its transcript line](docs/media/m2o-transcript-to-outcomes.gif)](https://m2o-synthetic-demo.onrender.com)
+[![Three separate workspaces (Engineering, People Operations and Finance Control), each with its own meetings and colour; an Engineering outcome is approved, then on the live site a LinkedIn post is prepared from approved outcomes and published, with a receipt linking to the post](docs/media/m2o-workspaces-to-linkedin.gif)](https://m2o-synthetic-demo.onrender.com)
+
+*Workspace switching and review are recorded from the public demo. The LinkedIn steps are screenshots from Hamza's private account on the live site, because the demo never connects to real accounts.*
 
 **Stack:** React + TypeScript · FastAPI · PostgreSQL + Alembic · a durable job worker · Docker · GitHub Actions · Render + Neon · optional local Ollama
 
@@ -103,6 +105,10 @@ Composite foreign keys keep workspace and source relationships consistent. Versi
 | **2 · People** | Resolve ambiguous names against the workspace directory. A suggested match counts only after confirmation. |
 | **3 · Review & Deliver** | Approve source-linked outcomes, then choose a destination and approve its exact preview. Review approval and delivery approval are separate actions. |
 | **4 · Calendar** | See approved outcomes in a calendar or an accessible agenda; undated work stays visible. |
+
+**Turn a transcript into outcomes.** Open a meeting and extract: each action, decision, blocker, follow-up and risk appears as a card that cites the transcript line it came from.
+
+![A meeting transcript becomes source-linked outcomes: open the meeting, extract, and twelve outcome cards appear, each citing its transcript line](docs/media/m2o-transcript-to-outcomes.gif)
 
 **Confirm people, then review against the evidence.** Each name in the transcript is matched to the workspace directory and confirmed with a click; each outcome opens its source line before you approve it.
 
